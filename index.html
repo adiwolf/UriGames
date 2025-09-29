@@ -164,8 +164,10 @@
         gameOver = false;
         gameStatus = ''; // 'win' or 'lose'
         keys = {};
-        invincible = false;
-        invincibleTimer = 0;
+        
+        // התחלה בטוחה: חסינות ל-3 שניות
+        invincible = true;
+        invincibleTimer = 180; // 3 שניות * 60 פריימים לשנייה
 
         stars = Array.from({ length: 100 }, () => ({
             x: Math.random() * canvas.width,
@@ -230,10 +232,10 @@
         goblins.forEach(goblin => {
             if (!goblin.isDead && !invincible && areColliding(cat, goblin)) {
                 if (cat.powerCharges > 0) {
-                    // הבסת גובליн
+                    // הבסת גובלין
                     cat.powerCharges--;
                     goblin.isDead = true;
-                    goblin.respawnTimer = 300; // 5 שניות
+                    goblin.respawnTimer = 720; // 12 שניות
                     
                     // בדיקת ניצחון
                     if (goblins.every(g => g.isDead)) {
@@ -354,8 +356,13 @@
         powerChargesEl.textContent = cat ? cat.powerCharges : 0;
         livesContainer.innerHTML = '';
         const totalLives = 5;
-        for (let i = 0; i < (cat ? cat.lives : totalLives); i++) livesContainer.innerHTML += '<span class="text-2xl">❤️</span>';
-        for (let i = (cat ? cat.lives : totalLives); i < totalLives; i++) livesContainer.innerHTML += '<span class="text-2xl">🖤</span>';
+        // תיקון: שימוש במשתנה הגלובלי 'lives' במקום 'cat.lives' שלא קיים
+        for (let i = 0; i < lives; i++) {
+            livesContainer.innerHTML += '<span class="text-2xl">❤️</span>';
+        }
+        for (let i = lives; i < totalLives; i++) {
+            livesContainer.innerHTML += '<span class="text-2xl">🖤</span>';
+        }
     }
     
     function showEndScreen() {
@@ -389,3 +396,4 @@
     </script>
 </body>
 </html>
+

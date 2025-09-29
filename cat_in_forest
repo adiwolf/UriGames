@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>חתול נגד גובלינים</title>
+    <!-- טעינת Tailwind CSS לעיצוב מהיר -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- טעינת גופן Heebo מגוגל פונטים -->
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Heebo', sans-serif;
+            /* מניעת התנהגות ברירת מחדל של מגע במובייל כמו זום או גלילה */
+            touch-action: none;
+        }
+        canvas {
+            background-color: #1a202c; /* צבע שמי לילה */
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .touch-btn {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            user-select: none; /* למנוע בחירת טקסט בכפתורים */
+        }
+    </style>
+</head>
+<body class="bg-gray-800 flex flex-col items-center justify-center min-h-screen p-4">
+
+    <div id="game-container" class="w-full max-w-2xl mx-auto bg-gray-700 p-6 rounded-xl shadow-lg relative border-4 border-gray-600">
+        <h1 class="text-3xl font-bold text-center text-green-300 mb-4">הרפתקת היער של החתול</h1>
+
+        <!-- מידע המשחק: חיים וניקוד -->
+        <div class="flex justify-between items-center mb-4 text-xl">
+            <div class="flex items-center space-x-2 space-x-reverse">
+                <span class="font-bold text-red-400">חיים:</span>
+                <div id="lives-container" class="flex"></div>
+            </div>
+            <div class="flex items-center space-x-4 space-x-reverse">
+                <div class="flex items-center space-x-2 space-x-reverse">
+                    <span class="font-bold text-blue-400">מטעני כוח:</span>
+                    <span id="power-charges" class="font-bold text-gray-200">0</span>
+                </div>
+                 <div class="flex items-center space-x-2 space-x-reverse">
+                    <span class="font-bold text-yellow-300">תותים:</span>
+                    <span id="score" class="font-bold text-gray-200">0</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- קנבס המשחק -->
+        <canvas id="gameCanvas" width="640" height="480" class="w-full"></canvas>
+
+        <!-- מסך התחלה / סיום משחק -->
+        <div id="game-overlay" class="absolute inset-0 bg-black bg-opacity-70 flex-col items-center justify-center text-white text-center hidden" style="top: 0; left: 0; right: 0; bottom: 0;">
+            <h2 id="game-status" class="text-5xl font-bold">המשחק נגמר</h2>
+            <p id="final-score" class="text-2xl mt-4"></p>
+            <button id="restart-button" class="mt-8 px-8 py-3 bg-green-600 hover:bg-green-700 rounded-lg text-xl font-bold transition">שחק שוב</button>
+        </div>
+        
+        <!-- כפתורי שליטה למובייל -->
+        <div class="md-hidden flex justify-center w-full mt-4 px-8 space-x-8 space-x-reverse">
+            <button id="left-btn" class="touch-btn bg-green-500 text-white active:bg-green-600">→ </button>
+            <button id="jump-btn" class="touch-btn bg-yellow-500 text-white active:bg-yellow-600">↑</button>
+            <button id="right-btn" class="touch-btn bg-green-500 text-white active:bg-green-600">←</button>
+        </div>
+
+    </div>
+    <script>
+    // הגדרת משתנים גלובליים ואלמנטים מה-DOM
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const scoreEl = document.getElementById('score');
+    const livesContainer = document.getElementById('lives-container');
+    const powerChargesEl = document.getElementById('power-charges');
+    const gameOverlay = document.getElementById('game-overlay');
+    const gameStatusEl = document.getElementById('game-status');
+    const finalScoreEl = document.getElementById('final-score');
+    const restartButton = document.getElementById('restart-button');
+    const leftBtn = document.getElementById('left-btn');
+    const rightBtn = document.getElementById('right-btn');
+    const jumpBtn = document.getElementById('jump-btn');
+
+    // הגדרות המשחק
+    const CAT_SIZE = 40;
+    const GOBLIN_SIZE = 45;
+    const STRAWBERRY_SIZE = 20;
+    const TREE_WIDTH = 30;
+    const TREE_HEIGHT = 80;
+    const GROUND_LEVEL = canvas.height - CAT_SIZE;
+    const GRAVITY = 0.6;
+    const JUMP_STRENGTH = -15;
+    const STRAWBERRIES_FOR_POWERUP = 4;
+
+    // משתני מצב המשחק
+    let cat, goblins, trees, strawberries, score, lives, gameOver, gameStatus, keys, invincible, invincibleTimer, stars;
+
+    // פונקציות ליצירת אובייקטים במשחק
+    function createCat() {
+        return {
+            x: canvas.width / 2 - CAT_SIZE / 2,
+            y: GROUND_LEVEL,
+            width: CAT_SIZE,
+            height: CAT_SIZE,
+            speed: 5,
+            velocityY: 0,
+            isJumping: false,
+            powerCharges: 0
+        };
+    }
+
+    function createGoblin(x, speed, direction) {
+        return {
+            x: x,
+            y: GROUND_LEVEL,
+            width: GOBLIN_SIZE,
+            height: GOBLIN_SIZE,
+            speed: speed,
+            direction: direction,
+            isDead: false,
+            respawnTimer: 0
+        };
+    }
+
+    function createTreesAndStrawberries(count) {
+        const tempTrees = [];
+        const tempStrawberries = [];
+        const spacing = canvas.width / (count);
+
+        for (let i = 0; i < count; i++) {
+            const treeX = spacing * (i) + Math.random() * 40;
+            const treeY = GROUND_LEVEL + CAT_SIZE - TREE_HEIGHT;
+            tempTrees.push({ x: treeX, y: treeY, width: TREE_WIDTH, height: TREE_HEIGHT });
+            tempStrawberries.push({ x: treeX + TREE_WIDTH / 2 - STRAWBERRY_SIZE / 2, y: treeY - STRAWBERRY_SIZE, width: STRAWBERRY_SIZE, height: STRAWBERRY_SIZE, collected: false });
+        }
+        return { tempTrees, tempStrawberries };
+    }
+
+    function resetStrawberries() {
+        strawberries.forEach(s => s.collected = false);
+    }
+
+    // פונקציית אתחול המשחק
+    function init() {
+        cat = createCat();
+        goblins = [
+            createGoblin(100, 2.8, 1),
+            createGoblin(canvas.width - 150, 3.2, -1),
+            createGoblin(canvas.width / 2 - 50, 3.5, 1)
+        ];
+        const { tempTrees, tempStrawberries } = createTreesAndStrawberries(STRAWBERRIES_FOR_POWERUP);
+        trees = tempTrees;
+        strawberries = tempStrawberries;
+
+        score = 0;
+        lives = 5;
+        gameOver = false;
+        gameStatus = ''; // 'win' or 'lose'
+        keys = {};
+        invincible = false;
+        invincibleTimer = 0;
+
+        stars = Array.from({ length: 100 }, () => ({
+            x: Math.random() * canvas.width,
+            y: Math.random() * GROUND_LEVEL,
+            radius: Math.random() * 1.5
+        }));
+
+        gameOverlay.style.display = 'none';
+        updateUI();
+        requestAnimationFrame(gameLoop);
+    }
+
+    // טיפול בקלט מהמשתמש (מקלדת ומגע)
+    document.addEventListener('keydown', (e) => { keys[e.key] = true; });
+    document.addEventListener('keyup', (e) => { keys[e.key] = false; });
+    
+    rightBtn.addEventListener('touchstart', (e) => { e.preventDefault(); keys['ArrowLeft'] = true; });
+    rightBtn.addEventListener('touchend', (e) => { e.preventDefault(); keys['ArrowLeft'] = false; });
+    leftBtn.addEventListener('touchstart', (e) => { e.preventDefault(); keys['ArrowRight'] = true; });
+    leftBtn.addEventListener('touchend', (e) => { e.preventDefault(); keys['ArrowRight'] = false; });
+    jumpBtn.addEventListener('touchstart', (e) => { e.preventDefault(); keys['ArrowUp'] = true; keys[' '] = true; });
+    jumpBtn.addEventListener('touchend', (e) => { e.preventDefault(); keys['ArrowUp'] = false; keys[' '] = false; });
+    restartButton.addEventListener('click', init);
+
+    // פונקציות עדכון מצב
+    function updateCat() {
+        if (keys['ArrowLeft'] || keys['a']) cat.x -= cat.speed;
+        if (keys['ArrowRight'] || keys['d']) cat.x += cat.speed;
+        if ((keys['ArrowUp'] || keys[' ']) && !cat.isJumping) {
+            cat.isJumping = true;
+            cat.velocityY = JUMP_STRENGTH;
+        }
+        cat.velocityY += GRAVITY;
+        cat.y += cat.velocityY;
+        if (cat.y >= GROUND_LEVEL) {
+            cat.y = GROUND_LEVEL;
+            cat.isJumping = false;
+            cat.velocityY = 0;
+        }
+        cat.x = Math.max(0, Math.min(canvas.width - cat.width, cat.x));
+    }
+
+    function updateGoblins() {
+        goblins.forEach(goblin => {
+            if (goblin.isDead) {
+                goblin.respawnTimer--;
+                if (goblin.respawnTimer <= 0) {
+                    goblin.isDead = false;
+                    goblin.x = goblin.direction === 1 ? 0 : canvas.width - goblin.width;
+                }
+            } else {
+                goblin.x += goblin.speed * goblin.direction;
+                if (goblin.x <= 0 || goblin.x + goblin.width >= canvas.width) {
+                    goblin.direction *= -1;
+                }
+            }
+        });
+    }
+
+    function checkCollisions() {
+        // התנגשות עם גובלינים
+        goblins.forEach(goblin => {
+            if (!goblin.isDead && !invincible && areColliding(cat, goblin)) {
+                if (cat.powerCharges > 0) {
+                    // הבסת גובליн
+                    cat.powerCharges--;
+                    goblin.isDead = true;
+                    goblin.respawnTimer = 300; // 5 שניות
+                    
+                    // בדיקת ניצחון
+                    if (goblins.every(g => g.isDead)) {
+                        gameOver = true;
+                        gameStatus = 'win';
+                    }
+                } else {
+                    // פגיעה בחתול
+                    lives--;
+                    invincible = true;
+                    invincibleTimer = 60; // שנייה אחת
+                    if (lives <= 0) {
+                        gameOver = true;
+                        gameStatus = 'lose';
+                    }
+                }
+                updateUI();
+            }
+        });
+
+        // התנגשות עם תותים
+        strawberries.forEach(strawberry => {
+            if (!strawberry.collected && areColliding(cat, strawberry)) {
+                strawberry.collected = true;
+                score++;
+                if (score >= STRAWBERRIES_FOR_POWERUP) {
+                    score = 0;
+                    cat.powerCharges++;
+                    resetStrawberries();
+                }
+                updateUI();
+            }
+        });
+    }
+
+    function areColliding(rect1, rect2) {
+        return rect1.x < rect2.x + rect2.width && rect1.x + rect1.width > rect2.x && rect1.y < rect2.y + rect2.height && rect1.y + rect1.height > rect2.y;
+    }
+
+    // פונקציות ציור
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawBackground();
+        trees.forEach(drawTree);
+        strawberries.forEach(s => { if (!s.collected) drawStrawberry(s); });
+        goblins.forEach(g => { if (!g.isDead) drawGoblin(g); });
+        if (invincible) {
+            invincibleTimer--;
+            if (invincibleTimer <= 0) invincible = false;
+            if (Math.floor(invincibleTimer / 10) % 2 === 0) drawCat(cat);
+        } else {
+            drawCat(cat);
+        }
+    }
+
+    function drawBackground() {
+        ctx.fillStyle = '#2F855A';
+        ctx.fillRect(0, GROUND_LEVEL + CAT_SIZE, canvas.width, canvas.height);
+        ctx.fillStyle = '#F7FAFC';
+        ctx.beginPath();
+        ctx.arc(canvas.width - 80, 80, 30, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = 'white';
+        stars.forEach(star => {
+            ctx.beginPath();
+            ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
+            ctx.fill();
+        });
+    }
+
+    function drawCat(c) {
+        if (c.powerCharges > 0) {
+            ctx.fillStyle = 'rgba(255, 255, 0, 0.5)';
+            ctx.beginPath();
+            ctx.arc(c.x + c.width / 2, c.y + c.height / 2, c.width, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.fillStyle = '#A1581B';
+        ctx.fillRect(c.x + 3, c.y + 3, c.width, c.height);
+        ctx.fillStyle = '#DD6B20';
+        ctx.fillRect(c.x, c.y, c.width, c.height);
+        ctx.beginPath(); ctx.moveTo(c.x, c.y); ctx.lineTo(c.x + 10, c.y - 10); ctx.lineTo(c.x + 20, c.y); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(c.x + c.width - 20, c.y); ctx.lineTo(c.x + c.width - 10, c.y - 10); ctx.lineTo(c.x + c.width, c.y); ctx.fill();
+        ctx.fillStyle = 'black';
+        ctx.fillRect(c.x + 8, c.y + 10, 5, 5);
+        ctx.fillRect(c.x + c.width - 13, c.y + 10, 5, 5);
+        ctx.strokeStyle = 'black'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(c.x - 5, c.y + 20); ctx.lineTo(c.x + 5, c.y + 18); ctx.moveTo(c.x - 5, c.y + 25); ctx.lineTo(c.x + 5, c.y + 25); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(c.x + c.width + 5, c.y + 20); ctx.lineTo(c.x + c.width - 5, c.y + 18); ctx.moveTo(c.x + c.width + 5, c.y + 25); ctx.lineTo(c.x + c.width - 5, c.y + 25); ctx.stroke();
+    }
+
+    function drawGoblin(g) {
+        ctx.fillStyle = '#2F855A';
+        ctx.fillRect(g.x + 3, g.y + 3, g.width, g.height);
+        ctx.fillStyle = '#48BB78';
+        ctx.fillRect(g.x, g.y, g.width, g.height);
+        ctx.fillStyle = '#E53E3E';
+        ctx.fillRect(g.x + 10, g.y + 10, 8, 8);
+        ctx.fillRect(g.x + g.width - 18, g.y + 10, 8, 8);
+    }
+    
+    function drawTree(t) {
+        ctx.fillStyle = '#533E1C'; ctx.fillRect(t.x + 2, t.y, t.width, t.height);
+        ctx.fillStyle = '#785A28'; ctx.fillRect(t.x, t.y, t.width, t.height);
+        ctx.fillStyle = '#1C4532'; ctx.beginPath(); ctx.arc(t.x + t.width / 2 + 3, t.y + 3, t.width * 1.5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#276749'; ctx.beginPath(); ctx.arc(t.x + t.width / 2, t.y, t.width * 1.5, 0, Math.PI * 2); ctx.fill();
+    }
+    
+    function drawStrawberry(s) {
+        ctx.fillStyle = '#9B2C2C'; ctx.beginPath(); ctx.arc(s.x + s.width / 2, s.y + s.height / 2, s.width / 2, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#E53E3E'; ctx.beginPath(); ctx.arc(s.x + s.width / 2 - 1, s.y + s.height / 2 - 1, s.width / 2, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#38A169'; ctx.fillRect(s.x + s.width / 2 - 2, s.y - 4, 4, 6);
+    }
+
+    // פונקציות עדכון ממשק המשתמש
+    function updateUI() {
+        scoreEl.textContent = `${score} / ${STRAWBERRIES_FOR_POWERUP}`;
+        powerChargesEl.textContent = cat ? cat.powerCharges : 0;
+        livesContainer.innerHTML = '';
+        const totalLives = 5;
+        for (let i = 0; i < (cat ? cat.lives : totalLives); i++) livesContainer.innerHTML += '<span class="text-2xl">❤️</span>';
+        for (let i = (cat ? cat.lives : totalLives); i < totalLives; i++) livesContainer.innerHTML += '<span class="text-2xl">🖤</span>';
+    }
+    
+    function showEndScreen() {
+        if (gameStatus === 'win') {
+            gameStatusEl.textContent = 'ניצחת!';
+            gameStatusEl.style.color = '#68D391'; // green
+            finalScoreEl.textContent = 'הבסת את כל הגובלינים!';
+        } else {
+            gameStatusEl.textContent = 'המשחק נגמר!';
+            gameStatusEl.style.color = '#FC8181'; // red
+            finalScoreEl.textContent = 'אולי בפעם הבאה...';
+        }
+        gameOverlay.style.display = 'flex';
+    }
+
+    // לולאת המשחק הראשית
+    function gameLoop() {
+        if (gameOver) {
+            showEndScreen();
+            return;
+        }
+        updateCat();
+        updateGoblins();
+        checkCollisions();
+        draw();
+        requestAnimationFrame(gameLoop);
+    }
+
+    // התחלת המשחק
+    init();
+    </script>
+</body>
+</html>

@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>מלחמת חלל</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #000;
+            color: #fff;
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+        }
+        canvas {
+            background-color: #000310;
+            border: 2px solid #38b6ff;
+            box-shadow: 0 0 25px #38b6ff, inset 0 0 15px rgba(56, 182, 255, 0.5);
+        }
+        #instructionsBtn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: rgba(56, 182, 255, 0.7);
+            color: white;
+            border: 2px solid white;
+            font-size: 24px;
+            font-weight: bold;
+            cursor: pointer;
+            z-index: 10;
+            transition: background-color 0.3s;
+        }
+        #instructionsBtn:hover {
+            background-color: rgba(56, 182, 255, 1);
+        }
+        .controls {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 300px;
+            background-color: rgba(0, 0, 0, 0.8);
+            padding: 25px;
+            border-radius: 10px;
+            border: 1px solid #38b6ff;
+            box-shadow: 0 0 20px #38b6ff;
+            z-index: 20;
+            transform: translate(-50%, -50%) scale(0.8);
+            opacity: 0;
+            pointer-events: none;
+            transition: transform 0.3s ease, opacity 0.3s ease;
+        }
+        .controls.visible {
+            transform: translate(-50%, -50%) scale(1);
+            opacity: 1;
+            pointer-events: auto;
+        }
+        #closeInstructionsBtn {
+            position: absolute;
+            top: 10px;
+            left: 10px; /* Adjusted for RTL */
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+        }
+        #overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: rgba(0, 0, 0, 0.6);
+            z-index: 15;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <button id="instructionsBtn">?</button>
+    <div id="overlay" class="hidden"></div>
+
+    <div id="controlsPanel" class="controls">
+        <button id="closeInstructionsBtn">X</button>
+        <h2>הוראות:</h2>
+        <p><strong>תנועה:</strong> מקשי החצים</p>
+        <p><strong>ירי:</strong> מקש הרווח</p>
+        <p><strong>שדרוג 1:</strong> הגע לקצה העליון לירי כפול</p>
+        <p><strong>שדרוג 2:</strong> הגע שוב לקבלת חלליות עזר</p>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const instructionsBtn = document.getElementById('instructionsBtn');
+        const closeInstructionsBtn = document.getElementById('closeInstructionsBtn');
+        const controlsPanel = document.getElementById('controlsPanel');
+        const overlay = document.getElementById('overlay');
+
+        let canvasWidth = window.innerWidth * 0.8;
+        let canvasHeight = window.innerHeight * 0.8;
+        canvas.width = canvasWidth;
+        canvas.height = canvasHeight;
+
+        window.addEventListener('resize', () => {
+            canvasWidth = window.innerWidth * 0.8;
+            canvasHeight = window.innerHeight * 0.8;
+            canvas.width = canvasWidth;
+            canvas.height = canvasHeight;
+            resetGame();
+        });
+        
+        // --- Game Settings ---
+        let score = 0;
+        let gameOver = false;
+        let gameWon = false;
+        let isPaused = false;
+        let level = 1;
+        let levelUpMessage = '';
+        let levelUpMessageTimer = 0;
+        let keys = {};
+        let lastTime = 0; // For delta time calculation
+        
+        let bullets = [];
+        let enemyBullets = [];
+        let stars = [];
+        let particles = []; 
+
+        // --- Player Settings ---
+        const player = {
+            x: canvas.width / 2 - 25,
+            y: canvas.height - 70,
+            width: 50,
+            height: 60,
+            speed: 420, // pixels per second
+            dx: 0,
+            dy: 0,
+            hasDoubleShot: false,
+            wingmen: [],
+            timesUpgraded: 0,
+            draw: function() {
+                // Ship Body
+                ctx.fillStyle = '#00f2ff';
+                ctx.beginPath();
+                ctx.moveTo(this.x + this.width / 2, this.y);
+                ctx.lineTo(this.x, this.y + this.height * 0.8);
+                ctx.lineTo(this.x + this.width, this.y + this.height * 0.8);
+                ctx.closePath();
+                ctx.fill();
+                // Cockpit
+                let cockpitColor = '#111';
+                if (this.timesUpgraded === 1) cockpitColor = '#ffd700';
+                if (this.timesUpgraded >= 2) cockpitColor = '#00ff7f';
+                ctx.fillStyle = cockpitColor;
+                ctx.strokeStyle = '#38b6ff';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(this.x + this.width / 2, this.y + this.height * 0.4, 8, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+                // Engine Flame
+                ctx.fillStyle = Math.random() < 0.5 ? '#ffdd00' : '#ff9900';
+                ctx.beginPath();
+                ctx.moveTo(this.x + this.width * 0.3, this.y + this.height * 0.8);
+                ctx.lineTo(this.x + this.width * 0.7, this.y + this.height * 0.8);
+                ctx.lineTo(this.x + this.width / 2, this.y + this.height + Math.random() * 15);
+                ctx.closePath();
+                ctx.fill();
+                // Draw wingmen
+                this.wingmen.forEach(wingman => wingman.draw());
+            }
+        };
+
+        // --- Enemy Settings ---
+        let enemy = {};
+        
+        const enemyTypes = [
+            { // Level 1
+                width: 50, height: 50, baseSpeed: 240, bulletSpeed: 360, fireRate: 0.02,
+                draw: function() {
+                    ctx.fillStyle = '#ff4141'; ctx.beginPath();
+                    ctx.moveTo(this.x + this.width / 2, this.y + this.height);
+                    ctx.lineTo(this.x, this.y); ctx.lineTo(this.x + this.width, this.y);
+                    ctx.closePath(); ctx.fill();
+                    ctx.fillStyle = '#cc2a2a'; ctx.beginPath();
+                    ctx.moveTo(this.x, this.y); ctx.lineTo(this.x - 15, this.y + 10); ctx.lineTo(this.x, this.y + 20);
+                    ctx.closePath(); ctx.fill(); ctx.beginPath();
+                    ctx.moveTo(this.x + this.width, this.y); ctx.lineTo(this.x + this.width + 15, this.y + 10); ctx.lineTo(this.x + this.width, this.y + 20);
+                    ctx.closePath(); ctx.fill();
+                    ctx.fillStyle = '#111'; ctx.strokeStyle = '#ff8888'; ctx.lineWidth = 2;
+                    ctx.beginPath(); ctx.arc(this.x + this.width / 2, this.y + this.height * 0.6, 8, 0, Math.PI * 2);
+                    ctx.fill(); ctx.stroke();
+                }
+            },
+            { // Level 2: "The Destroyer"
+                width: 60, height: 60, baseSpeed: 360, bulletSpeed: 480, fireRate: 0.04, wingmen: [],
+                draw: function() {
+                    ctx.fillStyle = '#c837ff'; ctx.beginPath();
+                    ctx.moveTo(this.x, this.y + 20); ctx.lineTo(this.x + this.width / 2, this.y);
+                    ctx.lineTo(this.x + this.width, this.y + 20); ctx.lineTo(this.x + this.width, this.y + this.height);
+                    ctx.lineTo(this.x, this.y + this.height); ctx.closePath(); ctx.fill();
+                    ctx.fillStyle = '#9d00e0';
+                    ctx.fillRect(this.x + 10, this.y + this.height, 10, 10); ctx.fillRect(this.x + this.width - 20, this.y + this.height, 10, 10);
+                    ctx.fillStyle = '#111'; ctx.strokeStyle = '#f0a0ff'; ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(this.x + this.width / 2 - 10, this.y + 25); ctx.lineTo(this.x + this.width / 2 + 10, this.y + 25);
+                    ctx.lineTo(this.x + this.width / 2, this.y + 15); ctx.closePath(); ctx.fill(); ctx.stroke();
+                    this.wingmen.forEach(wingman => wingman.draw());
+                }
+            },
+            { // Level 3: "The Overlord"
+                width: 100, height: 80, baseSpeed: 120, bulletSpeed: 540, fireRate: 0.03, wingmen: [],
+                laserCharge: 0, maxLaserCharge: 2, laserDuration: 0, maxLaserDuration: 3,
+                isCharging: false, isFiringLaser: false,
+                draw: function() {
+                    ctx.fillStyle = '#b30000'; ctx.beginPath();
+                    ctx.moveTo(this.x, this.y + 20);
+                    ctx.lineTo(this.x + this.width / 2, this.y);
+                    ctx.lineTo(this.x + this.width, this.y + 20);
+                    ctx.lineTo(this.x + this.width - 20, this.y + this.height);
+                    ctx.lineTo(this.x + 20, this.y + this.height);
+                    ctx.closePath(); ctx.fill();
+                    ctx.fillStyle = '#660000';
+                    ctx.fillRect(this.x + this.width / 2 - 10, this.y + this.height, 20, 10);
+                    ctx.fillStyle = '#ff5555'; ctx.strokeStyle = '#ffcccc'; ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.rect(this.x + this.width / 2 - 25, this.y + 10, 50, 20);
+                    ctx.fill(); ctx.stroke();
+                    
+                    if (this.isCharging) {
+                        const chargeRatio = this.laserCharge / this.maxLaserCharge;
+                        ctx.fillStyle = `rgba(255, 100, 100, ${chargeRatio})`;
+                        ctx.beginPath();
+                        ctx.arc(this.x + this.width / 2, this.y + this.height, 15 * chargeRatio, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+
+                    if (this.isFiringLaser) {
+                        const laserWidth = 20;
+                        const grad = ctx.createLinearGradient(0, this.y + this.height, 0, canvas.height);
+                        grad.addColorStop(0, `rgba(255, 0, 0, ${0.5 + Math.random() * 0.5})`);
+                        grad.addColorStop(0.5, `rgba(255, 100, 100, ${0.5 + Math.random() * 0.5})`);
+                        grad.addColorStop(1, 'rgba(255, 200, 200, 0)');
+                        ctx.fillStyle = grad;
+                        ctx.fillRect(this.x + this.width / 2 - laserWidth / 2, this.y + this.height, laserWidth, canvas.height);
+                    }
+                }
+            }
+        ];
+
+        function setupEnemyForLevel(level) {
+            const type = enemyTypes[level - 1];
+            enemy = {
+                ...type,
+                x: canvas.width / 2 - type.width / 2,
+                y: 30,
+                speed: type.baseSpeed,
+                laserCharge: 0, laserDuration: 0,
+                isCharging: false, isFiringLaser: false,
+            };
+            if (level === 2) { createEnemyWingmen(); }
+        }
+        
+        function createStars() {
+            stars = [];
+            for (let i = 0; i < 200; i++) {
+                stars.push({ x: Math.random() * canvas.width, y: Math.random() * canvas.height, radius: Math.random() * 1.5, alpha: Math.random() });
+            }
+        }
+        function drawStars() {
+            stars.forEach(star => {
+                ctx.beginPath();
+                ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(255, 255, 255, ${star.alpha})`;
+                ctx.fill();
+                star.alpha += (Math.random() - 0.5) * 0.1;
+                if (star.alpha > 1) star.alpha = 1; if (star.alpha < 0.1) star.alpha = 0.1;
+            });
+        }
+
+        document.addEventListener('keydown', (e) => {
+            keys[e.code] = true;
+            if (e.code === 'Space' && !gameOver && !isPaused) shoot();
+            if (e.code === 'Enter' && gameOver) resetGame();
+        });
+        document.addEventListener('keyup', (e) => { keys[e.code] = false; });
+        
+        function shoot() {
+            if (player.hasDoubleShot) {
+                if (bullets.length < 10) {
+                    bullets.push({ x: player.x + player.width * 0.2, y: player.y, width: 5, height: 15, speed: 600 });
+                    bullets.push({ x: player.x + player.width * 0.8 - 5, y: player.y, width: 5, height: 15, speed: 600 });
+                }
+            } else {
+                if (bullets.length < 5) {
+                    bullets.push({ x: player.x + player.width / 2 - 2.5, y: player.y, width: 5, height: 15, speed: 600 });
+                }
+            }
+            player.wingmen.forEach(wingman => {
+                if (bullets.length < 12) {
+                     bullets.push({ x: wingman.x + wingman.width / 2 - 2.5, y: wingman.y, width: 4, height: 12, speed: 600 });
+                }
+            });
+        }
+        
+        function enemyShoot() {
+             if (enemyBullets.length < 3) {
+                enemyBullets.push({ x: enemy.x + enemy.width / 2 - 3, y: enemy.y + enemy.height, width: 6, height: 18, speed: enemy.bulletSpeed });
+             }
+        }
+
+        function createExplosion(x, y, color) {
+            const particleCount = 30;
+            for (let i = 0; i < particleCount; i++) {
+                particles.push({
+                    x: x, y: y,
+                    vx: (Math.random() - 0.5) * 360, vy: (Math.random() - 0.5) * 360,
+                    life: 0.7, maxLife: 0.7, color: color, size: Math.random() * 3 + 1
+                });
+            }
+        }
+        function handleParticles(deltaTime) {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx * deltaTime;
+                p.y += p.vy * deltaTime;
+                p.life -= deltaTime;
+
+                if (p.life <= 0) {
+                    particles.splice(i, 1);
+                } else {
+                    ctx.globalAlpha = p.life / p.maxLife; // Fade out effect
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                    ctx.fillStyle = p.color;
+                    ctx.fill();
+                    ctx.globalAlpha = 1.0; // Reset alpha
+                }
+            }
+        }
+
+        function updatePlayerPosition(deltaTime) {
+            player.dx = 0; player.dy = 0;
+            if (keys['ArrowRight'] || keys['KeyD']) player.dx = player.speed;
+            if (keys['ArrowLeft'] || keys['KeyA']) player.dx = -player.speed;
+            if (keys['ArrowUp'] || keys['KeyW']) player.dy = -player.speed;
+            if (keys['ArrowDown'] || keys['KeyS']) player.dy = player.speed;
+            
+            player.x += player.dx * deltaTime; 
+            player.y += player.dy * deltaTime;
+
+            if (player.x < 0) player.x = 0;
+            if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
+            
+            if (player.y < 0) {
+                player.timesUpgraded++;
+                if (player.timesUpgraded === 1) player.hasDoubleShot = true;
+                if (player.timesUpgraded === 2) createWingmen();
+                player.y = canvas.height - 70;
+            }
+            if (player.y + player.height > canvas.height) player.y = canvas.height - player.height;
+            
+            player.wingmen.forEach((wingman, index) => {
+                const offset = (index === 0 ? -1 : 1) * (player.width + 10);
+                wingman.x = player.x + offset;
+                wingman.y = player.y + 20;
+            });
+        }
+
+        function createWingmen() {
+            if (player.wingmen.length > 0) return;
+            const wingmanDraw = function() {
+                ctx.fillStyle = '#00f2ff';
+                ctx.beginPath();
+                ctx.moveTo(this.x + this.width / 2, this.y);
+                ctx.lineTo(this.x, this.y + this.height);
+                ctx.lineTo(this.x + this.width, this.y + this.height);
+                ctx.closePath();
+                ctx.fill();
+            };
+            player.wingmen.push({ x: 0, y: 0, width: 20, height: 20, draw: wingmanDraw });
+            player.wingmen.push({ x: 0, y: 0, width: 20, height: 20, draw: wingmanDraw });
+        }
+
+        function createEnemyWingmen() {
+            enemy.wingmen = [];
+            const wingmanDraw = function() {
+                ctx.fillStyle = '#c837ff'; ctx.beginPath();
+                ctx.moveTo(this.x + this.width / 2, this.y + this.height);
+                ctx.lineTo(this.x, this.y); ctx.lineTo(this.x + this.width, this.y);
+                ctx.closePath(); ctx.fill();
+            };
+            enemy.wingmen.push({ x: 0, y: 0, width: 25, height: 25, draw: wingmanDraw });
+            enemy.wingmen.push({ x: 0, y: 0, width: 25, height: 25, draw: wingmanDraw });
+        }
+
+        function updateEnemyPosition(deltaTime) {
+            enemy.x += enemy.speed * deltaTime;
+            if (enemy.x <= 0 || enemy.x + enemy.width >= canvas.width) {
+                enemy.speed *= -1;
+            }
+            const fireChance = enemy.fireRate + (score % 10) * 0.002 * level;
+            if (Math.random() < fireChance && !gameOver && !enemy.isFiringLaser && !enemy.isCharging) {
+                enemyShoot();
+            }
+
+            if (level === 3) {
+                if (!enemy.isCharging && !enemy.isFiringLaser && Math.random() < 0.01) {
+                    enemy.isCharging = true;
+                }
+                if (enemy.isCharging) {
+                    enemy.laserCharge += deltaTime;
+                    if (enemy.laserCharge >= enemy.maxLaserCharge) {
+                        enemy.isCharging = false;
+                        enemy.isFiringLaser = true;
+                        enemy.laserDuration = enemy.maxLaserDuration;
+                    }
+                }
+                if (enemy.isFiringLaser) {
+                    enemy.laserDuration -= deltaTime;
+                    if (enemy.laserDuration <= 0) {
+                        enemy.isFiringLaser = false;
+                        enemy.laserCharge = 0;
+                    }
+                }
+            }
+
+            if (enemy.wingmen) {
+                enemy.wingmen.forEach((wingman, index) => {
+                    const offset = (index === 0 ? -1 : 1) * (enemy.width + 5);
+                    wingman.x = enemy.x + offset; wingman.y = enemy.y + 20;
+                    if (Math.random() < 0.01 * level && !gameOver) {
+                        enemyBullets.push({
+                            x: wingman.x + wingman.width / 2 - 3, y: wingman.y + wingman.height,
+                            width: 5, height: 15, speed: enemy.bulletSpeed * 0.9
+                        });
+                    }
+                });
+            }
+        }
+
+        function handleBullets(deltaTime) {
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                const bullet = bullets[i];
+                bullet.y -= bullet.speed * deltaTime;
+                ctx.fillStyle = '#fff000'; ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+                ctx.shadowColor = '#fff000'; ctx.shadowBlur = 10;
+                let bulletRemoved = false;
+                if ( bullet.x < enemy.x + enemy.width && bullet.x + bullet.width > enemy.x &&
+                    bullet.y < enemy.y + enemy.height && bullet.y + bullet.height > enemy.y ) {
+                    bullets.splice(i, 1);
+                    bulletRemoved = true; score++;
+
+                    if (score >= 50) {
+                        gameWon = true;
+                        gameOver = true;
+                        createExplosion(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2, '#ffd700');
+                        return;
+                    }
+
+                    let enemyColor = '#ff4141';
+                    if (level === 2) enemyColor = '#c837ff';
+                    if (level === 3) enemyColor = '#b30000';
+                    createExplosion(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2, enemyColor);
+
+                    if (level === 1 && score >= 10) { startLevel(2); }
+                    else if (level === 2 && score >= 25) { startLevel(3); }
+                    else { // Only reset position if not leveling up
+                        const currentDirection = Math.sign(enemy.speed);
+                        const baseSpeed = enemy.baseSpeed + (score % 10) * 4 * level; // Adjusted for delta time
+                        enemy.speed = baseSpeed * currentDirection;
+                        enemy.x = Math.random() * (canvas.width - enemy.width);
+                        if (level === 2) { createEnemyWingmen(); }
+                    }
+                }
+                if (!bulletRemoved && enemy.wingmen) {
+                    for (let j = enemy.wingmen.length - 1; j >= 0; j--) {
+                        const wingman = enemy.wingmen[j];
+                        if ( bullet.x < wingman.x + wingman.width && bullet.x + bullet.width > wingman.x &&
+                            bullet.y < wingman.y + wingman.height && bullet.y + bullet.height > wingman.y ) {
+                            bullets.splice(i, 1); bulletRemoved = true; score += 2;
+                            createExplosion(wingman.x + wingman.width / 2, wingman.y + wingman.height / 2, '#c837ff');
+                            enemy.wingmen.splice(j, 1); break;
+                        }
+                    }
+                }
+                if (!bulletRemoved && bullet.y < 0) { bullets.splice(i, 1); }
+            }
+            ctx.shadowBlur = 0;
+        }
+
+        function handleEnemyBullets(deltaTime) {
+            for (let i = enemyBullets.length - 1; i >= 0; i--) {
+                const bullet = enemyBullets[i];
+                bullet.y += bullet.speed * deltaTime;
+                ctx.fillStyle = '#ff00ff';
+                ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+                ctx.shadowColor = '#ff00ff'; ctx.shadowBlur = 10;
+                
+                let bulletRemoved = false;
+
+                if ( bullet.x < player.x + player.width && bullet.x + bullet.width > player.x &&
+                    bullet.y < player.y + player.height && bullet.y + player.height > player.y ) {
+                    createExplosion(player.x + player.width / 2, player.y + player.height / 2, '#00f2ff');
+                    gameOver = true;
+                    bulletRemoved = true; 
+                    if (i < enemyBullets.length) enemyBullets.splice(i, 1);
+                }
+
+                if (!bulletRemoved && player.wingmen) {
+                    for (let j = player.wingmen.length - 1; j >= 0; j--) {
+                        const wingman = player.wingmen[j];
+                        if ( bullet.x < wingman.x + wingman.width && bullet.x + bullet.width > wingman.x &&
+                            bullet.y < wingman.y + wingman.height && bullet.y + bullet.height > wingman.y ) {
+                            enemyBullets.splice(i, 1);
+                            bulletRemoved = true;
+                            createExplosion(wingman.x + wingman.width / 2, wingman.y + wingman.height / 2, '#00f2ff');
+                            player.wingmen.splice(j, 1);
+                            break;
+                        }
+                    }
+                }
+
+                if (!bulletRemoved && bullet.y > canvas.height) {
+                    enemyBullets.splice(i, 1);
+                }
+            }
+            ctx.shadowBlur = 0;
+        }
+
+        function checkCollision() {
+            if (player.x < enemy.x + enemy.width && player.x + player.width > enemy.x &&
+                player.y < enemy.y + enemy.height && player.y + player.height > enemy.y) {
+                createExplosion(player.x + player.width / 2, player.y + player.height / 2, '#00f2ff');
+                createExplosion(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2, level === 1 ? '#ff4141' : '#c837ff');
+                gameOver = true; return;
+            }
+            if (enemy.wingmen) {
+                for (const wingman of enemy.wingmen) {
+                    if (player.x < wingman.x + wingman.width && player.x + player.width > wingman.x &&
+                        player.y < wingman.y + wingman.height && player.y + player.height > wingman.y) {
+                        createExplosion(player.x + player.width / 2, player.y + player.height / 2, '#00f2ff');
+                        createExplosion(wingman.x + wingman.width / 2, wingman.y + wingman.height / 2, '#c837ff');
+                        gameOver = true; return;
+                    }
+                }
+            }
+            // Laser collision check
+            if (level === 3 && enemy.isFiringLaser) {
+                const laserWidth = 20;
+                const laserX = enemy.x + enemy.width / 2 - laserWidth / 2;
+                if (player.x < laserX + laserWidth && player.x + player.width > laserX) {
+                    createExplosion(player.x + player.width / 2, player.y + player.height / 2, '#00f2ff');
+                    gameOver = true; return;
+                }
+            }
+        }
+        
+        function startLevel(newLevel) {
+            level = newLevel;
+            setupEnemyForLevel(level);
+            levelUpMessage = `שלב ${level}!`;
+            levelUpMessageTimer = 3; // 3 seconds
+        }
+
+        function drawUI(deltaTime) {
+            ctx.fillStyle = 'white';
+            ctx.font = '24px Arial';
+            ctx.textAlign = 'right';
+            ctx.fillText(`ניקוד: ${score}`, canvas.width - 20, 40);
+            ctx.textAlign = 'left';
+            ctx.fillText(`שלב: ${level}`, 20, 40);
+            
+            if (levelUpMessageTimer > 0) {
+                ctx.font = '60px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillStyle = 'rgba(255, 223, 0, ' + (levelUpMessageTimer / 3) + ')';
+                ctx.fillText(levelUpMessage, canvas.width / 2, canvas.height / 2);
+                levelUpMessageTimer -= deltaTime;
+            }
+        }
+        function showGameOver() {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.textAlign = 'center';
+
+            if (gameWon) {
+                ctx.fillStyle = '#ffd700';
+                ctx.font = '60px Arial';
+                ctx.fillText('ניצחון!', canvas.width / 2, canvas.height / 2 - 40);
+                ctx.font = '30px Arial';
+                ctx.fillText(`כל הכבוד! השלמת את המשחק!`, canvas.width / 2, canvas.height / 2 + 20);
+            } else {
+                ctx.fillStyle = 'white';
+                ctx.font = '50px Arial';
+                ctx.fillText('המשחק נגמר!', canvas.width / 2, canvas.height / 2 - 40);
+                ctx.font = '30px Arial';
+                ctx.fillText(`ניקוד סופי: ${score}`, canvas.width / 2, canvas.height / 2 + 20);
+            }
+
+            ctx.font = '20px Arial';
+            ctx.fillStyle = 'white';
+            ctx.fillText('לחץ על Enter כדי להתחיל מחדש', canvas.width / 2, canvas.height / 2 + 70);
+        }
+        
+        function resetGame() {
+            gameOver = false; gameWon = false; score = 0; level = 1;
+            player.x = canvas.width / 2 - player.width / 2;
+            player.y = canvas.height - 70;
+            player.hasDoubleShot = false; player.timesUpgraded = 0;
+            player.wingmen = [];
+            setupEnemyForLevel(level);
+            bullets = []; enemyBullets = []; particles = [];
+            createStars();
+            lastTime = performance.now();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function gameLoop(timestamp) {
+            if (isPaused) return;
+            if (gameOver) { showGameOver(); return; }
+
+            const deltaTime = (timestamp - lastTime) / 1000;
+            lastTime = timestamp;
+
+            requestAnimationFrame(gameLoop);
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawStars();
+            player.draw();
+            enemy.draw();
+            handleParticles(deltaTime); 
+            updatePlayerPosition(deltaTime);
+            updateEnemyPosition(deltaTime);
+            handleBullets(deltaTime);
+            handleEnemyBullets(deltaTime);
+            checkCollision();
+            drawUI(deltaTime);
+        }
+
+        // --- Event Listeners for Instructions ---
+        instructionsBtn.addEventListener('click', () => {
+            isPaused = true;
+            controlsPanel.classList.add('visible');
+            overlay.classList.remove('hidden');
+        });
+
+        closeInstructionsBtn.addEventListener('click', () => {
+            isPaused = false;
+            controlsPanel.classList.remove('visible');
+            overlay.classList.add('hidden');
+            lastTime = performance.now(); // Reset lastTime to avoid a large jump
+            requestAnimationFrame(gameLoop); // Resume game
+        });
+        
+        resetGame();
+    </script>
+</body>
+</html>
+

@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>סימולטור הימורים</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Heebo', sans-serif;
+            touch-action: manipulation;
+        }
+        .slot {
+            width: 100px;
+            height: 100px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 4rem;
+            border-radius: 0.5rem;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.2);
+            transition: all 0.3s ease-in-out;
+            border: 4px solid #4B5563; /* gray-700 */
+            background-color: #F9FAFB; /* gray-50 */
+        }
+        .game-container {
+            display: none;
+        }
+        .game-container.active {
+            display: block;
+        }
+        .tab-btn {
+            transition: all 0.3s ease;
+        }
+        .tab-btn.active {
+            background-color: #EF4444; /* red-500 */
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        /* Wheel of Fortune Styles */
+        #wheel {
+            width: 250px;
+            height: 250px;
+            border-radius: 50%;
+            position: relative;
+            background-image: conic-gradient(
+                #f87171 0deg 45deg,   /* red-400 */
+                #fbbf24 45deg 90deg,  /* amber-400 */
+                #f87171 90deg 135deg,  
+                #a3e635 135deg 180deg, /* lime-400 */
+                #f87171 180deg 225deg,
+                #60a5fa 225deg 270deg, /* blue-400 */
+                #f87171 270deg 315deg,
+                #c084fc 315deg 360deg  /* purple-400 */
+            );
+            border: 8px solid #374151; /* gray-800 */
+            box-shadow: 0 0 20px rgba(0,0,0,0.3);
+            transition: transform 4s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+        .wheel-segment-label {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            font-weight: bold;
+            color: #1f2937; /* gray-800 */
+            text-shadow: 0 0 2px white;
+        }
+        #wheel-pointer {
+            width: 0;
+            height: 0;
+            border-left: 20px solid transparent;
+            border-right: 20px solid transparent;
+            border-top: 30px solid #dc2626; /* red-600 */
+            position: absolute;
+            top: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+        }
+
+        /* Blackjack Card Styles */
+        .blackjack-card {
+            width: 60px;
+            height: 84px;
+            border-radius: 0.375rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.75rem;
+            font-weight: bold;
+            border: 1px solid #4B5563;
+            background-color: white;
+            color: black;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            position: relative;
+        }
+        .blackjack-card .suit {
+            position: absolute;
+            font-size: 0.75rem;
+        }
+        .blackjack-card .suit.top { top: 4px; left: 6px; }
+        .blackjack-card .suit.bottom { bottom: 4px; right: 6px; transform: rotate(180deg); }
+        .blackjack-card.red { color: #EF4444; }
+        .blackjack-card.back {
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            color: transparent;
+        }
+
+        /* Scratch Card Styles */
+        #scratch-card-grid {
+            width: 250px;
+            height: 250px;
+        }
+        .scratch-cell {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 2.5rem;
+            background-color: #e5e7eb; /* gray-200 */
+            border-radius: 0.5rem;
+        }
+        .scratch-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #9ca3af; /* gray-400 */
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: opacity 0.3s ease;
+        }
+        .scratch-overlay.scratched {
+            opacity: 0;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex flex-col items-center justify-center min-h-screen p-4">
+
+    <div class="w-full max-w-lg mx-auto bg-white rounded-2xl shadow-2xl p-6 sm:p-8 text-center border-4 border-gray-800">
+        
+        <h1 class="text-3xl sm:text-4xl font-bold text-gray-800 mb-2">סימולטור הימורים</h1>
+        <p class="text-gray-600 mb-4">שיעור קטן על סיכויים ומזל</p>
+        
+        <div class="flex items-center justify-center gap-4 mb-6">
+            <div class="bg-yellow-400 text-gray-900 font-bold text-2xl py-2 px-4 rounded-lg inline-block shadow-md">
+                <span>מטבעות: </span>
+                <span id="coins">100</span>
+            </div>
+            <button id="reset-button" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg text-sm shadow-lg transition-transform transform hover:scale-105">
+                התחל מחדש
+            </button>
+        </div>
+
+        <!-- Game Tabs -->
+        <div class="flex justify-center gap-2 sm:gap-4 mb-6 border-b-2 border-gray-200 pb-4">
+            <button data-game="slots" class="tab-btn active w-1/4 py-2 px-2 bg-gray-200 hover:bg-red-400 hover:text-white rounded-lg font-semibold text-sm sm:text-base">מכונת מזל</button>
+            <button data-game="wheel" class="tab-btn w-1/4 py-2 px-2 bg-gray-200 hover:bg-red-400 hover:text-white rounded-lg font-semibold text-sm sm:text-base">גלגל המזל</button>
+            <button data-game="cards" class="tab-btn w-1/4 py-2 px-2 bg-gray-200 hover:bg-red-400 hover:text-white rounded-lg font-semibold text-sm sm:text-base">בלק ג'ק</button>
+            <button data-game="scratch" class="tab-btn w-1/4 py-2 px-2 bg-gray-200 hover:bg-red-400 hover:text-white rounded-lg font-semibold text-sm sm:text-base">כרטיס גירוד</button>
+        </div>
+
+        <!-- Game Area -->
+        <div id="game-area" class="min-h-[320px] sm:min-h-[280px]">
+            <!-- Slot Machine -->
+            <div id="slots-game" class="game-container active">
+                <p class="text-gray-600 mb-6">קבל 3 סמלים זהים כדי לזכות ב-40 מטבעות.</p>
+                <div class="flex justify-center items-center gap-4 sm:gap-6 mb-8">
+                    <div id="slot1" class="slot">🍀</div>
+                    <div id="slot2" class="slot">🍒</div>
+                    <div id="slot3" class="slot">💎</div>
+                </div>
+                <button id="spin-button" class="w-full sm:w-auto bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-10 rounded-lg text-2xl shadow-lg transition-transform transform hover:scale-105">
+                    סובב (עלות: 2)
+                </button>
+            </div>
+
+            <!-- Wheel of Fortune -->
+            <div id="wheel-game" class="game-container">
+                 <p class="text-gray-600 mb-4">סובב את הגלגל וקווה לטוב!</p>
+                 <div class="relative flex justify-center items-center mb-6">
+                    <div id="wheel-pointer"></div>
+                    <div id="wheel">
+                        <!-- Labels will be added via JS for easier rotation calculation -->
+                    </div>
+                 </div>
+                 <button id="wheel-spin-button" class="w-full sm:w-auto bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-10 rounded-lg text-2xl shadow-lg transition-transform transform hover:scale-105">
+                    סובב (עלות: 5)
+                </button>
+            </div>
+
+            <!-- Blackjack Game -->
+            <div id="cards-game" class="game-container">
+                <p class="text-gray-600 mb-2">נסה לנצח את הדילר ולהגיע כמה שיותר קרוב ל-21.</p>
+                <div class="bg-gray-800 text-white p-2 rounded-lg mb-2 text-sm">
+                    <p>היד של הדילר (<span id="dealer-score">0</span>)</p>
+                    <div id="dealer-hand" class="flex justify-center items-center gap-2 min-h-[84px] p-1"></div>
+                </div>
+                <div class="bg-green-800 text-white p-2 rounded-lg mb-4 text-sm">
+                    <p>היד שלך (<span id="player-score">0</span>)</p>
+                    <div id="player-hand" class="flex justify-center items-center gap-2 min-h-[84px] p-1"></div>
+                </div>
+                <div id="blackjack-actions" class="flex justify-center gap-4 h-12">
+                    <!-- Buttons will be generated here -->
+                </div>
+            </div>
+            
+            <!-- Scratch Card Game -->
+            <div id="scratch-game" class="game-container">
+                <p class="text-gray-600 mb-4">גרד את הכרטיס ומצא 3 סמלים זהים כדי לזכות!</p>
+                <div class="flex justify-center items-center mb-6">
+                   <div id="scratch-card-grid" class="grid grid-cols-3 gap-2 p-2 bg-gray-300 rounded-lg">
+                       <!-- Scratch cells will be generated by JS -->
+                   </div>
+                </div>
+                <button id="scratch-buy-button" class="w-full sm:w-auto bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-3 px-10 rounded-lg text-2xl shadow-lg transition-transform transform hover:scale-105">
+                    קנה כרטיס (עלות: 1)
+                </button>
+            </div>
+        </div>
+
+        <!-- Global Message Area -->
+        <div id="message" class="mt-6 text-2xl font-bold h-8 transition-opacity duration-300"></div>
+    </div>
+
+    <script>
+        // --- GLOBAL STATE AND ELEMENTS ---
+        const coinsDisplay = document.getElementById('coins');
+        const messageDisplay = document.getElementById('message');
+        const gameTabs = document.querySelectorAll('.tab-btn');
+        const gameContainers = document.querySelectorAll('.game-container');
+        const resetButton = document.getElementById('reset-button');
+        
+        let coins = 100;
+        let activeGame = 'slots';
+        let isGameRunning = false;
+        let isGameOver = false;
+        let messageTimeoutId = null;
+
+        // --- GLOBAL FUNCTIONS ---
+        function resetGame() {
+            if (isGameRunning) return;
+            isGameOver = false;
+            updateCoins(100);
+            showMessage('המשחק התחיל מחדש!', 'text-blue-500', 2000);
+            enableAllButtons();
+            if (activeGame === 'cards') blackjackGame.resetUI();
+            if (activeGame === 'scratch') scratchGame.reset();
+        }
+
+        function updateCoins(amount) {
+            coins = Math.max(0, amount);
+            coinsDisplay.textContent = coins;
+            if (coins === 0 && !isGameOver) isGameOver = true;
+            checkAllButtonsState();
+        }
+
+        function showMessage(text, color = 'text-gray-800', duration = 2500) {
+            if (messageTimeoutId) clearTimeout(messageTimeoutId);
+            messageDisplay.textContent = text;
+            messageDisplay.className = `mt-6 text-2xl font-bold h-8 transition-opacity duration-300 ${color}`;
+            messageDisplay.style.opacity = 1;
+            if (duration > 0) messageTimeoutId = setTimeout(() => messageDisplay.style.opacity = 0, duration);
+        }
+        
+        function disableAllButtons() {
+            document.querySelectorAll('button').forEach(btn => { if(btn.id !== 'reset-button') btn.disabled = true });
+        }
+
+        function enableAllButtons() {
+             document.querySelectorAll('button').forEach(btn => btn.disabled = false);
+             checkAllButtonsState();
+        }
+        
+        function checkButtonState(button, cost) {
+            if (!button) return;
+            let disable = (coins < cost || isGameRunning || isGameOver);
+            if (button.id === 'spin-button' && slotsGame.isSpinning) disable = false;
+            button.disabled = disable;
+            if (disable) button.classList.add('opacity-50', 'cursor-not-allowed');
+            else button.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+        
+        function checkAllButtonsState() {
+            if (isGameOver) {
+                disableAllButtons();
+                return;
+            }
+            checkButtonState(document.getElementById('spin-button'), slotsGame.cost);
+            checkButtonState(document.getElementById('wheel-spin-button'), wheelGame.cost);
+            if(blackjackGame && blackjackGame.actionsEl) {
+                blackjackGame.actionsEl.querySelectorAll('button').forEach(btn => {
+                   checkButtonState(btn, blackjackGame.cost);
+                });
+            }
+            checkButtonState(document.getElementById('scratch-buy-button'), scratchGame.cost);
+        }
+
+        gameTabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                if (isGameRunning) return;
+                activeGame = tab.dataset.game;
+                gameTabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                gameContainers.forEach(container => {
+                    container.classList.remove('active');
+                    if (container.id === `${activeGame}-game`) container.classList.add('active');
+                });
+                 if (activeGame === 'cards') blackjackGame.resetUI();
+            });
+        });
+
+        // ===================================
+        // --- SLOT MACHINE GAME LOGIC ---
+        // ===================================
+        const slotsGame = {
+            elements: [document.getElementById('slot1'), document.getElementById('slot2'), document.getElementById('slot3')],
+            button: document.getElementById('spin-button'),
+            symbols: ['🍒', '🍋', '🍇', '🍉', '💎', '🍀', '💔', '7'],
+            cost: 2,
+            winPrize: 40,
+            isSpinning: false,
+            intervals: [],
+            init() {
+                this.button.addEventListener('click', () => this.toggleSpin());
+                document.addEventListener('keydown', (e) => {
+                    if (activeGame === 'slots' && e.code === 'Space' && !this.button.disabled) {
+                        e.preventDefault(); this.toggleSpin();
+                    }
+                });
+            },
+            toggleSpin() { if (this.isSpinning) this.stop(); else this.start(); },
+            start() {
+                if (coins < this.cost || isGameRunning) return;
+                updateCoins(coins - this.cost);
+                if (isGameOver) { showMessage('מקווה שלמדת לקח, הימורים לא משתלמים!', 'text-red-700', 0); checkAllButtonsState(); return; }
+                isGameRunning = true; this.isSpinning = true; checkAllButtonsState();
+                this.button.textContent = 'עצור'; this.button.classList.replace('bg-green-500', 'bg-red-500'); showMessage('');
+                this.elements.forEach((slot, i) => {
+                    this.intervals[i] = setInterval(() => { slot.textContent = this.symbols[Math.floor(Math.random() * this.symbols.length)]; }, 100);
+                });
+            },
+            stop() {
+                this.isSpinning = false; this.intervals.forEach(clearInterval);
+                setTimeout(() => this.checkWin(), 100);
+            },
+            checkWin() {
+                const s1 = this.elements[0].textContent, s2 = this.elements[1].textContent, s3 = this.elements[2].textContent;
+                if (s1 === s2 && s2 === s3) {
+                    updateCoins(coins + this.winPrize); showMessage(`זכית ב-${this.winPrize} מטבעות!`, 'text-green-600');
+                } else {
+                    if (isGameOver) showMessage('מקווה שלמדת לקח, הימורים לא משתלמים!', 'text-red-700', 0);
+                    else showMessage('לא נורא, נסה שוב!', 'text-yellow-600');
+                }
+                this.button.textContent = `סובב (עלות: ${this.cost})`;
+                this.button.classList.replace('bg-red-500', 'bg-green-500');
+                isGameRunning = false; enableAllButtons();
+            }
+        };
+
+        // ===================================
+        // --- WHEEL OF FORTUNE GAME LOGIC ---
+        // ===================================
+        const wheelGame = {
+            wheel: document.getElementById('wheel'), button: document.getElementById('wheel-spin-button'), cost: 5,
+            isSpinning: false, currentRotation: 0,
+            segments: [
+                { label: '+10', value: 10 }, { label: '-5', value: -5 }, { label: 'הפסד גדול', value: -40 }, { label: '+20', value: 20 },
+                { label: '-10', value: -10 }, { label: '+2', value: 2 }, { label: 'חצי', value: 'half' }, { label: 'כלום', value: 0 }
+            ],
+            init() { this.button.addEventListener('click', () => this.spin()); this.drawSegments(); },
+            drawSegments() {
+                const angle = 360 / this.segments.length;
+                this.segments.forEach((seg, i) => {
+                    const label = document.createElement('div'); label.className = 'wheel-segment-label';
+                    label.textContent = seg.label; label.style.transform = `rotate(${angle * i + angle / 2}deg)`;
+                    this.wheel.appendChild(label);
+                });
+            },
+            spin() {
+                if (this.isSpinning || coins < this.cost || isGameRunning) return;
+                updateCoins(coins - this.cost);
+                if (isGameOver) { showMessage('מקווה שלמדת לקח, הימורים לא משתלמים!', 'text-red-700', 0); checkAllButtonsState(); return; }
+                isGameRunning = true; this.isSpinning = true; disableAllButtons(); showMessage('');
+                const finalAngle = ((Math.floor(Math.random() * 3) + 4) * 360) + (Math.random() * 360);
+                this.currentRotation += finalAngle; this.wheel.style.transform = `rotate(${this.currentRotation}deg)`;
+                setTimeout(() => {
+                    const winningAngle = (360 - (this.currentRotation % 360)) % 360;
+                    const winningIndex = Math.floor(winningAngle / (360 / this.segments.length));
+                    this.handleResult(this.segments[winningIndex]);
+                }, 4200);
+            },
+            handleResult(result) {
+                let prize = 0; let messageText = '';
+                if (typeof result.value === 'number') {
+                    prize = result.value; messageText = prize >= 0 ? `זכית ב-${prize} מטבעות!` : `הפסדת ${Math.abs(prize)} מטבעות...`;
+                } else if (result.value === 'half') {
+                    prize = -Math.ceil(coins / 2); messageText = 'הפסדת חצי מהמטבעות שלך!';
+                }
+                updateCoins(coins + prize);
+                if (isGameOver) showMessage('מקווה שלמדת לקח, הימורים לא משתלמים!', 'text-red-700', 0);
+                else showMessage(messageText, prize > 0 ? 'text-green-600' : 'text-red-600');
+                this.isSpinning = false; isGameRunning = false; enableAllButtons();
+            }
+        };
+
+        // ===================================
+        // --- BLACKJACK GAME LOGIC ---
+        // ===================================
+        const blackjackGame = {
+            dealerHandEl: document.getElementById('dealer-hand'), playerHandEl: document.getElementById('player-hand'),
+            dealerScoreEl: document.getElementById('dealer-score'), playerScoreEl: document.getElementById('player-score'),
+            actionsEl: document.getElementById('blackjack-actions'),
+            cost: 5, deck: [], playerHand: [], dealerHand: [], state: 'ready',
+
+            init() { this.resetUI(); },
+            
+            createDeck() {
+                const suits = ['♥', '♦', '♣', '♠']; const values = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+                this.deck = [];
+                for (let suit of suits) for (let value of values) this.deck.push({ suit, value });
+            },
+            
+            shuffleDeck() {
+                for (let i = this.deck.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [this.deck[i], this.deck[j]] = [this.deck[j], this.deck[i]];
+                }
+            },
+
+            getCardValue(card) {
+                if (['J', 'Q', 'K'].includes(card.value)) return 10;
+                if (card.value === 'A') return 11;
+                return parseInt(card.value);
+            },
+
+            calculateScore(hand) {
+                let score = hand.reduce((sum, card) => sum + this.getCardValue(card), 0);
+                let aceCount = hand.filter(card => card.value === 'A').length;
+                while (score > 21 && aceCount > 0) {
+                    score -= 10; aceCount--;
+                }
+                return score;
+            },
+            
+            createCardEl(card, isHidden = false) {
+                const cardEl = document.createElement('div');
+                const isRed = ['♥', '♦'].includes(card.suit);
+                cardEl.className = `blackjack-card ${isRed ? 'red' : ''} ${isHidden ? 'back' : ''}`;
+                if (!isHidden) {
+                    cardEl.innerHTML = `
+                        <span class="suit top">${card.suit}</span>
+                        <span>${card.value}</span>
+                        <span class="suit bottom">${card.suit}</span>
+                    `;
+                }
+                return cardEl;
+            },
+            
+            renderHands(revealDealerCard = false) {
+                this.playerHandEl.innerHTML = '';
+                this.dealerHandEl.innerHTML = '';
+                this.playerHand.forEach(card => this.playerHandEl.appendChild(this.createCardEl(card)));
+                this.dealerHand.forEach((card, index) => {
+                    this.dealerHandEl.appendChild(this.createCardEl(card, index === 1 && !revealDealerCard));
+                });
+                this.playerScoreEl.textContent = this.calculateScore(this.playerHand);
+                if (revealDealerCard) {
+                    this.dealerScoreEl.textContent = this.calculateScore(this.dealerHand);
+                } else {
+                    this.dealerScoreEl.textContent = this.getCardValue(this.dealerHand[0]);
+                }
+            },
+            
+            resetUI() {
+                if (this.state === 'playerTurn' || this.state === 'dealerTurn') return;
+                this.state = 'ready';
+                this.dealerHandEl.innerHTML = ''; this.playerHandEl.innerHTML = '';
+                this.dealerScoreEl.textContent = '0'; this.playerScoreEl.textContent = '0';
+                this.actionsEl.innerHTML = `<button id="blackjack-play" class="w-full sm:w-auto bg-purple-500 hover:bg-purple-600 text-white font-bold py-3 px-10 rounded-lg text-xl shadow-lg transition-transform transform hover:scale-105">המר (עלות: ${this.cost})</button>`;
+                this.actionsEl.querySelector('#blackjack-play').addEventListener('click', () => this.startRound());
+                checkAllButtonsState();
+            },
+
+            startRound() {
+                if (coins < this.cost || isGameRunning) return;
+                updateCoins(coins - this.cost);
+                if (isGameOver) { showMessage('מקווה שלמדת לקח, הימורים לא משתלמים!', 'text-red-700', 0); return; }
+
+                isGameRunning = true; this.state = 'playerTurn'; showMessage('');
+                this.createDeck(); this.shuffleDeck();
+                this.playerHand = [this.deck.pop(), this.deck.pop()];
+                this.dealerHand = [this.deck.pop(), this.deck.pop()];
+                
+                this.renderHands();
+                
+                this.actionsEl.innerHTML = `
+                    <button id="blackjack-hit" class="w-1/2 bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg">הוסף</button>
+                    <button id="blackjack-stand" class="w-1/2 bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg">עצור</button>
+                `;
+                this.actionsEl.querySelector('#blackjack-hit').addEventListener('click', () => this.hit());
+                this.actionsEl.querySelector('#blackjack-stand').addEventListener('click', () => this.stand());
+                
+                const playerScore = this.calculateScore(this.playerHand);
+                if (playerScore === 21) {
+                    this.stand(); // Automatic stand on Blackjack
+                }
+            },
+
+            hit() {
+                if (this.state !== 'playerTurn') return;
+                this.playerHand.push(this.deck.pop());
+                this.renderHands();
+                const playerScore = this.calculateScore(this.playerHand);
+                if (playerScore > 21) {
+                    this.endRound('playerBust');
+                }
+            },
+
+            stand() {
+                if (this.state !== 'playerTurn') return;
+                this.state = 'dealerTurn';
+                this.actionsEl.innerHTML = '';
+                this.dealerTurnLogic();
+            },
+
+            dealerTurnLogic() {
+                this.renderHands(true);
+                let dealerScore = this.calculateScore(this.dealerHand);
+                const isSoft17 = dealerScore === 17 && this.dealerHand.some(card => card.value === 'A');
+
+                if (dealerScore > 21) { this.endRound('dealerBust'); return; }
+                
+                if (dealerScore > 17 || (dealerScore === 17 && !isSoft17)) {
+                    this.endRound('compare');
+                    return;
+                }
+
+                setTimeout(() => {
+                    this.dealerHand.push(this.deck.pop());
+                    this.dealerTurnLogic();
+                }, 1000);
+            },
+            
+            endRound(reason) {
+                this.state = 'finished';
+                let playerScore = this.calculateScore(this.playerHand);
+                let dealerScore = this.calculateScore(this.dealerHand);
+                let playerBlackjack = playerScore === 21 && this.playerHand.length === 2;
+
+                this.renderHands(true);
+
+                if (reason === 'playerBust') {
+                    showMessage('נשרפת! הפסדת.', 'text-red-600');
+                } else if (playerBlackjack && dealerScore !== 21) {
+                    showMessage('בלק ג\'ק! זכייה גדולה!', 'text-yellow-400');
+                    updateCoins(coins + this.cost + (this.cost * 6 / 5)); // 6:5 payout
+                } else if (reason === 'dealerBust') {
+                    if (dealerScore === 22) {
+                        showMessage('הדילר הגיע ל-22! זה תיקו.', 'text-gray-500');
+                        updateCoins(coins + this.cost); // Push
+                    } else {
+                        showMessage('הדילר נשרף! ניצחת.', 'text-green-600');
+                        updateCoins(coins + this.cost * 2);
+                    }
+                } else if (reason === 'compare') {
+                    if (playerScore > dealerScore) {
+                        showMessage('ניצחת!', 'text-green-600');
+                        updateCoins(coins + this.cost * 2);
+                    } else if (playerScore < dealerScore) {
+                        showMessage('הפסדת.', 'text-red-600');
+                    } else {
+                        showMessage('תיקו!', 'text-gray-500');
+                        updateCoins(coins + this.cost); // Push
+                    }
+                }
+                
+                if (isGameOver && reason !== 'compare') {
+                     showMessage('מקווה שלמדת לקח, הימורים לא משתלמים!', 'text-red-700', 0);
+                }
+
+                setTimeout(() => {
+                    isGameRunning = false;
+                    if(!isGameOver) this.resetUI();
+                    else enableAllButtons();
+                }, 2500);
+            }
+        };
+
+        // ===================================
+        // --- SCRATCH CARD GAME LOGIC ---
+        // ===================================
+        const scratchGame = {
+            grid: document.getElementById('scratch-card-grid'), button: document.getElementById('scratch-buy-button'),
+            cost: 1, state: 'ready', scratchedCount: 0,
+            outcomes: [
+                { prize: 10, symbol: '💰', weight: 2 }, { prize: 5, symbol: '⭐', weight: 5 }, { prize: 4, symbol: '🍒', weight: 10 },
+                { prize: 5, symbol: '👍', weight: 15 }, { prize: -40, symbol: '💀', weight: 1 }, { prize: 'third', symbol: '📉', weight: 2 },
+            ],
+            losingSymbols: ['🍋', '🍊', '🍇', '🔔', '🍀', '👎', '💔'],
+            init() { this.button.addEventListener('click', () => this.buyCard()); this.reset(); },
+            reset() {
+                this.state = 'ready'; this.grid.innerHTML = '';
+                for (let i = 0; i < 9; i++) {
+                    const cell = document.createElement('div'); cell.className = 'scratch-cell';
+                    this.grid.appendChild(cell);
+                }
+                this.button.textContent = `קנה כרטיס (עלות: ${this.cost})`; checkAllButtonsState();
+            },
+            buyCard() {
+                if (this.state !== 'ready' || coins < this.cost || isGameRunning) return;
+                updateCoins(coins - this.cost);
+                if (isGameOver) { showMessage('מקווה שלמדת לקח, הימורים לא משתלמים!', 'text-red-700', 0); checkAllButtonsState(); return; }
+                isGameRunning = true; this.state = 'playing'; this.scratchedCount = 0; disableAllButtons();
+                showMessage('גרד 3 סמלים זהים...', 'text-blue-600', 0); this.generateCard();
+            },
+            generateCard() {
+                const isWinningCard = Math.random() < 0.35; let symbols = []; let winningSymbolForCard = null;
+                if (isWinningCard) {
+                    const weightedWinning = []; this.outcomes.forEach(o => { for (let i = 0; i < o.weight; i++) weightedWinning.push(o); });
+                    const selectedOutcome = weightedWinning[Math.floor(Math.random() * weightedWinning.length)];
+                    winningSymbolForCard = selectedOutcome.symbol;
+                    for (let i = 0; i < 3; i++) symbols.push(winningSymbolForCard);
+                }
+                const allPossibleSymbols = this.outcomes.map(o => o.symbol).concat(this.losingSymbols);
+                const counts = winningSymbolForCard ? { [winningSymbolForCard]: 3 } : {};
+                while (symbols.length < 9) {
+                    const randomSymbol = allPossibleSymbols[Math.floor(Math.random() * allPossibleSymbols.length)];
+                    const currentCount = counts[randomSymbol] || 0;
+                    if (currentCount < 2) { symbols.push(randomSymbol); counts[randomSymbol] = currentCount + 1; }
+                }
+                symbols.sort(() => Math.random() - 0.5);
+                this.grid.innerHTML = '';
+                symbols.forEach(symbol => {
+                    const cell = document.createElement('div'); cell.className = 'scratch-cell';
+                    const symbolSpan = document.createElement('span'); symbolSpan.textContent = symbol;
+                    const overlay = document.createElement('div'); overlay.className = 'scratch-overlay';
+                    overlay.addEventListener('click', () => this.scratch(overlay), { once: true });
+                    cell.appendChild(symbolSpan); cell.appendChild(overlay); this.grid.appendChild(cell);
+                });
+            },
+            scratch(overlay) {
+                if (this.state !== 'playing') return;
+                overlay.classList.add('scratched'); this.scratchedCount++;
+                const revealedSymbols = Array.from(this.grid.querySelectorAll('.scratch-overlay.scratched')).map(ov => ov.previousElementSibling.textContent);
+                const counts = {}; revealedSymbols.forEach(s => { counts[s] = (counts[s] || 0) + 1; });
+                let winningSymbol = Object.keys(counts).find(symbol => counts[symbol] >= 3);
+                if (winningSymbol) this.endGame(this.outcomes.find(o => o.symbol === winningSymbol));
+                else if (this.scratchedCount === 9) this.endGame({ prize: 0 });
+            },
+            endGame(outcome) {
+                this.state = 'finished'; this.grid.querySelectorAll('.scratch-overlay:not(.scratched)').forEach(ov => ov.classList.add('scratched'));
+                setTimeout(() => {
+                    let prize = 0; let messageText = '';
+                    if (outcome && outcome.prize !== 0) {
+                        if (typeof outcome.prize === 'number') prize = outcome.prize;
+                        else if (outcome.prize === 'third') prize = -Math.ceil(coins / 3);
+                    }
+                    if (prize > 0) messageText = `זכית ב-${prize} מטבעות!`;
+                    else if (prize < 0) messageText = `הפסדת ${Math.abs(prize)} מטבעות...`;
+                    updateCoins(coins + prize);
+                    if (isGameOver) showMessage('מקווה שלמדת לקח, הימורים לא משתלמים!', 'text-red-700', 0);
+                    else if (prize === 0) showMessage('לא זכית הפעם.', 'text-yellow-600');
+                    else showMessage(messageText, prize > 0 ? 'text-green-600' : 'text-red-600');
+                    isGameRunning = false; enableAllButtons();
+                    if (!isGameOver) setTimeout(() => this.reset(), 2500);
+                }, 1000);
+            }
+        };
+
+        // --- INITIALIZE ALL GAMES AND UI ---
+        updateCoins(100);
+        slotsGame.init();
+        wheelGame.init();
+        blackjackGame.init();
+        scratchGame.init();
+        resetButton.addEventListener('click', resetGame);
+
+    </script>
+
+</body>
+</html>
+

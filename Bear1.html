@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>משחק הדוב הרעב</title>
+    <title>משחק הדוב הרעב - גרסה מונפשת</title>
     <!-- טעינת Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
@@ -16,19 +16,21 @@
             background-position: center;
         }
         .game-container {
-            max-width: 480px;
-            min-height: 500px;
+            max-width: 600px; /* הגדלת המיכל לקנבס */
+            min-height: 700px;
+        }
+        canvas {
+            background-color: #6d936e; /* רקע יער בהיר */
+            border: 4px solid #4a2c17; /* מסגרת עץ */
+            border-radius: 1rem;
+            display: block;
+            width: 100%;
+            height: 400px; /* גובה קבוע לקנבס */
+            margin-bottom: 1rem;
+            cursor: pointer;
         }
         .bear-message {
-            min-height: 6rem;
-        }
-        .choice-button {
-            transition: all 0.2s;
-            transform: scale(1);
-        }
-        .choice-button:hover {
-            transform: scale(1.05);
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2), 0 4px 6px -2px rgba(0, 0, 0, 0.1);
+            min-height: 4rem;
         }
     </style>
 </head>
@@ -36,56 +38,24 @@
 
     <div id="gameContainer" class="game-container bg-white p-6 md:p-8 rounded-2xl shadow-2xl text-center border-4 border-yellow-700/50">
         <!-- כותרת וניקוד -->
-        <h1 class="text-4xl font-extrabold text-yellow-800 mb-2">משחק הדוב הרעב</h1>
-        <p class="text-lg text-gray-600 mb-6">עזור לדוב בבחירת המזון שלו!</p>
+        <h1 class="text-3xl font-extrabold text-yellow-800 mb-2">משחק הדוב הרעב 🕹️</h1>
+        <p class="text-base text-gray-600 mb-4">השתמשו במקשי **החיצים** או **הקליקו** על המזון כדי להזיז את הדוב ולבחור.</p>
 
-        <div class="mb-6 bg-yellow-100 p-3 rounded-xl shadow-inner border-2 border-yellow-500">
-            <p id="scoreDisplay" class="text-3xl font-bold text-yellow-700">ניקוד: 50</p>
-            <p class="text-sm text-gray-500">מזהה משתמש: <span id="userIdDisplay">טוען...</span></p>
+        <div class="mb-4 bg-yellow-100 p-3 rounded-xl shadow-inner border-2 border-yellow-500 flex justify-between items-center">
+            <p id="scoreDisplay" class="text-2xl font-bold text-yellow-700">ניקוד: 50</p>
+            <p class="text-sm text-gray-500">משתמש: <span id="userIdDisplay">טוען...</span></p>
         </div>
 
-        <!-- תצוגת הדמות וההודעה -->
-        <div class="flex flex-col items-center mb-6">
-            <div class="text-6xl mb-4" id="bearEmoji">🐻</div>
-            <div id="messageDisplay" class="bear-message bg-yellow-600/10 text-yellow-800 p-3 rounded-xl border border-yellow-600 font-semibold italic">
-                הדוב הרעב מחכה לבחירה שלך...
-            </div>
+        <!-- קנבס למשחק המונפש -->
+        <canvas id="gameCanvas" width="550" height="400"></canvas>
+
+        <!-- תצוגת ההודעה -->
+        <div id="messageDisplay" class="bear-message bg-yellow-600/10 text-yellow-800 p-3 rounded-xl border border-yellow-600 font-semibold italic mb-4 flex items-center justify-center">
+            לחצו על מקש חץ כדי להתחיל!
         </div>
 
-        <!-- שלב 1: בחירת אוכל ראשית -->
-        <div id="mainChoiceContainer">
-            <div id="choiceButtons" class="grid grid-cols-3 gap-4">
-                <button data-choice="fish" class="choice-button bg-green-500 text-white p-3 rounded-xl font-bold text-lg shadow-md hover:bg-green-600 focus:outline-none focus:ring-4 focus:ring-green-300">
-                    דג 🐟
-                </button>
-                <button data-choice="banana" class="choice-button bg-red-500 text-white p-3 rounded-xl font-bold text-lg shadow-md hover:bg-red-600 focus:outline-none focus:ring-4 focus:ring-red-300">
-                    בננה 🍌
-                </button>
-                <button data-choice="honey" class="choice-button bg-amber-500 text-white p-3 rounded-xl font-bold text-lg shadow-md hover:bg-amber-600 focus:outline-none focus:ring-4 focus:ring-amber-300">
-                    דבש 🍯
-                </button>
-            </div>
-        </div>
-
-        <!-- שלב 2: חנות הדגים (מוסתר בהתחלה) -->
-        <div id="fishShopContainer" class="hidden">
-             <h2 class="text-2xl font-bold text-blue-700 mb-4">חנות הדגים 🐠</h2>
-             <p class="text-gray-700 mb-4">איזה גודל דג תבחר?</p>
-            <div id="shopChoiceButtons" class="grid grid-cols-3 gap-4">
-                <button data-size="small" class="choice-button bg-blue-400 text-white p-3 rounded-xl font-bold text-lg shadow-md hover:bg-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-300">
-                    דג קטן<br><span class="text-sm">עלות: 2</span>
-                </button>
-                <button data-size="medium" class="choice-button bg-blue-600 text-white p-3 rounded-xl font-bold text-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300">
-                    דג בינוני<br><span class="text-sm">עלות: 7</span>
-                </button>
-                <button data-size="large" class="choice-button bg-blue-800 text-white p-3 rounded-xl font-bold text-lg shadow-md hover:bg-blue-900 focus:outline-none focus:ring-4 focus:ring-blue-300">
-                    דג גדול<br><span class="text-sm">עלות: 10</span>
-                </button>
-            </div>
-        </div>
-        
         <!-- כפתור איפוס -->
-        <button id="resetButton" class="mt-6 w-full bg-gray-300 text-gray-700 p-2 rounded-xl font-bold hover:bg-gray-400/80 transition focus:outline-none focus:ring-4 focus:ring-gray-300">
+        <button id="resetButton" class="mt-2 w-full bg-gray-300 text-gray-700 p-2 rounded-xl font-bold hover:bg-gray-400/80 transition focus:outline-none focus:ring-4 focus:ring-gray-300">
             איפוס ניקוד
         </button>
         
@@ -102,7 +72,7 @@
         // הגדרת משתנים גלובליים ל-Firebase
         let app, db, auth, userId = null;
         let currentScore = 50;
-        let isProcessing = false; // דגל למניעת הקלקות כפולות
+        let isProcessing = false; // דגל למניעת הקלקות/התנגשויות כפולות בזמן עדכון ניקוד
 
         // הפונקציות הממירות נתונים גלובליים
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
@@ -116,12 +86,12 @@
         const scoreDisplay = document.getElementById('scoreDisplay');
         const messageDisplay = document.getElementById('messageDisplay');
         const userIdDisplay = document.getElementById('userIdDisplay');
-        const bearEmoji = document.getElementById('bearEmoji');
         const statusMessage = document.getElementById('statusMessage');
         const resetButton = document.getElementById('resetButton');
-        const mainChoiceContainer = document.getElementById('mainChoiceContainer');
-        const fishShopContainer = document.getElementById('fishShopContainer');
-        const shopChoiceButtons = document.getElementById('shopChoiceButtons');
+        
+        // Canvas elements and setup
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
 
         // הגדרות המשחק
         const INITIAL_SCORE = 50;
@@ -136,37 +106,241 @@
 
         // אובייקט תוצאות לשלב 2 (חנות הדגים)
         const fishShopOutcomes = {
-            small: { cost: 2, message: "הדג הקטן מספק! הדוב רוקד משמחה. 🕺", emoji: "💃" },
-            medium: { cost: 7, message: "דג בינוני כבד... הדוב קורא לחבר לעזרה! 🤝", emoji: "💪" },
-            large: { cost: 10, message: "דג ענק! הדוב נפל על הגב ונפצע! 🤕", emoji: "😵" }
+            // *** שינוי: האימוג'י הוא הדוב (🐻) והאנימציה היא ה'ריקוד' ***
+            small: { cost: 2, message: "הדג הקטן מספק! הדוב שמח ומתגלגל מצחוק! 🥳", emoji: "🐻", bearAction: 'happy_spin' }, 
+            // *** שינוי: האימוג'י הוא הדוב (🐻) ***
+            medium: { cost: 7, message: "דג בינוני כבד... הדוב קורא לחבר לעזרה! 🤝", emoji: "🐻", bearAction: null }, 
+            // *** שינוי: האימוג'י הוא הדוב (🐻) והאנימציה היא ה'בלבול' ***
+            large: { cost: 10, message: "דג ענק! הדוב נופל על הגב ומסתובב בבלבול. 🤕", emoji: "🐻", bearAction: 'confused_spin' }
         };
+
+        // פרמטרים של המשחק והדוב
+        const BEAR_SPEED = 5;
+        // *** נוסף: מאפייני סיבוב לדוב ***
+        let bear = { 
+            x: canvas.width / 2, 
+            y: canvas.height / 2, 
+            size: 30, 
+            emoji: "🐻", 
+            rotationAngle: 0, 
+            rotationActive: false, 
+            rotationDirection: 1, 
+            bearAction: null 
+        };
+        let keys = {};
+        let currentStage = 'main'; // 'main' or 'shop'
+        let items = []; // Current items on the canvas
+
+        // הגדרת פריטים לשלב הראשי
+        const mainItems = [
+            { name: 'fish', emoji: '🐟', x: canvas.width * 0.15, y: canvas.height * 0.25, size: 20, outcome: outcomes.fish },
+            { name: 'banana', emoji: '🍌', x: canvas.width * 0.50, y: canvas.height * 0.75, size: 20, outcome: outcomes.banana },
+            { name: 'honey', emoji: '🍯', x: canvas.width * 0.85, y: canvas.height * 0.25, size: 20, outcome: outcomes.honey }
+        ];
+
+        // הגדרת פריטים לשלב החנות
+        const shopItems = [
+            { name: 'small', emoji: '🐠', x: canvas.width * 0.15, y: canvas.height * 0.5, size: 20, cost: fishShopOutcomes.small.cost, outcome: fishShopOutcomes.small },
+            { name: 'medium', emoji: '🐡', x: canvas.width * 0.50, y: canvas.height * 0.5, size: 20, cost: fishShopOutcomes.medium.cost, outcome: fishShopOutcomes.medium },
+            { name: 'large', emoji: '🐋', x: canvas.width * 0.85, y: canvas.height * 0.5, size: 20, cost: fishShopOutcomes.large.cost, outcome: fishShopOutcomes.large }
+        ];
+
 
         /**
          * פונקציה להמתנה (השהיית קוד)
          * @param {number} ms - זמן ההמתנה באלפיות השנייה
          */
         const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+        
+        // --- Canvas Drawing and Game Logic ---
+
+        /**
+         * משרטט אימוג'י במרכז נקודה
+         * @param {string} emoji - האימוג'י לשרטוט
+         * @param {number} x - קואורדינטת X מרכז
+         * @param {number} y - קואורדינטת Y מרכז
+         * @param {number} size - גודל הפונט
+         */
+        function drawEmoji(emoji, x, y, size) {
+            ctx.font = `${size}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(emoji, x, y);
+        }
+
+        /**
+         * משרטט את הדוב ופריטי המזון
+         */
+        function drawGame() {
+            // מנקה את הקנבס
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // שרטוט הפריטים (מזון או דגים בחנות)
+            items.forEach(item => {
+                
+                // שרטוט האימוג'י של הפריט
+                drawEmoji(item.emoji, item.x, item.y - 15, item.size * 1.5);
+
+                // אם אנחנו בחנות, מציגים את המחיר
+                if (currentStage === 'shop' && item.cost !== undefined) {
+                     ctx.font = '12px Inter, sans-serif';
+                     // *** תיקון: צבע אדום אם אין מספיק נקודות ***
+                     ctx.fillStyle = currentScore < item.cost ? '#cc0000' : '#1e3a8a'; 
+                     ctx.fillText(`-${item.cost} נק'`, item.x, item.y + item.size + 10);
+                }
+            });
+
+            // שרטוט הדוב עם סיבוב אם צריך
+            ctx.save();
+            ctx.translate(bear.x, bear.y);
+            ctx.rotate(bear.rotationAngle);
+            // שרטוט הדוב בנקודה (0,0) לאחר שבוצעו תרגום וסיבוב
+            drawEmoji(bear.emoji, 0, 0, bear.size * 2); 
+            ctx.restore();
+        }
+
+        /**
+         * עדכון מיקום הדוב
+         */
+        function updatePosition() {
+            let newX = bear.x;
+            let newY = bear.y;
+
+            if (keys['ArrowUp'] || keys['w']) newY -= BEAR_SPEED;
+            if (keys['ArrowDown'] || keys['s']) newY += BEAR_SPEED;
+            if (keys['ArrowLeft'] || keys['a']) newX -= BEAR_SPEED;
+            if (keys['ArrowRight'] || keys['d']) newX += BEAR_SPEED;
+
+            // הגבלת תנועה בגבולות הקנבס
+            const halfSize = bear.size;
+            bear.x = Math.max(halfSize, Math.min(newX, canvas.width - halfSize));
+            bear.y = Math.max(halfSize, Math.min(newY, canvas.height - halfSize));
+
+            checkCollisions();
+        }
+
+        /**
+         * בדיקת התנגשות בין הדוב לפריטי המזון
+         */
+        function checkCollisions() {
+            if (isProcessing) return; // מונע התנגשות בזמן עיבוד ניקוד
+
+            items.forEach(item => {
+                const dx = bear.x - item.x;
+                const dy = bear.y - item.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                // אם יש התנגשות
+                if (distance < bear.size + item.size * 0.5) { // רדיוס התנגשות
+                    if (currentStage === 'main') {
+                        handleChoice(item.name); 
+                    } else if (currentStage === 'shop') {
+                        handlePurchase(item.name); 
+                    }
+                }
+            });
+        }
+
+        /**
+         * לולאת המשחק הראשית (אנימציה)
+         */
+        function gameLoop() {
+            if (!isProcessing) {
+                updatePosition();
+            }
+            
+            // *** לוגיקת סיבוב הדוב ***
+            if (bear.rotationActive) {
+                if (bear.bearAction === 'happy_spin') {
+                    // סיבוב קל מצד לצד (ריקוד)
+                    const maxAngle = Math.PI / 8; // זווית מקסימלית (22.5 מעלות)
+                    const rotationSpeed = 0.15;
+
+                    bear.rotationAngle += rotationSpeed * bear.rotationDirection;
+                    
+                    // החלפת כיוון כשהגענו לגבול
+                    if (bear.rotationAngle > maxAngle) {
+                        bear.rotationDirection = -1;
+                    } else if (bear.rotationAngle < -maxAngle) {
+                        bear.rotationDirection = 1;
+                    }
+                } 
+                else if (bear.bearAction === 'confused_spin') {
+                    // סיבוב רציף (בלבול)
+                    bear.rotationAngle += 0.2; 
+                }
+            } 
+            
+            drawGame();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // --- Input Handling (Keyboard and Touch) ---
+
+        document.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+        });
+
+        document.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+        });
+
+        // Touch/Click handling on the canvas for mobile input
+        canvas.addEventListener('click', (e) => {
+            if (isProcessing) return;
+
+            const rect = canvas.getBoundingClientRect();
+            // חישוב מיקום הלחיצה יחסית לקנבס
+            const clickX = (e.clientX - rect.left) * (canvas.width / rect.width);
+            const clickY = (e.clientY - rect.top) * (canvas.height / rect.height);
+
+            items.forEach(item => {
+                const dx = clickX - item.x;
+                const dy = clickY - item.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                // אם המשתמש לחץ קרוב לפריט
+                if (distance < item.size * 3) { // הגדלת שטח הלחיצה לנוחות
+                    // הזזת הדוב אל הפריט ובחירה אוטומטית (עובר דרך checkCollisions)
+                    bear.x = item.x;
+                    bear.y = item.y; 
+                    // הפעלת בדיקת ההתנגשות מיד
+                    checkCollisions();
+                }
+            });
+        });
+
+        // --- Firebase and Game Stage Functions (Adapted) ---
 
         /**
          * מעבר בין שלבי המשחק
          * @param {string} stage - 'main' או 'shop'
          */
         function setStage(stage) {
+            currentStage = stage;
+            bear.emoji = "🐻"; // איפוס אימוג'י הדוב
+            bear.rotationActive = false; // איפוס סיבוב
+            bear.rotationAngle = 0; // איפוס זווית
+
+            // מיקום ברירת המחדל - מרכז
+            bear.x = canvas.width / 2;
+            bear.y = canvas.height / 2; 
+
             if (stage === 'shop') {
-                mainChoiceContainer.classList.add('hidden');
-                fishShopContainer.classList.remove('hidden');
+                items = shopItems;
                 messageDisplay.textContent = "ברוך הבא לחנות הדגים! בחר דג (הנקודות ירדו מהניקוד הכללי).";
-                bearEmoji.textContent = "💰"; // אימוג'י חנות או כסף
-                // *FIX: enabling buttons after successful stage transition*
-                toggleButtons(true); 
+                bear.emoji = "🐻"; 
+                // ** הדוב מתחיל למעלה בחנות הדגים **
+                bear.y = bear.size * 2; 
             } else { // 'main'
-                fishShopContainer.classList.add('hidden');
-                mainChoiceContainer.classList.remove('hidden');
+                items = mainItems;
                 messageDisplay.textContent = "הדוב הרעב מחכה לבחירה שלך...";
-                bearEmoji.textContent = "🐻";
-                // *FIX: enabling buttons after successful stage transition*
-                toggleButtons(true);
+                bear.emoji = "🐻";
+                // נשאר במיקום ברירת המחדל במרכז
             }
+            
+            toggleResetButton(true);
+            drawGame(); 
         }
 
         /**
@@ -174,32 +348,24 @@
          * @param {number} change - השינוי בניקוד (+/-)
          * @param {string} msg - ההודעה החדשה
          * @param {string} emoji - האימוג'י החדש
-         * @param {string} nextStage - השלב הבא ('main' או 'shop' או 'none')
+         * @param {string} nextStage - השלב הבא ('main' או 'shop')
+         * @param {string} [bearAction=null] - פעולת אנימציה לדוב
          */
-        async function updateScoreInFirestore(change, msg, emoji, nextStage) {
+        async function updateScoreInFirestore(change, msg, emoji, nextStage, bearAction = null) {
             if (!db || !userId || isProcessing) {
-                console.error("Firebase is not initialized or processing another request.");
                 return false;
             }
             
             isProcessing = true;
-            toggleButtons(false);
-
+            
             const scoreRef = doc(db, SCORE_REF_PATH(userId));
             let success = false;
 
             try {
                 await runTransaction(db, async (transaction) => {
                     const docSnapshot = await transaction.get(scoreRef);
-                    let newScore;
+                    let newScore = docSnapshot.exists() && docSnapshot.data().score !== undefined ? docSnapshot.data().score + change : INITIAL_SCORE + change;
 
-                    if (!docSnapshot.exists() || docSnapshot.data().score === undefined) {
-                        newScore = INITIAL_SCORE + change;
-                    } else {
-                        newScore = docSnapshot.data().score + change;
-                    }
-
-                    // בדיקה האם יש מספיק נקודות לקנייה
                     if (change < 0 && newScore < 0) {
                          throw new Error("אין מספיק נקודות לביצוע פעולה זו!");
                     }
@@ -208,72 +374,78 @@
 
                     transaction.set(scoreRef, { score: newScore, updated: new Date().toISOString() });
                     
-                    // עדכון מיידי של התצוגה לפני שה-onSnapshot מגיב
                     currentScore = newScore;
                     scoreDisplay.textContent = `ניקוד: ${currentScore}`;
                     messageDisplay.textContent = msg;
-                    bearEmoji.textContent = emoji;
+                    bear.emoji = emoji; // עדכון אימוג'י הדוב בקנבס
                     success = true;
                 });
             } catch (e) {
                 console.error("Transaction failed: ", e);
                 messageDisplay.textContent = `שגיאה: ${e.message.includes('points') ? e.message : 'שגיאה בעדכון הניקוד'}`;
+                bear.emoji = "❌";
             } finally {
                 if (success) {
-                    await delay(2000); // הצגת התוצאה למשך 2 שניות
+                    // *** הוספת לוגיקה לסיבוב הדוב ***
+                    if (bearAction === 'happy_spin' || bearAction === 'confused_spin') {
+                         bear.bearAction = bearAction;
+                         bear.rotationActive = true;
+                         bear.rotationDirection = 1; 
+                         
+                         // עצירת הסיבוב אחרי 3 שניות
+                         setTimeout(() => { 
+                             bear.rotationActive = false; 
+                             bear.bearAction = null; 
+                             bear.rotationAngle = 0; // איפוס זווית
+                         }, 3000); 
+                    }
+                    // *** סוף לוגיקת הסיבוב ***
+
+                    await delay(2000); 
                 }
                 isProcessing = false;
                 
-                // המעבר לשלב יטפל עכשיו גם בהפעלת הכפתורים
-                if (success && nextStage === 'shop') {
-                    setStage('shop');
-                } else {
-                    setStage('main');
-                }
+                // אם הייתה שגיאת מחסור בניקוד בחנות, נשארים בחנות. אחרת עוברים לשלב הבא.
+                const finalNextStage = success ? nextStage : (e.message.includes('points') && currentStage === 'shop' ? 'shop' : 'main');
+                setStage(finalNextStage);
             }
             return success;
         }
 
         /**
-         * פונקציה המטפלת בבחירת האוכל הראשית
-         * @param {Event} event - אירוע הלחיצה
+         * פונקציה המטפלת בבחירת האוכל הראשית (מופעלת דרך checkCollisions)
+         * @param {string} choice - שם הבחירה ('fish', 'banana', 'honey')
          */
-        function handleChoice(event) {
-            const choice = event.currentTarget.dataset.choice;
+        function handleChoice(choice) {
             const outcome = outcomes[choice];
 
             if (outcome) {
-                // אם נבחר דג, ה-nextStage יהיה 'shop'
                 const nextStage = choice === 'fish' ? 'shop' : 'main'; 
-                updateScoreInFirestore(outcome.scoreChange, outcome.message, outcome.emoji, nextStage);
+                // אין פעולת אנימציה מיוחדת לשלב זה, לכן מעבירים null
+                updateScoreInFirestore(outcome.scoreChange, outcome.message, outcome.emoji, nextStage, null); 
             }
         }
         
         /**
-         * פונקציה המטפלת בקניית הדג בחנות
-         * @param {Event} event - אירוע הלחיצה
+         * פונקציה המטפלת בקניית הדג בחנות (מופעלת דרך checkCollisions)
+         * @param {string} size - גודל הדג הנבחר ('small', 'medium', 'large')
          */
-        function handlePurchase(event) {
-            const size = event.currentTarget.dataset.size;
+        function handlePurchase(size) {
             const outcome = fishShopOutcomes[size];
             
             if (outcome) {
-                const change = -outcome.cost; // עלות הקנייה היא הפחתה
+                const change = -outcome.cost; 
                 
-                // בדיקה מקדימה כדי למנוע טרנזקציה אם הניקוד נמוך מדי
+                // בדיקה מקדימה כדי לתת פידבק מהיר לפני הטרנזקציה
                 if (currentScore + change < 0) {
                      messageDisplay.textContent = "אין לך מספיק נקודות לקניית דג זה!";
-                     bearEmoji.textContent = "😔";
-                     // *FIX: need to re-enable buttons and stay in shop*
-                     toggleButtons(true);
-                     delay(2000).then(() => {
-                        messageDisplay.textContent = "ברוך הבא לחנות הדגים! בחר דג (הנקודות ירדו מהניקוד הכללי).";
-                        bearEmoji.textContent = "💰";
-                     });
+                     bear.emoji = "😔";
+                     delay(2000).then(() => setStage('shop')); // נשארים בחנות
                      return;
                 }
                 
-                updateScoreInFirestore(change, outcome.message, outcome.emoji, 'main');
+                // מעבירים את bearAction עבור הסיבוב
+                updateScoreInFirestore(change, outcome.message, outcome.emoji, 'main', outcome.bearAction);
             }
         }
 
@@ -290,36 +462,32 @@
             
             const scoreRef = doc(db, SCORE_REF_PATH(userId));
             try {
-                toggleButtons(false);
+                toggleResetButton(false);
                 messageDisplay.textContent = "מאפס ניקוד...";
                 await setDoc(scoreRef, { score: INITIAL_SCORE, updated: new Date().toISOString() });
                 messageDisplay.textContent = "הניקוד אופס ל-50. התחל מחדש! 😊";
-                bearEmoji.textContent = "🐻";
+                bear.emoji = "🐻";
             } catch (e) {
                 console.error("Error resetting score:", e);
                 messageDisplay.textContent = `שגיאה באיפוס: ${e.message}`;
             } finally {
-                setStage('main'); // חוזרים לשלב הראשי וגם מפעילים כפתורים
+                setStage('main'); 
+                toggleResetButton(true);
             }
         }
 
         /**
-         * נטרול/הפעלת כפתורי הבחירה
+         * נטרול/הפעלת כפתור האיפוס בלבד
          * @param {boolean} enable - האם להפעיל (true) או לנטרל (false)
          */
-        function toggleButtons(enable) {
-            document.querySelectorAll('.choice-button').forEach(button => {
-                button.disabled = !enable;
-                button.classList.toggle('opacity-50', !enable);
-                button.classList.toggle('cursor-not-allowed', !enable);
-            });
+        function toggleResetButton(enable) {
             resetButton.disabled = !enable;
             resetButton.classList.toggle('opacity-50', !enable);
+            resetButton.classList.toggle('cursor-not-allowed', !enable);
         }
         
         /**
          * יצירת והצגת תיבת אישור מותאמת אישית במקום alert()/confirm()
-         * (השימוש נשאר רק עבור איפוס הניקוד)
          */
         function showConfirmation(message) {
             return new Promise(resolve => {
@@ -387,19 +555,9 @@
                         statusMessage.textContent = "מחובר. טוען ניקוד...";
                         
                         listenToScoreUpdates(userId);
-
-                        // צירוף מטפלים לשלב 1
-                        document.querySelectorAll('#choiceButtons button').forEach(button => {
-                            button.addEventListener('click', handleChoice);
-                        });
-                        // צירוף מטפלים לשלב 2 (חנות)
-                        document.querySelectorAll('#shopChoiceButtons button').forEach(button => {
-                            button.addEventListener('click', handlePurchase);
-                        });
-                        
                         resetButton.addEventListener('click', resetScore);
 
-                        setStage('main'); // מתחילים בשלב הראשי ומפעילים כפתורים
+                        setStage('main'); 
                     } else {
                         userIdDisplay.textContent = "לא מחובר";
                         statusMessage.textContent = "שגיאה: לא ניתן להתחבר למערכת.";
@@ -435,9 +593,11 @@
             });
         }
 
-        // התחלת המשחק
-        toggleButtons(false); 
-        initializeGame();
+        // התחלת המשחק (שימוש ב-window.onload כדי לוודא שכל ה-DOM נטען)
+        window.onload = function () {
+            initializeGame();
+            requestAnimationFrame(gameLoop); // התחלת לולאת המשחק
+        }
 
     </script>
 </body>

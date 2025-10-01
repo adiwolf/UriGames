@@ -1,0 +1,1506 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>הבלגן האולימפי - קווסט האלים</title>
+    <!-- טעינת Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        /* הגדרות כלליות וגופן */
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #1e3a8a 0%, #064e3b 100%); /* רקע אולימפוס */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 1rem;
+        }
+        .game-container {
+            max-width: 600px;
+            width: 100%;
+            background-color: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.1);
+            padding: 2rem;
+            text-align: center;
+            direction: rtl;
+        }
+        .quest-title {
+            color: #b91c1c; 
+            font-size: 1.875rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+        }
+        .quest-description {
+            color: #1f2937;
+            margin-bottom: 1.5rem;
+            line-height: 1.6;
+        }
+        /* סגנון כפתורי פעולה */
+        .action-btn {
+            background-color: #059669;
+            color: white;
+            border-radius: 9999px;
+            padding: 0.75rem 2rem;
+            font-size: 1.125rem;
+            transition: all 0.2s;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        .action-btn:hover {
+            background-color: #047857;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
+        }
+        /* סגנון קנבס */
+        #gameCanvas {
+            border: 4px solid #1f2937;
+            background-color: #e5e7eb;
+            touch-action: none; /* למניעת גלילה במסך מגע */
+        }
+        /* סגנון כפתורי שליטה במגע (למובייל) */
+        .touch-controls button {
+            background-color: #3b82f6;
+            color: white;
+            padding: 0.75rem;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            font-size: 1.5rem;
+            transition: background-color 0.1s;
+        }
+        .touch-controls button:active {
+            background-color: #1d4ed8;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-app" class="game-container">
+        <!-- תוכן המשחק ייטען לכאן -->
+    </div>
+
+    <script>
+        // --- מנגנון גלובלי לטיפול בשגיאות קריטיות ---
+        window.addEventListener('error', function(e) {
+            const appElement = document.getElementById('game-app');
+            if (appElement) {
+                // הצגת הודעת שגיאה ויזואלית על המסך
+                appElement.innerHTML = `
+                    <div style="color: #991b1b; padding: 20px; text-align: center; background-color: #fee2e2; border: 2px solid #ef4444; border-radius: 8px;">
+                        <h1 style="font-size: 24px; font-weight: bold;">שגיאת טעינה קריטית! 🚨</h1>
+                        <p>המשחק נכשל בטעינה. אנא דווח על השגיאה הבאה:</p>
+                        <p style="font-family: monospace; background: #fecaca; padding: 10px; border-radius: 4px; margin-top: 10px; overflow-wrap: break-word; color: #7f1d1d;">
+                            ${e.message}
+                        </p>
+                        <p style="margin-top: 10px;">בדוק את קונסולת המפתחים (F12) לפרטים נוספים.</p>
+                    </div>
+                `;
+            }
+            // מונע את הטיפול המובנה של הדפדפן בשגיאה
+            e.preventDefault(); 
+        });
+
+        // הגדרות בסיסיות
+        const app = document.getElementById('game-app');
+        let gameState = {
+            currentQuest: 0,
+            score: 0,
+            inProgress: false,
+        };
+
+        // --- משתני קנבס גלובליים ---
+        let canvas = null, ctx = null; // אתחול כ-null למניעת שגיאות מוקדמות
+        let canvasState = {}; // מצב המשחק הנוכחי
+        let keys = {}; // מעקב אחר מקשים לחוצים
+        let gameLoopId = null; // מזהה לולאת המשחק
+
+        // --- הגדרות קווסטים ---
+        const quests = [
+            {
+                id: 1,
+                name: "זאוס: מרוץ הברקים",
+                god: "זאוס",
+                icon: "⚡🏃",
+                description: "זאוס, תוך כדי ניסיון לשפר את יכולותיו ברשתות חברתיות, התעצבן מטרול ושלח סטורם זעם דיגיטלי. הברקים יצאו משליטה! עליך לנווט במהירות בין הברקים הפראיים כדי לנקז את האנרגיה העודפת ולייצב את שמי האולימפוס לפני שהכול יישרף. קושי גבוה! עליך להתחמק מ-15 ברקים! מותרות רק 2 פגיעות. קצב הברקים גדל במהירות.",
+                type: "canvas_game",
+                gameName: "zeus_dodge",
+                target: 15 
+            },
+            {
+                id: 2,
+                name: "האדס: איסוף נשמות על סירת סטיקס",
+                god: "האדס",
+                icon: "👻🛶",
+                description: "האדס ערך טורניר פוקר לילי והפסיד בהתערבות את סדר מיון הנשמות. כתוצאה מכך, גיבורים אגדיים (שצריכים ללכת לשדות אליסיום) נכנסים בטעות למסלול של הנשמות הרעות (הגולגלות האדומות). עליך לשלוט בסירה ולהחזיר את נשמות הגיבורים (עיגולים ירוקים) למסלול הנכון, תוך הימנעות מהגולגלות הזועמות! קושי גבוה! אסוף 8 נשמות טובות. הסיכוי להיתקל בגולגלות רעות הוא 50/50. האובייקטים נעים מהר יותר.",
+                type: "canvas_game",
+                gameName: "hades_collect",
+                target: 8 
+            },
+            {
+                id: 3,
+                name: "ארטמיס: אתגר ירי החצים",
+                god: "ארטמיס",
+                icon: "🏹🎯",
+                description: "ארטמיס ערכה תחרות קליעה כושלת עם אפולו והשתמשה ביהלומי כוח כמטרות נעות. כמובן שהם פספסו הכל והיהלומים התפזרו בשדה מטאורים מסוכן. עליך לנוע במהירות כדי לאסוף את כל 12 היהלומים לפני שהם מאבדים את האנרגיה שלהם, או שאפולו יכריז על ניצחון מטופש! קושי גבוה! אסוף 12 יהלומים נוצצים בתוך 15 שניות בלבד. הדמות מעט קטנה יותר.",
+                type: "canvas_game",
+                gameName: "artemis_fetch",
+                target: 12 
+            },
+             {
+                id: 4,
+                name: "הרמס: בריחה מרשת הלייזר",
+                god: "הרמס",
+                icon: "🚀⚡",
+                description: "הרמס גנב מכונה לבניית שבילים מיידיים מהפיסטוס והפעיל אותה בטעות על מצב 'אבטחה עוינת'. המכונה מזהה אותך כפולש ומפעילה גדרות לייזר אנרגטיות יורדות! **הרמס הפעיל בך קמע מהירות קבוע, כך שאתה מהיר במיוחד לאורך כל המשימה! כל גדר לייזר מכילה שני פערים שדרכם ניתן לעבור.** עליך לנווט במהירות דרך הפערים הצפופים ולהתחמק מ-15 גדרות לייזר כדי להשבית את המכונה. מותרות רק 3 פגיעות! קצב הגדרות הלייזר גדל במהירות.",
+                type: "canvas_game",
+                gameName: "hermes_avoidance",
+                target: 15 
+            },
+            {
+                id: 5,
+                name: "אפרודיטה: ניקוי הבלגן הרומנטי",
+                god: "אפרודיטה",
+                icon: "💖🌹",
+                description: "אפרודיטה ניסתה להכין שיקוי אהבה רב עוצמה, אבל נרדמה והחומרים התפזרו ברוח. עליך לנווט במהירות ולאסוף 15 מרכיבים: 8 לבבות ו-7 פרחים. אתה יכול לאסוף רק סוג אחד בכל פעם, והחלפה בין סוגי האיסוף (מקש רווח) לוקחת שנייה יקרה! סיים ב-20 שניות. קושי: גבוה מאוד.",
+                type: "canvas_game",
+                gameName: "aphrodite_clean",
+                target: 15 
+            },
+            {
+                id: 6,
+                name: "פוסידון: נחשולי האצות הזועמים",
+                god: "פוסידון",
+                icon: "🌊🔱",
+                description: "פוסידון רב עם דייג על טעם כריך טונה, ושלח צונאמי של אצות שסותם את כל נתיבי הים. עליך לנווט אנכית (למעלה/למטה) במעבר ימי צר כדי להימנע מ-20 גושים של אצות וסלעים שבאים במהירות לרוחב! זהירות: אתה זז רק למעלה ולמטה!",
+                type: "canvas_game",
+                gameName: "poseidon_dodge",
+                target: 20 
+            },
+             {
+                id: 7,
+                name: "דיוניסוס: מרתון הברמנים הקוסמי",
+                god: "דיוניסוס",
+                icon: "🍷⚔️",
+                description: "דיוניסוס נטש את היין המסורתי והמציא קוקטייל 'מוחיטו-יווני'. עליך לבשל 3 קוקטיילים ב-25 שניות! אסוף את שלושת המרכיבים (🍇, ☁️, ⚡) וגש למיכל הערבוב (המלבן המרכזי). **חובה לעמוד במיכל למשך 2 שניות** כדי לסיים את הערבוב. **זהירות: האל ארס כועס על השטות ותוקף אותך עם חרבות!** פגיעה מחרב מאפסת את המלאי שלך ומבטלת את הערבוב.",
+                type: "canvas_game",
+                gameName: "dionysus_cocktail",
+                target: 3 
+            }
+        ];
+
+        // --- פונקציות עזר כלליות ---
+
+        function renderScreen(htmlContent) {
+            // ביטול לולאת משחק קודמת לפני רינדור מסך חדש
+            if (gameLoopId) {
+                cancelAnimationFrame(gameLoopId);
+                gameLoopId = null;
+            }
+            // הסרת מאזינים קודמים למקשים
+            document.removeEventListener('keydown', handleKeyDown);
+            document.removeEventListener('keyup', handleKeyUp);
+            
+            app.innerHTML = htmlContent;
+        }
+
+        function createActionButton(text, onClick) {
+            return `
+                <button onclick="${onClick}"
+                    class="action-btn mt-6 w-full md:w-auto shadow-lg hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-green-300">
+                    ${text}
+                </button>
+            `;
+        }
+
+        // --- לוגיקת משחק מרכזית ---
+
+        function renderIntro() {
+            gameState.inProgress = false;
+            const content = `
+                <div class="space-y-6">
+                    <h1 class="text-4xl font-bold text-gray-800">ברוכים הבאים ל<span class="text-red-600">הבלגן האולימפי</span></h1>
+                    <p class="text-lg text-gray-600">
+                        אלי האולימפוס יצרו שיבושים. עליך לשלוט בגיבור באמצעות **מיני-משחקים דינמיים** כדי לתקן את הנזק!
+                    </p>
+                    <div class="text-xl font-semibold text-blue-700">
+                        מטרתך: השלם את כל ${quests.length} הקווסטים המאתגרים!
+                    </div>
+                    ${createActionButton("התחל מסע", "startQuest()")}
+                </div>
+            `;
+            renderScreen(content);
+        }
+
+        function startQuest() {
+            gameState.currentQuest = 1;
+            gameState.score = 0;
+            gameState.inProgress = true;
+            renderQuest();
+        }
+
+        function renderCompletionScreen() {
+            const content = `
+                <div class="space-y-6">
+                    <h1 class="text-5xl font-extrabold text-green-600">🎉 כל הכבוד! הקווסט הושלם! 🎉</h1>
+                    <p class="text-2xl text-gray-700">
+                        הצלחת לתקן את כל ${quests.length} השיבושים הקוסמיים!
+                    </p>
+                    <div class="text-2xl text-red-600 font-bold">
+                        ניקוד סופי: ${gameState.score}
+                    </div>
+                    ${createActionButton("שחק שוב", "renderIntro()")}
+                </div>
+            `;
+            renderScreen(content);
+        }
+
+        function handleQuestResult(isCorrect, message, points = 100) {
+            // עצירת לולאת המשחק הספציפית
+            if (gameLoopId) {
+                cancelAnimationFrame(gameLoopId);
+                gameLoopId = null;
+            }
+            document.removeEventListener('keydown', handleKeyDown);
+            document.removeEventListener('keyup', handleKeyUp);
+            
+            let resultHtml;
+            if (isCorrect) {
+                gameState.score += points;
+                resultHtml = `
+                    <div class="p-4 bg-green-100 border-r-4 border-green-500 text-green-800 mt-6 rounded-lg">
+                        <p class="font-bold">✨ הצלחה!</p>
+                        <p>${message}</p>
+                    </div>
+                    ${createActionButton("המשך לקווסט הבא", "nextQuest()")}
+                `;
+            } else {
+                resultHtml = `
+                    <div class="p-4 bg-red-100 border-r-4 border-red-500 text-red-800 mt-6 rounded-lg">
+                        <p class="font-bold">❌ כישלון...</p>
+                        <p>${message}</p>
+                    </div>
+                    ${createActionButton("נסה שוב", "resetCurrentQuest()")}
+                `;
+            }
+            // עדכון אזור התוצאה
+            const questArea = app.querySelector('#quest-area');
+            if (questArea) {
+                questArea.innerHTML = resultHtml;
+            } else {
+                 app.querySelector('.game-container').innerHTML += resultHtml;
+            }
+        }
+
+        function nextQuest() {
+            gameState.currentQuest++;
+            renderQuest();
+        }
+
+        function resetCurrentQuest() {
+            renderQuest(); // פשוט רינדור מחדש של הקווסט יאתחל את הכל
+        }
+
+        function renderQuest() {
+            if (gameState.currentQuest > quests.length) {
+                renderCompletionScreen();
+                return;
+            }
+
+            const quest = quests[gameState.currentQuest - 1];
+            let questHtml = '';
+
+            // כותרת כללית
+            const header = `
+                <div class="text-right mb-4 text-sm font-medium text-gray-500">
+                    קווסט ${quest.id} מתוך ${quests.length}
+                </div>
+                <h2 class="quest-title flex items-center justify-center gap-3">
+                    <span class="text-3xl">${quest.icon}</span> ${quest.name}
+                </h2>
+                <p class="quest-description text-gray-700">${quest.description}</p>
+                <div class="h-0.5 bg-gray-200 w-full mb-6"></div>
+            `;
+
+            if (quest.type === 'canvas_game') {
+                questHtml = renderCanvasGame(quest);
+                renderScreen(header + questHtml);
+                setupGame(quest.gameName); // רק מכין את הקנבס, לא מתחיל את הלולאה
+            }
+        }
+
+        // --- לוגיקת מיני-משחקי קנבס ---
+
+        function renderCanvasGame(quest) {
+            return `
+                <div class="flex flex-col items-center space-y-4">
+                    <canvas id="gameCanvas" width="350" height="350" 
+                        class="border-4 border-gray-900 bg-gray-100 rounded-lg shadow-inner w-full max-w-sm"></canvas>
+                    <div id="game-info" class="text-lg font-bold text-red-600">לחץ 'התחל קווסט' כדי להתחיל!</div>
+                    <div id="quest-area">
+                        <button onclick="startGameLogic('${quest.gameName}')" id="start-game-btn"
+                            class="action-btn w-64 h-14 text-xl bg-blue-700 hover:bg-blue-800 focus:ring-blue-300 transition duration-150 transform hover:scale-105">
+                            התחל קווסט
+                        </button>
+                        <p class="text-sm text-gray-500 mt-4">השתמש במקשי החצים (← ↑ → ↓) כדי לשלוט בדמות. קליק על המקשים למטה עבור מובייל. (מקש רווח לקווסט של אפרודיטה).</p>
+                        <!-- כפתורי שליטה למסכי מגע -->
+                        <div class="touch-controls flex justify-center mt-4 space-x-4 md:hidden">
+                            <button onmousedown="handleTouchMove(0)" ontouchstart="handleTouchMove(0)" ontouchend="handleTouchStop()">←</button>
+                            <div class="flex flex-col space-y-2">
+                                <button onmousedown="handleTouchMove(1)" ontouchstart="handleTouchMove(1)" ontouchend="handleTouchStop()">↑</button>
+                                <button onmousedown="handleTouchMove(3)" ontouchstart="handleTouchMove(3)" ontouchend="handleTouchStop()">↓</button>
+                            </div>
+                            <button onmousedown="handleTouchMove(2)" ontouchstart="handleTouchMove(2)" ontouchend="handleTouchStop()">→</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // פונקציות שליטה למסך מגע
+        function handleTouchMove(direction) {
+            // 0: שמאל, 1: למעלה, 2: ימין, 3: למטה
+            keys = { ArrowLeft: false, ArrowUp: false, ArrowRight: false, ArrowDown: false };
+            if (direction === 0) keys.ArrowLeft = true;
+            if (direction === 1) keys.ArrowUp = true;
+            if (direction === 2) keys.ArrowRight = true;
+            if (direction === 3) keys.ArrowDown = true;
+        }
+
+        function handleTouchStop() {
+            keys = {};
+        }
+
+        function setupGame(gameName) {
+            canvas = document.getElementById('gameCanvas');
+            // בדיקה קריטית: האם הקנבס נמצא?
+            if (!canvas) return; 
+            
+            ctx = canvas.getContext('2d');
+            
+            // איפוס מצב מקשים
+            keys = {};
+
+            // הסרת והוספת מאזינים
+            document.removeEventListener('keydown', handleKeyDown);
+            document.removeEventListener('keyup', handleKeyUp);
+            document.addEventListener('keydown', handleKeyDown);
+            document.addEventListener('keyup', handleKeyUp);
+            
+            // אתחול המשחק הספציפי
+            switch (gameName) {
+                case 'zeus_dodge':
+                    initZeusDodge();
+                    break;
+                case 'hades_collect':
+                    initHadesCollect();
+                    break;
+                case 'artemis_fetch':
+                    initArtemisFetch();
+                    break;
+                case 'hermes_avoidance': // קווסט 4 החדש
+                    initHermesAvoidance();
+                    break;
+                case 'aphrodite_clean':
+                    initAphroditeClean();
+                    break;
+                case 'poseidon_dodge':
+                    initPoseidonDodge();
+                    break;
+                case 'dionysus_cocktail':
+                    initDionysusCocktail();
+                    break;
+            }
+            
+            // ציור ראשוני של המסך לפני ההתחלה, רק אם פונקציית ציור קיימת
+            if (canvasState.draw) canvasState.draw();
+        }
+
+        function startGameLogic(gameName) {
+            // מכניס את הלוגיקה של התחלת המשחק (שליטה בכפתור)
+            const btn = document.getElementById('start-game-btn');
+            const info = document.getElementById('game-info');
+            
+            if (btn) btn.style.display = 'none';
+            if (info) info.textContent = 'המשחק בעיצומו!';
+
+            // הגדרת isRunning ל-true והתחלת הלולאה
+            canvasState.isRunning = true;
+            if (gameLoopId) cancelAnimationFrame(gameLoopId);
+            gameLoopId = requestAnimationFrame(gameLoop);
+        }
+
+        function handleKeyDown(e) {
+            // מניעת גלילת העמוד בעת שימוש בחצים
+            if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                e.preventDefault();
+            }
+            keys[e.key] = true;
+        }
+
+        function handleKeyUp(e) {
+            keys[e.key] = false;
+        }
+
+        // --- לולאת המשחק הראשית ---
+        function gameLoop() {
+            if (canvasState.isRunning) {
+                // עדכון ולוגיקת משחק
+                canvasState.update(performance.now()); // מעביר timestamp
+                // ציור
+                canvasState.draw();
+                // המשך הלולאה
+                gameLoopId = requestAnimationFrame(gameLoop);
+            } else {
+                // המשחק הסתיים (נצחון או הפסד)
+                cancelAnimationFrame(gameLoopId);
+                gameLoopId = null;
+            }
+        }
+
+        // --- עזר: בדיקת התנגשות ריבוע-ריבוע ---
+        function checkCollision(r1, r2) {
+            // בדיקת התנגשות מלבנים סטנדרטית
+            return r1.x < r2.x + r2.w &&
+                   r1.x + r1.w > r2.x &&
+                   r1.y < r2.y + r2.h &&
+                   r1.y + r1.h > r2.y;
+        }
+
+        // --- ציור דמות (משותף לזאוס, ארטמיס, אפרודיטה, פוסידון, הרמס, דיוניסוס) ---
+        function drawPlayerFigure(player, isBoosted = false) {
+            if (!ctx) return; // הגנה
+            const centerX = player.x + player.w / 2;
+            
+            // קביעת צבע הדמות בהתאם למצב החיזוק
+            let bodyColor = isBoosted ? '#FFFFFF' : player.color;
+            let headColor = isBoosted ? '#FFEA00' : '#FFD700';
+            
+            // 1. גוף (מלבן שמייצג טוניקה/שריון)
+            ctx.fillStyle = bodyColor; 
+            ctx.fillRect(player.x + 5, player.y + 10, player.w - 10, player.h - 15);
+
+            // 2. ראש (קסדה מוזהבת)
+            ctx.beginPath();
+            ctx.arc(centerX, player.y + 7, 7, 0, Math.PI * 2);
+            ctx.fillStyle = headColor;
+            
+            // אפקט זוהר כשהוא מחוזק (לצורך Hermes)
+            ctx.shadowColor = isBoosted ? '#FFFFFF' : '#FFD700';
+            ctx.shadowBlur = isBoosted ? 15 : 8;
+            
+            ctx.fill();
+            ctx.closePath();
+            ctx.shadowBlur = 0; // איפוס צל
+
+            // 3. רגליים (קווים פשוטים)
+            ctx.strokeStyle = '#333333';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(centerX - 5, player.y + player.h - 5);
+            ctx.lineTo(centerX - 5, player.y + player.h);
+            ctx.moveTo(centerX + 5, player.y + player.h - 5);
+            ctx.lineTo(centerX + 5, player.y + player.h);
+            ctx.stroke();
+        }
+
+        // --- קווסט 1: זאוס - מרוץ הברקים ---
+        function initZeusDodge() {
+            const quest = quests[0];
+            canvasState = {
+                isRunning: false,
+                player: { x: canvas.width / 2 - 15, y: canvas.height - 40, w: 30, h: 30, color: '#007bff', speed: 4 }, 
+                lightning: [],
+                strikesDodged: 0,
+                hits: 0,
+                maxHits: 2, 
+                lastSpawn: 0,
+                spawnRate: 500, 
+                update: updateZeusDodge,
+                draw: drawZeusDodge,
+            };
+        }
+
+        function updateZeusDodge(timestamp) {
+            const quest = quests[gameState.currentQuest - 1];
+            const player = canvasState.player;
+
+            // תנועת שחקן
+            if (keys['ArrowLeft'] && player.x > 0) player.x -= player.speed;
+            if (keys['ArrowRight'] && player.x < canvas.width - player.w) player.x += player.speed;
+            if (keys['ArrowUp'] && player.y > 0) player.y -= player.speed;
+            if (keys['ArrowDown'] && player.y < canvas.height - player.h) player.y += player.speed;
+
+            // יצירת ברקים
+            if (timestamp - canvasState.lastSpawn > canvasState.spawnRate) {
+                canvasState.lightning.push({
+                    x: Math.random() * (canvas.width - 20) + 10, 
+                    y: -10,
+                    w: 8, 
+                    h: 35,
+                    speed: 4 + Math.random() * 2.5, 
+                    color: '#FFEA00' 
+                });
+                canvasState.lastSpawn = timestamp;
+                canvasState.spawnRate = Math.max(150, canvasState.spawnRate - 15); 
+            }
+
+            // עדכון מיקום ברקים ובדיקת התנגשות
+            for (let i = canvasState.lightning.length - 1; i >= 0; i--) {
+                const bolt = canvasState.lightning[i];
+                bolt.y += bolt.speed;
+
+                if (checkCollision(player, bolt)) {
+                    // פגיעה
+                    canvasState.hits++;
+                    canvasState.lightning.splice(i, 1);
+                    if (canvasState.hits >= canvasState.maxHits) {
+                        canvasState.isRunning = false;
+                        handleQuestResult(false, `חטפת ${canvasState.hits} פגיעות! זאוס ממלמל משהו על 'משחק הוגן'. נסה שוב.`);
+                        return;
+                    }
+                } else if (bolt.y > canvas.height) {
+                    // ברק יצא מהמסך
+                    canvasState.strikesDodged++;
+                    canvasState.lightning.splice(i, 1);
+                    if (canvasState.strikesDodged >= quest.target) {
+                        canvasState.isRunning = false;
+                        handleQuestResult(true, `התחמקת מ-15 ברקים! זאוס חזר לשלוט במזג האוויר. ניקוד: 200`, 200);
+                    }
+                }
+            }
+        }
+
+        function drawZeusDodge() {
+            if (!ctx) return;
+            const quest = quests[gameState.currentQuest - 1];
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // ציור ברקים
+            canvasState.lightning.forEach(bolt => {
+                ctx.fillStyle = bolt.color;
+                ctx.fillRect(bolt.x, bolt.y, bolt.w, bolt.h);
+            });
+
+            // ציור שחקן (דמות)
+            drawPlayerFigure(canvasState.player);
+
+            // עדכון מידע
+            const info = document.getElementById('game-info');
+            if (canvasState.isRunning && info) {
+                info.innerHTML = `התחמקות: ${canvasState.strikesDodged} / ${quest.target} | פגיעות: <span style="color: red">${canvasState.hits}</span> / ${canvasState.maxHits}`;
+            }
+        }
+
+        // --- קווסט 2: האדס - איסוף נשמות ---
+        function initHadesCollect() {
+            const quest = quests[1];
+            canvasState = {
+                isRunning: false,
+                player: { x: canvas.width / 2 - 17.5, y: canvas.height - 40, w: 35, h: 18, color: '#3b82f6', speed: 4.5 }, 
+                collectibles: [], 
+                obstacles: [], 
+                soulsCollected: 0,
+                badSoulsHit: 0,
+                maxBadSouls: 3,
+                lastSpawn: 0,
+                spawnRate: 650, 
+                update: updateHadesCollect,
+                draw: drawHadesCollect,
+            };
+        }
+
+        function updateHadesCollect(timestamp) {
+            const quest = quests[gameState.currentQuest - 1];
+            const player = canvasState.player;
+
+            // תנועת שחקן
+            if (keys['ArrowLeft'] && player.x > 0) player.x -= player.speed;
+            if (keys['ArrowRight'] && player.x < canvas.width - player.w) player.x += player.speed;
+
+            // יצירת אובייקטים
+            if (timestamp - canvasState.lastSpawn > canvasState.spawnRate) {
+                const x = Math.random() * (canvas.width - 20);
+                const isCollectible = Math.random() > 0.5; 
+                const item = { x, y: -20, r: 10, speed: 2.5 + Math.random() * 2 }; 
+
+                if (isCollectible) {
+                    canvasState.collectibles.push({ ...item, w: item.r*2, h: item.r*2, color: '#10b981' }); 
+                } else {
+                    canvasState.obstacles.push({ ...item, w: item.r*2, h: item.r*2, color: '#ef4444' }); 
+                }
+
+                canvasState.lastSpawn = timestamp;
+            }
+
+            // עדכון ואיסוף
+            for (let i = canvasState.collectibles.length - 1; i >= 0; i--) {
+                const item = canvasState.collectibles[i];
+                item.y += item.speed;
+
+                // בדיקת איסוף 
+                if (checkCollision(player, item)) {
+                    canvasState.soulsCollected++;
+                    canvasState.collectibles.splice(i, 1);
+                    if (canvasState.soulsCollected >= quest.target) {
+                        canvasState.isRunning = false;
+                        handleQuestResult(true, `אספת 8 נשמות טובות! האדס משבח את סדרנותך. ניקוד: 300`, 300);
+                        return;
+                    }
+                } else if (item.y > canvas.height) {
+                    canvasState.collectibles.splice(i, 1);
+                }
+            }
+
+            // עדכון והימנעות
+            for (let i = canvasState.obstacles.length - 1; i >= 0; i--) {
+                const item = canvasState.obstacles[i];
+                item.y += item.speed;
+
+                // בדיקת פגיעה
+                 if (checkCollision(player, item)) {
+                    canvasState.badSoulsHit++;
+                    canvasState.obstacles.splice(i, 1);
+                    if (canvasState.badSoulsHit >= canvasState.maxBadSouls) {
+                        canvasState.isRunning = false;
+                        handleQuestResult(false, `פגעת ב-3 גולגלות! סירת סטיקס נשברה. נסה שוב.`);
+                        return;
+                    }
+                } else if (item.y > canvas.height) {
+                    canvasState.obstacles.splice(i, 1);
+                }
+            }
+        }
+
+        function drawHadesCollect() {
+            if (!ctx) return;
+            const quest = quests[gameState.currentQuest - 1];
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // ציור נשמות טובות (עיגולים ירוקים)
+            canvasState.collectibles.forEach(item => {
+                ctx.beginPath();
+                ctx.arc(item.x, item.y, item.r, 0, Math.PI * 2);
+                ctx.fillStyle = item.color;
+                ctx.fill();
+                ctx.closePath();
+            });
+
+            // ציור גולגלות רעות (ריבועים אדומים)
+            canvasState.obstacles.forEach(item => {
+                ctx.fillStyle = item.color;
+                // ציור כריבוע במקום עיגול כדי לייצג גולגולת
+                ctx.fillRect(item.x - item.r, item.y - item.r, item.r * 2, item.r * 2);
+            });
+
+            // ציור שחקן (סירה) - צורה מעוצבת
+            const player = canvasState.player;
+            ctx.fillStyle = '#78350f'; // חום כהה (סירת עץ)
+            
+            // גוף הסירה (טרפז הפוך)
+            ctx.beginPath();
+            ctx.moveTo(player.x, player.y + player.h); // קצה שמאלי תחתון
+            ctx.lineTo(player.x + player.w, player.y + player.h); // קצה ימני תחתון
+            ctx.lineTo(player.x + player.w - 5, player.y); // קצה ימני עליון (חרטום)
+            ctx.lineTo(player.x + 5, player.y); // קצה שמאלי עליון (חרטום)
+            ctx.closePath();
+            ctx.fill();
+
+            // פס דקורטיבי כחול (הנהר)
+            ctx.fillStyle = '#3b82f6';
+            ctx.fillRect(player.x + 2, player.y + player.h - 5, player.w - 4, 3);
+            
+            // עדכון מידע
+            const info = document.getElementById('game-info');
+            if (canvasState.isRunning && info) {
+                info.innerHTML = `נשמות: ${canvasState.soulsCollected} / ${quest.target} | גולגלות: <span style="color: red">${canvasState.badSoulsHit}</span> / ${canvasState.maxBadSouls}`;
+            }
+        }
+
+        // --- קווסט 3: ארטמיס - אתגר ירי החצים (איסוף בזמן) ---
+        function initArtemisFetch() {
+            const quest = quests[2];
+            canvasState = {
+                isRunning: false, 
+                player: { x: canvas.width / 2 - 12, y: canvas.height / 2 - 12, w: 24, h: 24, color: '#f59e0b', speed: 4.5 }, 
+                gems: [],
+                gemsCollected: 0,
+                totalTime: 15, 
+                timeRemaining: 15,
+                lastTick: Date.now(),
+                update: updateArtemisFetch,
+                draw: drawArtemisFetch,
+            };
+
+            // יצירת 12 יהלומים
+            for(let i = 0; i < quest.target; i++) {
+                 canvasState.gems.push({
+                    x: Math.random() * (canvas.width - 30) + 15, 
+                    y: Math.random() * (canvas.height - 30) + 15, 
+                    w: 15,
+                    h: 15,
+                    color: '#ffffff', 
+                    r: 7.5
+                });
+            }
+        }
+
+        function updateArtemisFetch() {
+            const quest = quests[gameState.currentQuest - 1];
+            const player = canvasState.player;
+
+            // עדכון טיימר
+            const now = Date.now();
+            const elapsed = (now - canvasState.lastTick) / 1000;
+            canvasState.lastTick = now;
+            canvasState.timeRemaining = Math.max(0, canvasState.timeRemaining - elapsed);
+            
+            // תנועת שחקן
+            if (keys['ArrowLeft']) player.x -= player.speed;
+            if (keys['ArrowRight']) player.x += player.speed;
+            if (keys['ArrowUp']) player.y -= player.speed;
+            if (keys['ArrowDown']) player.y += player.speed;
+
+            // בדיקת גבולות (הרוחות המבלבלות - מחזיר את השחקן)
+            if (player.x < 0) player.x = 0;
+            if (player.x > canvas.width - player.w) player.x = canvas.width - player.w;
+            if (player.y < 0) player.y = 0;
+            if (player.y > canvas.height - player.h) player.y = canvas.height - player.h;
+
+
+            // בדיקת איסוף יהלומים
+            for (let i = canvasState.gems.length - 1; i >= 0; i--) {
+                const gem = canvasState.gems[i];
+                // בדיקת התנגשות (היהלומים נבדקים כריבועים לצורך collision)
+                if (checkCollision(player, {x: gem.x - gem.r, y: gem.y - gem.r, w: gem.w, h: gem.h})) {
+                    canvasState.gemsCollected++;
+                    canvasState.gems.splice(i, 1);
+                    if (canvasState.gemsCollected >= quest.target) {
+                        canvasState.isRunning = false;
+                        handleQuestResult(true, `אספת את כל 12 היהלומים בזמן! ארטמיס מרוצה מהדיוק שלך. ניקוד: 500`, 500);
+                        return;
+                    }
+                }
+            }
+
+            // בדיקת זמן
+            if (canvasState.timeRemaining <= 0) {
+                canvasState.isRunning = false;
+                handleQuestResult(false, `הזמן נגמר! לא הספקת לאסוף את כל היהלומים. נסה שוב.`);
+            }
+        }
+
+        function drawArtemisFetch() {
+            if (!ctx) return;
+            const quest = quests[gameState.currentQuest - 1];
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // ציור יהלומים (מעוינים)
+            canvasState.gems.forEach(gem => {
+                ctx.fillStyle = gem.color;
+                ctx.shadowColor = '#000000';
+                ctx.shadowBlur = 5;
+                const r = gem.r;
+                const x = gem.x;
+                const y = gem.y;
+
+
+                // ציור מעוין
+                ctx.beginPath();
+                ctx.moveTo(x, y - r); // Top point
+                ctx.lineTo(x + r, y); // Right point
+                ctx.lineTo(x, y + r); // Bottom point
+                ctx.lineTo(x - r, y); // Left point
+                ctx.closePath();
+                ctx.fill();
+                
+                ctx.shadowBlur = 0; // איפוס צל
+            });
+
+            // ציור שחקן (דמות)
+            drawPlayerFigure(canvasState.player);
+
+            // עדכון מידע
+            const info = document.getElementById('game-info');
+            if (canvasState.isRunning && info) {
+                const timeColor = canvasState.timeRemaining < 5 ? 'red' : 'green';
+                info.innerHTML = `יהלומים: ${canvasState.gemsCollected} / ${quest.target} | זמן: <span style="color: ${timeColor}">${canvasState.timeRemaining.toFixed(1)}</span> שניות`;
+            }
+        }
+
+        // --- קווסט 4: הרמס - בריחה מרשת הלייזר (Laser Grid Avoidance) ---
+        function initHermesAvoidance() {
+            const permanentFastSpeed = 9; // המהירות המהירה הקבועה
+            canvasState = {
+                isRunning: false,
+                // הדמות מתחילה במהירות הגבוהה (9)
+                player: { x: canvas.width / 2 - 15, y: canvas.height - 40, w: 30, h: 30, color: '#f59e0b', speed: permanentFastSpeed }, 
+                walls: [], // הקירות המכילים פערים (Laser Gates)
+                wallsDodged: 0,
+                hits: 0,
+                maxHits: 3, 
+                lastSpawn: 0,
+                spawnRate: 1000, 
+                update: updateHermesAvoidance,
+                draw: drawHermesAvoidance,
+            };
+        }
+
+        function updateHermesAvoidance(timestamp) {
+            const quest = quests[gameState.currentQuest - 1];
+            const player = canvasState.player;
+
+            // תנועת שחקן (המהירות היא קבועה 9)
+            if (keys['ArrowLeft'] && player.x > 0) player.x -= player.speed;
+            if (keys['ArrowRight'] && player.x < canvas.width - player.w) player.x += player.speed;
+            if (keys['ArrowUp'] && player.y > 0) player.y -= player.speed;
+            if (keys['ArrowDown'] && player.y < canvas.height - player.h) player.y += player.speed;
+
+            // יצירת קירות (עם שני פערים)
+            if (timestamp - canvasState.lastSpawn > canvasState.spawnRate) {
+                const gapWidth = 60 + Math.random() * 20; // **שינוי: רוחב הפער (60-80)**
+                const minGapDistance = 50; // מרחק מינימלי בין הפערים
+                const wallHeight = 15;
+                
+                // חישוב מיקום שני הפערים (gap1Start < gap2Start)
+                const totalSpaceNeeded = 2 * gapWidth + minGapDistance;
+                const availableStartSpace = canvas.width - totalSpaceNeeded;
+
+                // מיקום התחלה של הפער הראשון
+                let gap1Start = Math.random() * (availableStartSpace);
+
+                // מיקום התחלה של הפער השני
+                let gap2Start = gap1Start + gapWidth + minGapDistance + Math.random() * (canvas.width - (gap1Start + gapWidth + minGapDistance) - gapWidth);
+                
+                // ודא ש-gap2Start לא חורג מהקצה
+                gap2Start = Math.min(gap2Start, canvas.width - gapWidth - 5);
+
+
+                canvasState.walls.push({
+                    y: -wallHeight,
+                    gap1Start: gap1Start,
+                    gap1End: gap1Start + gapWidth,
+                    gap2Start: gap2Start,
+                    gap2End: gap2Start + gapWidth,
+                    h: wallHeight,
+                    speed: 4.5 + Math.random() * 2.5,
+                    color: '#ef4444', // אדום לייזר
+                    passed: false, // האם השחקן עבר מתחתיו (חשוב לספירה)
+                });
+                canvasState.lastSpawn = timestamp;
+                canvasState.spawnRate = Math.max(700, canvasState.spawnRate - 30); // קצב עולה
+            }
+
+            // עדכון מיקום קירות ובדיקת התנגשות
+            for (let i = canvasState.walls.length - 1; i >= 0; i--) {
+                const wall = canvasState.walls[i];
+                wall.y += wall.speed;
+
+                // בדיקת התנגשות (שחקן נתקע בקיר)
+                // בודקים אם יש חפיפה אנכית בין השחקן לקיר
+                if (player.y + player.h > wall.y && player.y < wall.y + wall.h) {
+                    
+                    let collision = false;
+                    
+                    // 1. Segment 1 (Left): 0 to gap1Start
+                    if (player.x < wall.gap1Start && player.x + player.w > 0) {
+                        collision = true;
+                    }
+                    // 2. Segment 2 (Middle): gap1End to gap2Start
+                    if (player.x < wall.gap2Start && player.x + player.w > wall.gap1End) {
+                        collision = true;
+                    }
+                    // 3. Segment 3 (Right): gap2End to canvas.width
+                    if (player.x + player.w > wall.gap2End && player.x < canvas.width) {
+                        collision = true;
+                    }
+                    
+                    if (collision) {
+                        // יש התנגשות: חוטפים פגיעה
+                        canvasState.hits++;
+                        canvasState.walls.splice(i, 1); 
+                        
+                        if (canvasState.hits >= canvasState.maxHits) {
+                            canvasState.isRunning = false;
+                            handleQuestResult(false, `נתקעת יותר מדי! המכונה של הרמס השתגעה. נסה שוב.`);
+                            return;
+                        }
+                        continue;
+                    }
+                }
+
+                // בדיקת יציאה מהמסך (והצלחה)
+                if (wall.y > canvas.height) {
+                    canvasState.wallsDodged++;
+                    canvasState.walls.splice(i, 1);
+
+                    if (canvasState.wallsDodged >= quest.target) {
+                        canvasState.isRunning = false;
+                        handleQuestResult(true, `התחמקת מ-15 גדרות לייזר! הרמס קיבל את המכונה שלו בחזרה. ניקוד: 400`, 400);
+                        return;
+                    }
+                }
+            }
+        }
+
+        function drawHermesAvoidance() {
+            if (!ctx) return;
+            const quest = quests[gameState.currentQuest - 1];
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // ציור קירות לייזר (Laser Gates)
+            canvasState.walls.forEach(wall => {
+                ctx.fillStyle = wall.color;
+                ctx.shadowColor = wall.color;
+                ctx.shadowBlur = 10;
+                
+                // קיר שמאלי (Segment 1: 0 to gap1Start)
+                ctx.fillRect(0, wall.y, wall.gap1Start, wall.h);
+                
+                // קיר אמצעי (Segment 2: gap1End to gap2Start)
+                ctx.fillRect(wall.gap1End, wall.y, wall.gap2Start - wall.gap1End, wall.h);
+
+                // קיר ימני (Segment 3: gap2End to canvas.width)
+                ctx.fillRect(wall.gap2End, wall.y, canvas.width - wall.gap2End, wall.h);
+                
+                ctx.shadowBlur = 0;
+            });
+
+            // ציור שחקן (דמות)
+            drawPlayerFigure(canvasState.player);
+
+            // עדכון מידע
+            const info = document.getElementById('game-info');
+            if (canvasState.isRunning && info) {
+                info.innerHTML = `התחמקות: ${canvasState.wallsDodged} / ${quest.target} | פגיעות: <span style="color: red">${canvasState.hits}</span> / ${canvasState.maxHits}`;
+            }
+        }
+
+
+        // --- קווסט 5: אפרודיטה - ניקוי הבלגן הרומנטי ---
+
+        const ITEM_TYPE = { HEART: 'heart', FLOWER: 'flower' };
+        
+        function initAphroditeClean() {
+            const quest = quests[4];
+            canvasState = {
+                isRunning: false, 
+                player: { x: canvas.width / 2 - 15, y: canvas.height / 2 - 15, w: 30, h: 30, color: '#ec4899', speed: 4 }, 
+                items: [],
+                collectedCount: { heart: 0, flower: 0 },
+                totalCollected: 0,
+                collectingType: ITEM_TYPE.HEART, // מתחיל עם לבבות
+                lastTypeSwitch: 0,
+                typeSwitchCooldown: 1000, // קושי: 1 שנייה קירור
+                totalTime: 20, 
+                timeRemaining: 20,
+                lastTick: Date.now(),
+                update: updateAphroditeClean,
+                draw: drawAphroditeClean,
+            };
+
+            // יצירת 8 לבבות ו-7 פרחים (סה"כ 15)
+            const targets = { heart: 8, flower: 7 };
+            for(let type in targets) {
+                for(let i = 0; i < targets[type]; i++) {
+                    canvasState.items.push({
+                        x: Math.random() * (canvas.width - 30) + 15, 
+                        y: Math.random() * (canvas.height - 30) + 15, 
+                        w: 15,
+                        h: 15,
+                        type: type,
+                        r: 7.5
+                    });
+                }
+            }
+        }
+
+        function updateAphroditeClean() {
+            const quest = quests[gameState.currentQuest - 1];
+            const player = canvasState.player;
+            const now = Date.now();
+
+            // עדכון טיימר
+            const elapsed = (now - canvasState.lastTick) / 1000;
+            canvasState.lastTick = now;
+            canvasState.timeRemaining = Math.max(0, canvasState.timeRemaining - elapsed);
+            
+            // תנועת שחקן
+            if (keys['ArrowLeft']) player.x -= player.speed;
+            if (keys['ArrowRight']) player.x += player.speed;
+            if (keys['ArrowUp']) player.y -= player.speed;
+            if (keys['ArrowDown']) player.y += player.speed;
+
+            // בדיקת גבולות
+            if (player.x < 0) player.x = 0;
+            if (player.x > canvas.width - player.w) player.x = canvas.width - player.w;
+            if (player.y < 0) player.y = 0;
+            if (player.y > canvas.height - player.h) player.y = canvas.height - player.h;
+
+            // החלפת סוג איסוף (רווח - Space)
+            const isOnCooldown = now - canvasState.lastTypeSwitch < canvasState.typeSwitchCooldown;
+            if (keys[' '] && !isOnCooldown) {
+                canvasState.collectingType = canvasState.collectingType === ITEM_TYPE.HEART ? ITEM_TYPE.FLOWER : ITEM_TYPE.HEART;
+                canvasState.lastTypeSwitch = now;
+                keys[' '] = false; // למנוע החלפה מיידית נוספת
+            }
+
+            // בדיקת איסוף
+            for (let i = canvasState.items.length - 1; i >= 0; i--) {
+                const item = canvasState.items[i];
+                if (checkCollision(player, {x: item.x - item.r, y: item.y - item.r, w: item.w, h: item.h})) {
+                    if (item.type === canvasState.collectingType) {
+                        // איסוף מוצלח
+                        canvasState.collectedCount[item.type]++;
+                        canvasState.totalCollected++;
+                        canvasState.items.splice(i, 1);
+                        if (canvasState.totalCollected >= quest.target) {
+                            canvasState.isRunning = false;
+                            handleQuestResult(true, `אספת את כל ${quest.target} המרכיבים בזמן! אפרודיטה יכולה להשלים את שיקוי האהבה. ניקוד: 600`, 600);
+                            return;
+                        }
+                    } else {
+                        // פגיעה בפריט הלא נכון
+                        // אולי קנס קטן? כרגע אין קנס מעבר לאיבוד זמן
+                    }
+                }
+            }
+
+            // בדיקת זמן
+            if (canvasState.timeRemaining <= 0) {
+                canvasState.isRunning = false;
+                handleQuestResult(false, `הזמן נגמר! לא אספת את כל ${quest.target} המרכיבים. נסה שוב.`);
+            }
+        }
+
+        function drawAphroditeClean() {
+            if (!ctx) return;
+            const quest = quests[gameState.currentQuest - 1];
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const now = Date.now();
+
+            // ציור פריטים
+            canvasState.items.forEach(item => {
+                ctx.shadowBlur = 5;
+                if (item.type === ITEM_TYPE.HEART) {
+                    // ציור לב (Heart - פונקציית ציור פשוטה)
+                    ctx.fillStyle = '#f87171';
+                    ctx.shadowColor = '#f87171';
+                    const h_x = item.x;
+                    const h_y = item.y;
+                    const r = item.r;
+                    
+                    ctx.beginPath();
+                    // שימוש בצורה גיאומטרית פשוטה יותר לבטיחות
+                    ctx.moveTo(h_x, h_y + r); 
+                    ctx.lineTo(h_x + r, h_y - r);
+                    ctx.lineTo(h_x + r / 2, h_y - r * 2);
+                    ctx.lineTo(h_x, h_y - r * 1.5);
+                    ctx.lineTo(h_x - r / 2, h_y - r * 2);
+                    ctx.lineTo(h_x - r, h_y - r);
+                    ctx.closePath();
+                    ctx.fill();
+
+                } else {
+                    // ציור פרח (Flower - עיגול + עלי כותרת פשוטים)
+                    ctx.fillStyle = '#818cf8';
+                    ctx.shadowColor = '#818cf8';
+                    ctx.beginPath();
+                    ctx.arc(item.x, item.y, item.r, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.closePath();
+                }
+                ctx.shadowBlur = 0;
+            });
+
+            // ציור שחקן (דמות)
+            drawPlayerFigure(canvasState.player);
+
+            // הדגשת מצב איסוף נוכחי
+            const statusColor = canvasState.collectingType === ITEM_TYPE.HEART ? '#f87171' : '#818cf8';
+            ctx.fillStyle = statusColor;
+            ctx.globalAlpha = 0.2;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.globalAlpha = 1.0;
+
+            const isOnCooldown = now - canvasState.lastTypeSwitch < canvasState.typeSwitchCooldown;
+            const cooldownText = isOnCooldown ? ` (ממתין ${((canvasState.typeSwitchCooldown - (now - canvasState.lastTypeSwitch) + 100) / 1000).toFixed(1)} שנ')` : '';
+
+            // עדכון מידע
+            const info = document.getElementById('game-info');
+            if (canvasState.isRunning && info) {
+                const timeColor = canvasState.timeRemaining < 5 ? 'red' : 'green';
+                info.innerHTML = `אסוף: <span style="color: ${statusColor}; font-weight: bold">${canvasState.collectingType === ITEM_TYPE.HEART ? 'לבבות' : 'פרחים'}</span>${cooldownText} | סה"כ: ${canvasState.totalCollected} / ${quest.target} | זמן: <span style="color: ${timeColor}">${canvasState.timeRemaining.toFixed(1)}</span>`;
+            }
+        }
+
+        // --- קווסט 6: פוסידון - נחשולי האצות הזועמים ---
+        function initPoseidonDodge() {
+            const quest = quests[5];
+            canvasState = {
+                isRunning: false, 
+                player: { x: 30, y: canvas.height / 2 - 15, w: 30, h: 30, color: '#10b981', speed: 4.5 }, // הדמות נמצאת בצד שמאל
+                obstacles: [], // גושי אצות וסלעים
+                dodgedCount: 0,
+                hits: 0,
+                maxHits: 2, 
+                lastSpawn: 0,
+                spawnRate: 400, // קושי: קצב גבוה
+                update: updatePoseidonDodge,
+                draw: drawPoseidonDodge,
+            };
+        }
+
+        function updatePoseidonDodge(timestamp) {
+            const quest = quests[gameState.currentQuest - 1];
+            const player = canvasState.player;
+
+            // תנועת שחקן - רק למעלה ולמטה
+            if (keys['ArrowUp'] && player.y > 0) player.y -= player.speed;
+            if (keys['ArrowDown'] && player.y < canvas.height - player.h) player.y += player.speed;
+
+            // יצירת אובייקטים
+            if (timestamp - canvasState.lastSpawn > canvasState.spawnRate) {
+                const y = Math.random() * (canvas.height - 20) + 10;
+                const h = 15 + Math.random() * 25; // גובה משתנה
+                const w = 15 + Math.random() * 20; // רוחב משתנה
+                
+                canvasState.obstacles.push({
+                    x: canvas.width, 
+                    y: y - h / 2,
+                    w: w, 
+                    h: h,
+                    speed: 4 + Math.random() * 3, // קושי: מהירות גבוהה
+                    color: Math.random() < 0.3 ? '#4b5563' : '#059669' // אצות או סלע אפור
+                });
+                canvasState.lastSpawn = timestamp;
+                canvasState.spawnRate = Math.max(100, canvasState.spawnRate - 5); // קושי: קצב הופעה גדל
+            }
+
+            // עדכון מיקום מכשולים ובדיקת התנגשות
+            for (let i = canvasState.obstacles.length - 1; i >= 0; i--) {
+                const obstacle = canvasState.obstacles[i];
+                obstacle.x -= obstacle.speed;
+
+                if (checkCollision(player, obstacle)) {
+                    // פגיעה
+                    canvasState.hits++;
+                    canvasState.obstacles.splice(i, 1);
+                    if (canvasState.hits >= canvasState.maxHits) {
+                        canvasState.isRunning = false;
+                        handleQuestResult(false, `פוסידון חסם את נתיב המים! חטפת ${canvasState.hits} פגיעות. נסה שוב.`);
+                        return;
+                    }
+                } else if (obstacle.x + obstacle.w < 0) {
+                    // מכשול יצא מהמסך
+                    canvasState.dodgedCount++;
+                    canvasState.obstacles.splice(i, 1);
+                    if (canvasState.dodgedCount >= quest.target) {
+                        canvasState.isRunning = false;
+                        handleQuestResult(true, `התחמקת מ-20 גושים! פוסידון הרגיע את הים. ניקוד: 700`, 700);
+                    }
+                }
+            }
+        }
+
+        function drawPoseidonDodge() {
+            if (!ctx) return;
+            const quest = quests[gameState.currentQuest - 1];
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // ציור מכשולים
+            canvasState.obstacles.forEach(obstacle => {
+                ctx.fillStyle = obstacle.color;
+                ctx.fillRect(obstacle.x, obstacle.y, obstacle.w, obstacle.h);
+            });
+
+            // ציור שחקן (דמות)
+            drawPlayerFigure(canvasState.player);
+
+            // עדכון מידע
+            const info = document.getElementById('game-info');
+            if (canvasState.isRunning && info) {
+                info.innerHTML = `התחמקות: ${canvasState.dodgedCount} / ${quest.target} | פגיעות: <span style="color: red">${canvasState.hits}</span> / ${canvasState.maxHits}`;
+            }
+        }
+
+        // --- קווסט 7: דיוניסוס - מרתון הברמנים הקוסמי (Overcooked Style) ---
+
+        const INGREDIENTS = { GRAPE: 'GRAPE', CLOUD: 'CLOUD', LIGHTNING: 'LIGHTNING' };
+        
+        function initDionysusCocktail() {
+            const quest = quests[6];
+            canvasState = {
+                isRunning: false, 
+                player: { x: canvas.width / 2 - 15, y: canvas.height - 40, w: 30, h: 30, color: '#9d174d', speed: 4.5 }, 
+                items: [], // מרכיבים פזורים
+                required: { GRAPE: 1, CLOUD: 1, LIGHTNING: 1 },
+                inventory: { GRAPE: 0, CLOUD: 0, LIGHTNING: 0 },
+                cocktailsMade: 0,
+                totalTime: 25, 
+                timeRemaining: 25,
+                lastTick: Date.now(),
+                lastSpawn: 0,
+                spawnRate: 1500,
+
+                // --- לוגיקת בישול חדשה ---
+                isMixing: false,
+                mixingStartTime: 0,
+                mixTimeRequired: 2000, // 2 שניות
+                
+                // --- לוגיקת ארס חדשה ---
+                aresAttacks: [], // חרבות של ארס
+                lastAresSpawn: 0,
+                aresSpawnRate: 1800, // חרב כל 1.8 שניות
+                aresSpeed: 4,
+
+                update: updateDionysusCocktail,
+                draw: drawDionysusCocktail,
+            };
+             // ציור ראשוני של 4 מרכיבים מכל סוג
+            for (let i = 0; i < 4; i++) {
+                spawnIngredient();
+            }
+        }
+        
+        function spawnIngredient() {
+            const types = Object.keys(INGREDIENTS);
+            const type = types[Math.floor(Math.random() * types.length)];
+            
+            canvasState.items.push({
+                x: Math.random() * (canvas.width - 30) + 15, 
+                y: Math.random() * (canvas.height - 30) + 15, 
+                w: 20, h: 20, 
+                type: type,
+                r: 10
+            });
+        }
+
+        function spawnAresAttack(timestamp) {
+            // חרב זזה אופקית (מימין לשמאל או משמאל לימין)
+            const isLeftToRight = Math.random() < 0.5;
+            const y = Math.random() * (canvas.height - 30) + 15;
+            const speed = canvasState.aresSpeed + Math.random() * 1.5;
+
+            canvasState.aresAttacks.push({
+                x: isLeftToRight ? -20 : canvas.width,
+                y: y,
+                w: 30, h: 8, // רוחב וגובה של החרב
+                speed: isLeftToRight ? speed : -speed,
+                color: '#b91c1c', // אדום של ארס
+                isLeftToRight: isLeftToRight,
+            });
+            canvasState.lastAresSpawn = timestamp;
+            canvasState.aresSpawnRate = Math.max(1000, canvasState.aresSpawnRate - 50); // מגביר קצב
+        }
+
+
+        function updateDionysusCocktail(timestamp) {
+            const quest = quests[gameState.currentQuest - 1];
+            const player = canvasState.player;
+            const now = Date.now();
+
+            // עדכון טיימר
+            const elapsed = (now - canvasState.lastTick) / 1000;
+            canvasState.lastTick = now;
+            canvasState.timeRemaining = Math.max(0, canvasState.timeRemaining - elapsed);
+            
+            // תנועת שחקן
+            if (keys['ArrowLeft']) player.x -= player.speed;
+            if (keys['ArrowRight']) player.x += player.speed;
+            if (keys['ArrowUp']) player.y -= player.speed;
+            if (keys['ArrowDown']) player.y += player.speed;
+
+            // בדיקת גבולות
+            if (player.x < 0) player.x = 0;
+            if (player.x > canvas.width - player.w) player.x = canvas.width - player.w;
+            if (player.y < 0) player.y = 0;
+            if (player.y > canvas.height - player.h) player.y = canvas.height - player.h;
+
+            // יצירת מרכיבים חדשים (Spawn)
+            if (timestamp - canvasState.lastSpawn > canvasState.spawnRate && canvasState.items.length < 12) {
+                spawnIngredient();
+                canvasState.lastSpawn = timestamp;
+            }
+
+            // יצירת התקפת ארס
+            if (timestamp - canvasState.lastAresSpawn > canvasState.aresSpawnRate) {
+                spawnAresAttack(timestamp);
+            }
+
+            // --- לוגיקת התקפות ארס ---
+            for (let i = canvasState.aresAttacks.length - 1; i >= 0; i--) {
+                const sword = canvasState.aresAttacks[i];
+                sword.x += sword.speed;
+
+                if (checkCollision(player, sword)) {
+                    // פגיעה מארס: איפוס מלאי וביטול בישול
+                    canvasState.inventory = { GRAPE: 0, CLOUD: 0, LIGHTNING: 0 };
+                    canvasState.isMixing = false;
+                    canvasState.mixingStartTime = 0;
+                    canvasState.aresAttacks.splice(i, 1);
+                    break; // לצאת מהלולאה לאחר פגיעה
+                } else if (sword.x > canvas.width || sword.x + sword.w < 0) {
+                    canvasState.aresAttacks.splice(i, 1);
+                }
+            }
+
+
+            // בדיקת איסוף
+            for (let i = canvasState.items.length - 1; i >= 0; i--) {
+                const item = canvasState.items[i];
+                if (checkCollision(player, item)) {
+                    canvasState.inventory[item.type]++;
+                    canvasState.items.splice(i, 1);
+                    break; 
+                }
+            }
+            
+            // בדיקת מיקסר
+            const mixer = { x: canvas.width/2 - 50, y: 10, w: 100, h: 50 }; 
+            const isCollidingWithMixer = checkCollision(player, mixer);
+            
+            const hasAllIngredients = 
+                canvasState.inventory.GRAPE >= canvasState.required.GRAPE &&
+                canvasState.inventory.CLOUD >= canvasState.required.CLOUD &&
+                canvasState.inventory.LIGHTNING >= canvasState.required.LIGHTNING;
+            
+            // לוגיקת בישול
+            if (isCollidingWithMixer && hasAllIngredients) {
+                if (!canvasState.isMixing) {
+                    // התחלת בישול
+                    canvasState.isMixing = true;
+                    canvasState.mixingStartTime = now;
+                } else {
+                    // בדיקת סיום בישול
+                    if (now - canvasState.mixingStartTime >= canvasState.mixTimeRequired) {
+                        // בישול מוצלח!
+                        canvasState.cocktailsMade++;
+                        canvasState.inventory = { GRAPE: 0, CLOUD: 0, LIGHTNING: 0 }; // איפוס מלאי
+                        canvasState.isMixing = false;
+                        canvasState.mixingStartTime = 0;
+
+                        if (canvasState.cocktailsMade >= quest.target) {
+                            canvasState.isRunning = false;
+                            handleQuestResult(true, `הכנת 3 קוקטיילים! דיוניסוס חוזר ליין הרגיל. ניקוד: 800`, 800);
+                            return;
+                        }
+                    }
+                }
+            } else {
+                // אם יצאת מהמיקסר או איבדת מרכיבים, הערבוב מתבטל
+                if (canvasState.isMixing) {
+                    canvasState.isMixing = false;
+                    canvasState.mixingStartTime = 0;
+                }
+            }
+            
+            // בדיקת זמן
+            if (canvasState.timeRemaining <= 0) {
+                canvasState.isRunning = false;
+                handleQuestResult(false, `הזמן נגמר! לא הספקת להכין את כל 3 הקוקטיילים. נסה שוב.`);
+            }
+        }
+
+        function drawDionysusCocktail() {
+            if (!ctx) return;
+            const quest = quests[gameState.currentQuest - 1];
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const now = Date.now();
+            
+            // 1. ציור מיכל הערבוב (Mixer)
+            const mixer = { x: canvas.width/2 - 50, y: 10, w: 100, h: 50 };
+            ctx.fillStyle = '#6d28d9'; // סגול עמוק ליין
+            ctx.fillRect(mixer.x, mixer.y, mixer.w, mixer.h);
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(mixer.x, mixer.y, mixer.w, mixer.h);
+            
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 12px Inter';
+            ctx.textAlign = 'center';
+            ctx.fillText("ערבוב (Mix)", canvas.width / 2, 40);
+            
+            // 1.1. ציור סרגל התקדמות בישול
+            if (canvasState.isMixing) {
+                const progress = (now - canvasState.mixingStartTime) / canvasState.mixTimeRequired;
+                const barWidth = mixer.w * progress;
+                ctx.fillStyle = '#FFD700'; // צהוב זהב להתקדמות
+                ctx.fillRect(mixer.x, mixer.y + mixer.h - 5, barWidth, 5);
+            }
+
+
+            // 2. ציור מרכיבים
+            canvasState.items.forEach(item => {
+                ctx.font = '20px Arial';
+                ctx.textAlign = 'center';
+                // ציור באמצעות אימוג'י
+                if (item.type === INGREDIENTS.GRAPE) {
+                    ctx.fillText('🍇', item.x, item.y + 15);
+                } else if (item.type === INGREDIENTS.CLOUD) {
+                    ctx.fillText('☁️', item.x, item.y + 15);
+                } else if (item.type === INGREDIENTS.LIGHTNING) {
+                    ctx.fillText('⚡', item.x, item.y + 15);
+                }
+            });
+            
+            // 3. ציור התקפות ארס (חרבות)
+            canvasState.aresAttacks.forEach(sword => {
+                ctx.fillStyle = sword.color;
+                ctx.shadowColor = sword.color;
+                ctx.shadowBlur = 10;
+                
+                // ציור להב
+                ctx.fillRect(sword.x, sword.y, sword.w, sword.h);
+                // ציור ידית (קטנה)
+                ctx.fillStyle = '#78350f';
+                ctx.fillRect(sword.x + sword.w, sword.y + 2, 5, 4);
+
+                ctx.shadowBlur = 0;
+            });
+
+
+            // 4. ציור שחקן (דמות)
+            drawPlayerFigure(canvasState.player);
+
+            // 5. עדכון מידע ומלאי (Inventory)
+            const info = document.getElementById('game-info');
+            if (canvasState.isRunning && info) {
+                const timeColor = canvasState.timeRemaining < 5 ? 'red' : 'green';
+                let mixingStatus = '';
+                if (canvasState.isMixing) {
+                    const timeLeft = canvasState.mixTimeRequired - (now - canvasState.mixingStartTime);
+                    mixingStatus = ` | מערבב... <span class="text-yellow-600">${(timeLeft / 1000).toFixed(1)}</span> שנ'`;
+                }
+                
+                info.innerHTML = `
+                    <div style="direction:rtl; display: flex; justify-content: space-between; width: 100%;">
+                        <span>קוקטיילים: <span class="text-green-600">${canvasState.cocktailsMade}</span> / ${quest.target}${mixingStatus}</span>
+                        <span>זמן: <span style="color: ${timeColor}">${canvasState.timeRemaining.toFixed(1)}</span> שנ'</span>
+                    </div>
+                    <div class="mt-2 text-sm text-gray-700 font-normal">
+                        מלאי: 🍇:${canvasState.inventory.GRAPE} / ☁️:${canvasState.inventory.CLOUD} / ⚡:${canvasState.inventory.LIGHTNING}
+                    </div>
+                `;
+            }
+        }
+
+        // טעינת המשחק עם פתיחת הדף + טיפול בשגיאות
+        window.onload = function() {
+            try {
+                // בדיקה אם ה-div הראשי קיים
+                if (document.getElementById('game-app')) {
+                    renderIntro();
+                } else {
+                    console.error("Game container #game-app not found.");
+                }
+            } catch (error) {
+                // זה ייתפס רק אם השגיאה היא ב-renderIntro, שגיאות Parse ייתפסו ע"י ה-Global Error Handler
+                console.error("Game failed to initialize during onload:", error);
+            }
+        };
+    </script>
+</body>
+</html>

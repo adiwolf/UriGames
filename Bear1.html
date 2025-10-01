@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>משחק הדוב הרעב</title>
+    <!-- טעינת Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f7f7;
+            background-image: url('https://placehold.co/1200x800/e0f2f1/004d40?text=Forest+Background'); /* תמונת יער כרקע */
+            background-size: cover;
+            background-position: center;
+        }
+        .game-container {
+            max-width: 480px;
+            min-height: 500px;
+        }
+        .bear-message {
+            min-height: 6rem;
+        }
+        .choice-button {
+            transition: all 0.2s;
+            transform: scale(1);
+        }
+        .choice-button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2), 0 4px 6px -2px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+<body class="p-4 flex items-center justify-center min-h-screen">
+
+    <div id="gameContainer" class="game-container bg-white p-6 md:p-8 rounded-2xl shadow-2xl text-center border-4 border-yellow-700/50">
+        <!-- כותרת וניקוד -->
+        <h1 class="text-4xl font-extrabold text-yellow-800 mb-2">משחק הדוב הרעב</h1>
+        <p class="text-lg text-gray-600 mb-6">עזור לדוב בבחירת המזון שלו!</p>
+
+        <div class="mb-6 bg-yellow-100 p-3 rounded-xl shadow-inner border-2 border-yellow-500">
+            <p id="scoreDisplay" class="text-3xl font-bold text-yellow-700">ניקוד: 50</p>
+            <p class="text-sm text-gray-500">מזהה משתמש: <span id="userIdDisplay">טוען...</span></p>
+        </div>
+
+        <!-- תצוגת הדמות וההודעה -->
+        <div class="flex flex-col items-center mb-6">
+            <div class="text-6xl mb-4" id="bearEmoji">🐻</div>
+            <div id="messageDisplay" class="bear-message bg-yellow-600/10 text-yellow-800 p-3 rounded-xl border border-yellow-600 font-semibold italic">
+                הדוב הרעב מחכה לבחירה שלך...
+            </div>
+        </div>
+
+        <!-- שלב 1: בחירת אוכל ראשית -->
+        <div id="mainChoiceContainer">
+            <div id="choiceButtons" class="grid grid-cols-3 gap-4">
+                <button data-choice="fish" class="choice-button bg-green-500 text-white p-3 rounded-xl font-bold text-lg shadow-md hover:bg-green-600 focus:outline-none focus:ring-4 focus:ring-green-300">
+                    דג 🐟
+                </button>
+                <button data-choice="banana" class="choice-button bg-red-500 text-white p-3 rounded-xl font-bold text-lg shadow-md hover:bg-red-600 focus:outline-none focus:ring-4 focus:ring-red-300">
+                    בננה 🍌
+                </button>
+                <button data-choice="honey" class="choice-button bg-amber-500 text-white p-3 rounded-xl font-bold text-lg shadow-md hover:bg-amber-600 focus:outline-none focus:ring-4 focus:ring-amber-300">
+                    דבש 🍯
+                </button>
+            </div>
+        </div>
+
+        <!-- שלב 2: חנות הדגים (מוסתר בהתחלה) -->
+        <div id="fishShopContainer" class="hidden">
+             <h2 class="text-2xl font-bold text-blue-700 mb-4">חנות הדגים 🐠</h2>
+             <p class="text-gray-700 mb-4">איזה גודל דג תבחר?</p>
+            <div id="shopChoiceButtons" class="grid grid-cols-3 gap-4">
+                <button data-size="small" class="choice-button bg-blue-400 text-white p-3 rounded-xl font-bold text-lg shadow-md hover:bg-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-300">
+                    דג קטן<br><span class="text-sm">עלות: 2</span>
+                </button>
+                <button data-size="medium" class="choice-button bg-blue-600 text-white p-3 rounded-xl font-bold text-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300">
+                    דג בינוני<br><span class="text-sm">עלות: 7</span>
+                </button>
+                <button data-size="large" class="choice-button bg-blue-800 text-white p-3 rounded-xl font-bold text-lg shadow-md hover:bg-blue-900 focus:outline-none focus:ring-4 focus:ring-blue-300">
+                    דג גדול<br><span class="text-sm">עלות: 10</span>
+                </button>
+            </div>
+        </div>
+        
+        <!-- כפתור איפוס -->
+        <button id="resetButton" class="mt-6 w-full bg-gray-300 text-gray-700 p-2 rounded-xl font-bold hover:bg-gray-400/80 transition focus:outline-none focus:ring-4 focus:ring-gray-300">
+            איפוס ניקוד
+        </button>
+        
+        <!-- הודעות סטטוס (טעינה/שגיאה) -->
+        <div id="statusMessage" class="mt-4 text-sm text-center text-gray-500">טוען נתונים...</div>
+    </div>
+
+    <!-- טעינת Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot, runTransaction, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // הגדרת משתנים גלובליים ל-Firebase
+        let app, db, auth, userId = null;
+        let currentScore = 50;
+        let isProcessing = false; // דגל למניעת הקלקות כפולות
+
+        // הפונקציות הממירות נתונים גלובליים
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        // הגדרת רמת לוג עבור Firestore (לצורך דיבוג)
+        setLogLevel('Debug');
+
+        // אלמנטים ב-DOM
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const messageDisplay = document.getElementById('messageDisplay');
+        const userIdDisplay = document.getElementById('userIdDisplay');
+        const bearEmoji = document.getElementById('bearEmoji');
+        const statusMessage = document.getElementById('statusMessage');
+        const resetButton = document.getElementById('resetButton');
+        const mainChoiceContainer = document.getElementById('mainChoiceContainer');
+        const fishShopContainer = document.getElementById('fishShopContainer');
+        const shopChoiceButtons = document.getElementById('shopChoiceButtons');
+
+        // הגדרות המשחק
+        const INITIAL_SCORE = 50;
+        const SCORE_REF_PATH = (uid) => `artifacts/${appId}/users/${uid}/bear_game_scores/current`;
+
+        // אובייקט תוצאות לשלב 1
+        const outcomes = {
+            fish: { scoreChange: 5, message: "יאמי! הדג טעים! הדוב שמח מאוד. 😊", emoji: "😋", nextStage: 'shop' },
+            banana: { scoreChange: -5, message: "אוי, בננה... יש לו כאב בטן! 😖", emoji: "🤢", nextStage: 'main' },
+            honey: { scoreChange: -5, message: "כל כך מתוק... יש כאב שיניים נוראי! 😬", emoji: "🦷", nextStage: 'main' }
+        };
+
+        // אובייקט תוצאות לשלב 2 (חנות הדגים)
+        const fishShopOutcomes = {
+            small: { cost: 2, message: "הדג הקטן מספק! הדוב רוקד משמחה. 🕺", emoji: "💃" },
+            medium: { cost: 7, message: "דג בינוני כבד... הדוב קורא לחבר לעזרה! 🤝", emoji: "💪" },
+            large: { cost: 10, message: "דג ענק! הדוב נפל על הגב ונפצע! 🤕", emoji: "😵" }
+        };
+
+        /**
+         * פונקציה להמתנה (השהיית קוד)
+         * @param {number} ms - זמן ההמתנה באלפיות השנייה
+         */
+        const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+        /**
+         * מעבר בין שלבי המשחק
+         * @param {string} stage - 'main' או 'shop'
+         */
+        function setStage(stage) {
+            if (stage === 'shop') {
+                mainChoiceContainer.classList.add('hidden');
+                fishShopContainer.classList.remove('hidden');
+                messageDisplay.textContent = "ברוך הבא לחנות הדגים! בחר דג (הנקודות ירדו מהניקוד הכללי).";
+                bearEmoji.textContent = "💰"; // אימוג'י חנות או כסף
+                // *FIX: enabling buttons after successful stage transition*
+                toggleButtons(true); 
+            } else { // 'main'
+                fishShopContainer.classList.add('hidden');
+                mainChoiceContainer.classList.remove('hidden');
+                messageDisplay.textContent = "הדוב הרעב מחכה לבחירה שלך...";
+                bearEmoji.textContent = "🐻";
+                // *FIX: enabling buttons after successful stage transition*
+                toggleButtons(true);
+            }
+        }
+
+        /**
+         * עדכון הניקוד ב-Firestore באמצעות טרנזקציה
+         * @param {number} change - השינוי בניקוד (+/-)
+         * @param {string} msg - ההודעה החדשה
+         * @param {string} emoji - האימוג'י החדש
+         * @param {string} nextStage - השלב הבא ('main' או 'shop' או 'none')
+         */
+        async function updateScoreInFirestore(change, msg, emoji, nextStage) {
+            if (!db || !userId || isProcessing) {
+                console.error("Firebase is not initialized or processing another request.");
+                return false;
+            }
+            
+            isProcessing = true;
+            toggleButtons(false);
+
+            const scoreRef = doc(db, SCORE_REF_PATH(userId));
+            let success = false;
+
+            try {
+                await runTransaction(db, async (transaction) => {
+                    const docSnapshot = await transaction.get(scoreRef);
+                    let newScore;
+
+                    if (!docSnapshot.exists() || docSnapshot.data().score === undefined) {
+                        newScore = INITIAL_SCORE + change;
+                    } else {
+                        newScore = docSnapshot.data().score + change;
+                    }
+
+                    // בדיקה האם יש מספיק נקודות לקנייה
+                    if (change < 0 && newScore < 0) {
+                         throw new Error("אין מספיק נקודות לביצוע פעולה זו!");
+                    }
+                    
+                    newScore = Math.max(0, newScore); 
+
+                    transaction.set(scoreRef, { score: newScore, updated: new Date().toISOString() });
+                    
+                    // עדכון מיידי של התצוגה לפני שה-onSnapshot מגיב
+                    currentScore = newScore;
+                    scoreDisplay.textContent = `ניקוד: ${currentScore}`;
+                    messageDisplay.textContent = msg;
+                    bearEmoji.textContent = emoji;
+                    success = true;
+                });
+            } catch (e) {
+                console.error("Transaction failed: ", e);
+                messageDisplay.textContent = `שגיאה: ${e.message.includes('points') ? e.message : 'שגיאה בעדכון הניקוד'}`;
+            } finally {
+                if (success) {
+                    await delay(2000); // הצגת התוצאה למשך 2 שניות
+                }
+                isProcessing = false;
+                
+                // המעבר לשלב יטפל עכשיו גם בהפעלת הכפתורים
+                if (success && nextStage === 'shop') {
+                    setStage('shop');
+                } else {
+                    setStage('main');
+                }
+            }
+            return success;
+        }
+
+        /**
+         * פונקציה המטפלת בבחירת האוכל הראשית
+         * @param {Event} event - אירוע הלחיצה
+         */
+        function handleChoice(event) {
+            const choice = event.currentTarget.dataset.choice;
+            const outcome = outcomes[choice];
+
+            if (outcome) {
+                // אם נבחר דג, ה-nextStage יהיה 'shop'
+                const nextStage = choice === 'fish' ? 'shop' : 'main'; 
+                updateScoreInFirestore(outcome.scoreChange, outcome.message, outcome.emoji, nextStage);
+            }
+        }
+        
+        /**
+         * פונקציה המטפלת בקניית הדג בחנות
+         * @param {Event} event - אירוע הלחיצה
+         */
+        function handlePurchase(event) {
+            const size = event.currentTarget.dataset.size;
+            const outcome = fishShopOutcomes[size];
+            
+            if (outcome) {
+                const change = -outcome.cost; // עלות הקנייה היא הפחתה
+                
+                // בדיקה מקדימה כדי למנוע טרנזקציה אם הניקוד נמוך מדי
+                if (currentScore + change < 0) {
+                     messageDisplay.textContent = "אין לך מספיק נקודות לקניית דג זה!";
+                     bearEmoji.textContent = "😔";
+                     // *FIX: need to re-enable buttons and stay in shop*
+                     toggleButtons(true);
+                     delay(2000).then(() => {
+                        messageDisplay.textContent = "ברוך הבא לחנות הדגים! בחר דג (הנקודות ירדו מהניקוד הכללי).";
+                        bearEmoji.textContent = "💰";
+                     });
+                     return;
+                }
+                
+                updateScoreInFirestore(change, outcome.message, outcome.emoji, 'main');
+            }
+        }
+
+        /**
+         * פונקציה לאיפוס הניקוד לניקוד ההתחלתי
+         */
+        async function resetScore() {
+             if (!db || !userId) {
+                console.error("Firebase is not initialized or user ID is missing.");
+                return;
+            }
+            
+            if (!await showConfirmation('האם אתה בטוח שברצונך לאפס את הניקוד ל-50?')) return;
+            
+            const scoreRef = doc(db, SCORE_REF_PATH(userId));
+            try {
+                toggleButtons(false);
+                messageDisplay.textContent = "מאפס ניקוד...";
+                await setDoc(scoreRef, { score: INITIAL_SCORE, updated: new Date().toISOString() });
+                messageDisplay.textContent = "הניקוד אופס ל-50. התחל מחדש! 😊";
+                bearEmoji.textContent = "🐻";
+            } catch (e) {
+                console.error("Error resetting score:", e);
+                messageDisplay.textContent = `שגיאה באיפוס: ${e.message}`;
+            } finally {
+                setStage('main'); // חוזרים לשלב הראשי וגם מפעילים כפתורים
+            }
+        }
+
+        /**
+         * נטרול/הפעלת כפתורי הבחירה
+         * @param {boolean} enable - האם להפעיל (true) או לנטרל (false)
+         */
+        function toggleButtons(enable) {
+            document.querySelectorAll('.choice-button').forEach(button => {
+                button.disabled = !enable;
+                button.classList.toggle('opacity-50', !enable);
+                button.classList.toggle('cursor-not-allowed', !enable);
+            });
+            resetButton.disabled = !enable;
+            resetButton.classList.toggle('opacity-50', !enable);
+        }
+        
+        /**
+         * יצירת והצגת תיבת אישור מותאמת אישית במקום alert()/confirm()
+         * (השימוש נשאר רק עבור איפוס הניקוד)
+         */
+        function showConfirmation(message) {
+            return new Promise(resolve => {
+                const modalOverlay = document.createElement('div');
+                modalOverlay.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+                modalOverlay.dir = 'rtl';
+
+                const modal = document.createElement('div');
+                modal.className = 'bg-white p-6 rounded-xl shadow-2xl max-w-sm w-full text-center';
+
+                const p = document.createElement('p');
+                p.className = 'text-lg font-semibold mb-6 text-gray-800';
+                p.textContent = message;
+
+                const buttonContainer = document.createElement('div');
+                buttonContainer.className = 'flex justify-around gap-4';
+
+                const confirmBtn = document.createElement('button');
+                confirmBtn.className = 'bg-red-500 text-white p-2 rounded-lg font-bold w-full hover:bg-red-600 transition';
+                confirmBtn.textContent = 'אישור איפוס';
+
+                const cancelBtn = document.createElement('button');
+                cancelBtn.className = 'bg-gray-300 text-gray-800 p-2 rounded-lg font-bold w-full hover:bg-gray-400 transition';
+                cancelBtn.textContent = 'ביטול';
+
+                confirmBtn.onclick = () => {
+                    document.body.removeChild(modalOverlay);
+                    resolve(true);
+                };
+                
+                cancelBtn.onclick = () => {
+                    document.body.removeChild(modalOverlay);
+                    resolve(false);
+                };
+
+                buttonContainer.appendChild(cancelBtn);
+                buttonContainer.appendChild(confirmBtn);
+                modal.appendChild(p);
+                modal.appendChild(buttonContainer);
+                modalOverlay.appendChild(modal);
+                document.body.appendChild(modalOverlay);
+            });
+        }
+        
+        /**
+         * אתחול Firebase והאזנה לניקוד
+         */
+        async function initializeGame() {
+            try {
+                statusMessage.textContent = "מתחבר ל-Firebase...";
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        userIdDisplay.textContent = userId;
+                        statusMessage.textContent = "מחובר. טוען ניקוד...";
+                        
+                        listenToScoreUpdates(userId);
+
+                        // צירוף מטפלים לשלב 1
+                        document.querySelectorAll('#choiceButtons button').forEach(button => {
+                            button.addEventListener('click', handleChoice);
+                        });
+                        // צירוף מטפלים לשלב 2 (חנות)
+                        document.querySelectorAll('#shopChoiceButtons button').forEach(button => {
+                            button.addEventListener('click', handlePurchase);
+                        });
+                        
+                        resetButton.addEventListener('click', resetScore);
+
+                        setStage('main'); // מתחילים בשלב הראשי ומפעילים כפתורים
+                    } else {
+                        userIdDisplay.textContent = "לא מחובר";
+                        statusMessage.textContent = "שגיאה: לא ניתן להתחבר למערכת.";
+                    }
+                });
+
+            } catch (error) {
+                console.error("Firebase Initialization Error:", error);
+                statusMessage.textContent = `שגיאת אתחול: ${error.message}`;
+            }
+        }
+
+        /**
+         * האזנה לשינויים בניקוד המשתמש
+         * @param {string} uid - מזהה המשתמש
+         */
+        function listenToScoreUpdates(uid) {
+            const scoreRef = doc(db, SCORE_REF_PATH(uid));
+            onSnapshot(scoreRef, (docSnapshot) => {
+                if (docSnapshot.exists() && docSnapshot.data().score !== undefined) {
+                    currentScore = docSnapshot.data().score;
+                    scoreDisplay.textContent = `ניקוד: ${currentScore}`;
+                    statusMessage.textContent = "הניקוד נטען בהצלחה.";
+                } else {
+                    currentScore = INITIAL_SCORE;
+                    scoreDisplay.textContent = `ניקוד: ${currentScore}`;
+                    setDoc(scoreRef, { score: INITIAL_SCORE, updated: new Date().toISOString() }).catch(e => console.error("Error setting initial score:", e));
+                    statusMessage.textContent = "ניקוד התחלתי (50) נקבע.";
+                }
+            }, (error) => {
+                console.error("Error listening to score:", error);
+                statusMessage.textContent = `שגיאה באזנה לניקוד: ${error.message}`;
+            });
+        }
+
+        // התחלת המשחק
+        toggleButtons(false); 
+        initializeGame();
+
+    </script>
+</body>
+</html>

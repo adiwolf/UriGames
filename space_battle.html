@@ -21,6 +21,7 @@
             background-color: #000310;
             border: 2px solid #38b6ff;
             box-shadow: 0 0 25px #38b6ff, inset 0 0 15px rgba(56, 182, 255, 0.5);
+            cursor: pointer;
         }
         #instructionsBtn {
             position: absolute;
@@ -96,8 +97,7 @@
         <h2>הוראות:</h2>
         <p><strong>תנועה:</strong> מקשי החצים</p>
         <p><strong>ירי:</strong> מקש הרווח</p>
-        <p><strong>שדרוג 1:</strong> הגע לקצה העליון לירי כפול</p>
-        <p><strong>שדרוג 2:</strong> הגע שוב לקבלת חלליות עזר</p>
+        <p><strong>שדרוגים:</strong> הגע לקצה העליון של המסך!</p>
     </div>
 
     <canvas id="gameCanvas"></canvas>
@@ -123,7 +123,8 @@
             resetGame();
         });
         
-        // --- Game Settings ---
+        // --- Game States & Settings ---
+        let gameState = 'startScreen'; // 'startScreen', 'playing', 'gameOver'
         let score = 0;
         let gameOver = false;
         let gameWon = false;
@@ -132,148 +133,232 @@
         let levelUpMessage = '';
         let levelUpMessageTimer = 0;
         let keys = {};
-        let lastTime = 0; // For delta time calculation
         
         let bullets = [];
         let enemyBullets = [];
         let stars = [];
         let particles = []; 
+        let player = {};
+        let enemy = {};
+        let lastTime = 0;
+        
+        // --- Ship Definitions ---
+        const shipTypes = {
+            interceptor: {
+                width: 50, height: 60, speed: 420, // px per second
+                draw: function() {
+                    ctx.fillStyle = '#00f2ff'; ctx.beginPath();
+                    ctx.moveTo(this.x + this.width / 2, this.y);
+                    ctx.lineTo(this.x, this.y + this.height * 0.8);
+                    ctx.lineTo(this.x + this.width, this.y + this.height * 0.8);
+                    ctx.closePath(); ctx.fill();
+                    let cockpitColor = '#111';
+                    if (this.timesUpgraded === 1) cockpitColor = '#ffd700';
+                    if (this.timesUpgraded >= 2) cockpitColor = '#00ff7f';
+                    ctx.fillStyle = cockpitColor; ctx.strokeStyle = '#38b6ff'; ctx.lineWidth = 2;
+                    ctx.beginPath(); ctx.arc(this.x + this.width / 2, this.y + this.height * 0.4, 8, 0, Math.PI * 2);
+                    ctx.fill(); ctx.stroke();
+                    ctx.fillStyle = Math.random() < 0.5 ? '#ffdd00' : '#ff9900'; ctx.beginPath();
+                    ctx.moveTo(this.x + this.width * 0.3, this.y + this.height * 0.8);
+                    ctx.lineTo(this.x + this.width * 0.7, this.y + this.height * 0.8);
+                    ctx.lineTo(this.x + this.width / 2, this.y + this.height + Math.random() * 15);
+                    ctx.closePath(); ctx.fill();
+                    this.wingmen.forEach(wingman => wingman.draw());
+                },
+                shoot: function() {
+                    if (this.hasDoubleShot) {
+                        if (bullets.length < 10) {
+                            bullets.push({ x: this.x + this.width * 0.2, y: this.y, width: 5, height: 15, speed: 600, type: 'bullet' });
+                            bullets.push({ x: this.x + this.width * 0.8 - 5, y: this.y, width: 5, height: 15, speed: 600, type: 'bullet' });
+                        }
+                    } else {
+                        if (bullets.length < 5) {
+                            bullets.push({ x: this.x + this.width / 2 - 2.5, y: this.y, width: 5, height: 15, speed: 600, type: 'bullet' });
+                        }
+                    }
+                    this.wingmen.forEach(wingman => {
+                        if (bullets.length < 12) {
+                             bullets.push({ x: wingman.x + wingman.width / 2 - 2.5, y: wingman.y, width: 4, height: 12, speed: 600, type: 'bullet' });
+                        }
+                    });
+                },
+                applyUpgrade: function() {
+                    this.timesUpgraded++;
+                    if (this.timesUpgraded === 1) this.hasDoubleShot = true;
+                    if (this.timesUpgraded === 2) this.createWingmen();
+                    this.y = canvas.height - 70;
+                }
+            },
+            guardian: {
+                width: 60, height: 50, speed: 300, // px per second
+                draw: function() {
+                    ctx.fillStyle = '#f0f0f0'; ctx.beginPath(); // Main body
+                    ctx.moveTo(this.x, this.y + this.height * 0.2); ctx.lineTo(this.x + this.width, this.y + this.height * 0.2);
+                    ctx.lineTo(this.x + this.width * 0.8, this.y + this.height); ctx.lineTo(this.x + this.width * 0.2, this.y + this.height);
+                    ctx.closePath(); ctx.fill();
+                    let cockpitColor = '#111';
+                    if (this.timesUpgraded === 1) cockpitColor = '#ffd700';
+                    if (this.timesUpgraded >= 2) cockpitColor = '#00ff7f';
+                    ctx.fillStyle = cockpitColor; ctx.strokeStyle = '#ff8c00'; ctx.lineWidth = 2; // Cockpit
+                    ctx.fillRect(this.x + this.width / 2 - 10, this.y, 20, 10); ctx.strokeRect(this.x + this.width / 2 - 10, this.y, 20, 10);
+                    ctx.fillStyle = Math.random() < 0.5 ? '#ff8c00' : '#ff4500'; ctx.beginPath(); // Engine
+                    ctx.rect(this.x + this.width * 0.3, this.y + this.height, this.width*0.4, 10 + Math.random() * 5); ctx.fill();
 
-        // --- Player Settings ---
-        const player = {
-            x: canvas.width / 2 - 25,
-            y: canvas.height - 70,
-            width: 50,
-            height: 60,
-            speed: 420, // pixels per second
-            dx: 0,
-            dy: 0,
-            hasDoubleShot: false,
-            wingmen: [],
-            timesUpgraded: 0,
-            draw: function() {
-                // Ship Body
-                ctx.fillStyle = '#00f2ff';
-                ctx.beginPath();
-                ctx.moveTo(this.x + this.width / 2, this.y);
-                ctx.lineTo(this.x, this.y + this.height * 0.8);
-                ctx.lineTo(this.x + this.width, this.y + this.height * 0.8);
-                ctx.closePath();
-                ctx.fill();
-                // Cockpit
-                let cockpitColor = '#111';
-                if (this.timesUpgraded === 1) cockpitColor = '#ffd700';
-                if (this.timesUpgraded >= 2) cockpitColor = '#00ff7f';
-                ctx.fillStyle = cockpitColor;
-                ctx.strokeStyle = '#38b6ff';
-                ctx.lineWidth = 2;
-                ctx.beginPath();
-                ctx.arc(this.x + this.width / 2, this.y + this.height * 0.4, 8, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.stroke();
-                // Engine Flame
-                ctx.fillStyle = Math.random() < 0.5 ? '#ffdd00' : '#ff9900';
-                ctx.beginPath();
-                ctx.moveTo(this.x + this.width * 0.3, this.y + this.height * 0.8);
-                ctx.lineTo(this.x + this.width * 0.7, this.y + this.height * 0.8);
-                ctx.lineTo(this.x + this.width / 2, this.y + this.height + Math.random() * 15);
-                ctx.closePath();
-                ctx.fill();
-                // Draw wingmen
-                this.wingmen.forEach(wingman => wingman.draw());
+                    if(this.shield.active){
+                        ctx.beginPath();
+                        ctx.arc(this.x + this.width/2, this.y + this.height/2, this.shield.radius, 0, Math.PI * 2);
+                        ctx.fillStyle = `rgba(255, 140, 0, ${0.2 + Math.random() * 0.1})`;
+                        ctx.fill();
+                        ctx.strokeStyle = `rgba(255, 140, 0, 0.8)`;
+                        ctx.stroke();
+                    }
+                },
+                shoot: function() {
+                    if (bullets.length > 8) return;
+                    for (let i = 0; i < this.pelletCount; i++) {
+                        bullets.push({
+                            x: this.x + this.width / 2, y: this.y, width: 6, height: 6, speed: 720, type: 'pellet',
+                            dx: (Math.random() - 0.5) * this.spread, dy: -1, life: 350 // Nerfed range further
+                        });
+                    }
+                },
+                applyUpgrade: function() {
+                    this.timesUpgraded++;
+                    if (this.timesUpgraded === 1) this.pelletCount += 1; // Nerfed upgrade from +2 to +1
+                    if (this.timesUpgraded === 2) this.shield.active = true;
+                    this.y = canvas.height - 70;
+                }
             }
         };
-
-        // --- Enemy Settings ---
-        let enemy = {};
         
+        // --- Enemy Definitions ---
         const enemyTypes = [
-            { // Level 1
-                width: 50, height: 50, baseSpeed: 240, bulletSpeed: 360, fireRate: 0.02,
-                draw: function() {
-                    ctx.fillStyle = '#ff4141'; ctx.beginPath();
-                    ctx.moveTo(this.x + this.width / 2, this.y + this.height);
-                    ctx.lineTo(this.x, this.y); ctx.lineTo(this.x + this.width, this.y);
-                    ctx.closePath(); ctx.fill();
-                    ctx.fillStyle = '#cc2a2a'; ctx.beginPath();
-                    ctx.moveTo(this.x, this.y); ctx.lineTo(this.x - 15, this.y + 10); ctx.lineTo(this.x, this.y + 20);
-                    ctx.closePath(); ctx.fill(); ctx.beginPath();
-                    ctx.moveTo(this.x + this.width, this.y); ctx.lineTo(this.x + this.width + 15, this.y + 10); ctx.lineTo(this.x + this.width, this.y + 20);
-                    ctx.closePath(); ctx.fill();
-                    ctx.fillStyle = '#111'; ctx.strokeStyle = '#ff8888'; ctx.lineWidth = 2;
-                    ctx.beginPath(); ctx.arc(this.x + this.width / 2, this.y + this.height * 0.6, 8, 0, Math.PI * 2);
-                    ctx.fill(); ctx.stroke();
-                }
+            { 
+                width: 50, height: 50, baseSpeed: 240, bulletSpeed: 400, fireCooldown: 800, // ms
+                movementPatterns: ['linear', 'zigzag', 'ellipse'],
+                draw: function() { ctx.fillStyle = '#ff4141'; ctx.beginPath(); ctx.moveTo(this.x + this.width / 2, this.y + this.height); ctx.lineTo(this.x, this.y); ctx.lineTo(this.x + this.width, this.y); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#cc2a2a'; ctx.beginPath(); ctx.moveTo(this.x, this.y); ctx.lineTo(this.x - 15, this.y + 10); ctx.lineTo(this.x, this.y + 20); ctx.closePath(); ctx.fill(); ctx.beginPath(); ctx.moveTo(this.x + this.width, this.y); ctx.lineTo(this.x + this.width + 15, this.y + 10); ctx.lineTo(this.x + this.width, this.y + 20); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#111'; ctx.strokeStyle = '#ff8888'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(this.x + this.width / 2, this.y + this.height * 0.6, 8, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
             },
-            { // Level 2: "The Destroyer"
-                width: 60, height: 60, baseSpeed: 360, bulletSpeed: 480, fireRate: 0.04, wingmen: [],
-                draw: function() {
-                    ctx.fillStyle = '#c837ff'; ctx.beginPath();
-                    ctx.moveTo(this.x, this.y + 20); ctx.lineTo(this.x + this.width / 2, this.y);
-                    ctx.lineTo(this.x + this.width, this.y + 20); ctx.lineTo(this.x + this.width, this.y + this.height);
-                    ctx.lineTo(this.x, this.y + this.height); ctx.closePath(); ctx.fill();
-                    ctx.fillStyle = '#9d00e0';
-                    ctx.fillRect(this.x + 10, this.y + this.height, 10, 10); ctx.fillRect(this.x + this.width - 20, this.y + this.height, 10, 10);
-                    ctx.fillStyle = '#111'; ctx.strokeStyle = '#f0a0ff'; ctx.lineWidth = 2;
-                    ctx.beginPath();
-                    ctx.moveTo(this.x + this.width / 2 - 10, this.y + 25); ctx.lineTo(this.x + this.width / 2 + 10, this.y + 25);
-                    ctx.lineTo(this.x + this.width / 2, this.y + 15); ctx.closePath(); ctx.fill(); ctx.stroke();
-                    this.wingmen.forEach(wingman => wingman.draw());
-                }
+            { 
+                width: 60, height: 60, baseSpeed: 360, bulletSpeed: 500, fireCooldown: 500, wingmen: [], 
+                movementPatterns: ['linear', 'zigzag', 'ellipse'],
+                draw: function() { ctx.fillStyle = '#c837ff'; ctx.beginPath(); ctx.moveTo(this.x, this.y + 20); ctx.lineTo(this.x + this.width / 2, this.y); ctx.lineTo(this.x + this.width, this.y + 20); ctx.lineTo(this.x + this.width, this.y + this.height); ctx.lineTo(this.x, this.y + this.height); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#9d00e0'; ctx.fillRect(this.x + 10, this.y + this.height, 10, 10); ctx.fillRect(this.x + this.width - 20, this.y + this.height, 10, 10); ctx.fillStyle = '#111'; ctx.strokeStyle = '#f0a0ff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(this.x + this.width / 2 - 10, this.y + 25); ctx.lineTo(this.x + this.width / 2 + 10, this.y + 25); ctx.lineTo(this.x + this.width / 2, this.y + 15); ctx.closePath(); ctx.fill(); ctx.stroke(); this.wingmen.forEach(wingman => wingman.draw()); }
             },
-            { // Level 3: "The Overlord"
-                width: 100, height: 80, baseSpeed: 120, bulletSpeed: 540, fireRate: 0.03, wingmen: [],
-                laserCharge: 0, maxLaserCharge: 2, laserDuration: 0, maxLaserDuration: 3,
-                isCharging: false, isFiringLaser: false,
-                draw: function() {
-                    ctx.fillStyle = '#b30000'; ctx.beginPath();
-                    ctx.moveTo(this.x, this.y + 20);
-                    ctx.lineTo(this.x + this.width / 2, this.y);
-                    ctx.lineTo(this.x + this.width, this.y + 20);
-                    ctx.lineTo(this.x + this.width - 20, this.y + this.height);
-                    ctx.lineTo(this.x + 20, this.y + this.height);
-                    ctx.closePath(); ctx.fill();
-                    ctx.fillStyle = '#660000';
-                    ctx.fillRect(this.x + this.width / 2 - 10, this.y + this.height, 20, 10);
-                    ctx.fillStyle = '#ff5555'; ctx.strokeStyle = '#ffcccc'; ctx.lineWidth = 2;
-                    ctx.beginPath();
-                    ctx.rect(this.x + this.width / 2 - 25, this.y + 10, 50, 20);
-                    ctx.fill(); ctx.stroke();
-                    
-                    if (this.isCharging) {
-                        const chargeRatio = this.laserCharge / this.maxLaserCharge;
-                        ctx.fillStyle = `rgba(255, 100, 100, ${chargeRatio})`;
-                        ctx.beginPath();
-                        ctx.arc(this.x + this.width / 2, this.y + this.height, 15 * chargeRatio, 0, Math.PI * 2);
-                        ctx.fill();
-                    }
-
-                    if (this.isFiringLaser) {
-                        const laserWidth = 20;
-                        const grad = ctx.createLinearGradient(0, this.y + this.height, 0, canvas.height);
-                        grad.addColorStop(0, `rgba(255, 0, 0, ${0.5 + Math.random() * 0.5})`);
-                        grad.addColorStop(0.5, `rgba(255, 100, 100, ${0.5 + Math.random() * 0.5})`);
-                        grad.addColorStop(1, 'rgba(255, 200, 200, 0)');
-                        ctx.fillStyle = grad;
-                        ctx.fillRect(this.x + this.width / 2 - laserWidth / 2, this.y + this.height, laserWidth, canvas.height);
-                    }
-                }
+            { 
+                width: 100, height: 80, baseSpeed: 120, bulletSpeed: 550, fireCooldown: 600, wingmen: [], 
+                movementPatterns: ['linear'], maxLaserCharge: 2000, maxLaserDuration: 3000, // ms
+                draw: function() { ctx.fillStyle = '#b30000'; ctx.beginPath(); ctx.moveTo(this.x, this.y + 20); ctx.lineTo(this.x + this.width / 2, this.y); ctx.lineTo(this.x + this.width, this.y + 20); ctx.lineTo(this.x + this.width - 20, this.y + this.height); ctx.lineTo(this.x + 20, this.y + this.height); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#660000'; ctx.fillRect(this.x + this.width / 2 - 10, this.y + this.height, 20, 10); ctx.fillStyle = '#ff5555'; ctx.strokeStyle = '#ffcccc'; ctx.lineWidth = 2; ctx.beginPath(); ctx.rect(this.x + this.width / 2 - 25, this.y + 10, 50, 20); ctx.fill(); ctx.stroke(); if (this.isCharging) { const chargeRatio = this.laserCharge / this.maxLaserCharge; ctx.fillStyle = `rgba(255, 100, 100, ${chargeRatio})`; ctx.beginPath(); ctx.arc(this.x + this.width / 2, this.y + this.height, 15 * chargeRatio, 0, Math.PI * 2); ctx.fill(); } if (this.isFiringLaser) { const laserWidth = 20; const grad = ctx.createLinearGradient(0, this.y + this.height, 0, canvas.height); grad.addColorStop(0, `rgba(255, 0, 0, ${0.5 + Math.random() * 0.5})`); grad.addColorStop(0.5, `rgba(255, 100, 100, ${0.5 + Math.random() * 0.5})`); grad.addColorStop(1, 'rgba(255, 200, 200, 0)'); ctx.fillStyle = grad; ctx.fillRect(this.x + this.width / 2 - laserWidth / 2, this.y + this.height, laserWidth, canvas.height); } }
             }
         ];
 
+        function initPlayer(shipType) {
+            const template = shipTypes[shipType];
+            player = {
+                ...template,
+                x: canvas.width / 2 - template.width / 2,
+                y: canvas.height - 70,
+                dx: 0, dy: 0,
+                timesUpgraded: 0,
+            };
+            if (shipType === 'interceptor') {
+                player.hasDoubleShot = false;
+                player.wingmen = [];
+                player.createWingmen = createWingmen;
+            }
+            if (shipType === 'guardian') {
+                player.pelletCount = 4; // Nerfed from 5
+                player.spread = 1.0; // Nerfed from 0.8 (wider spread)
+                player.shield = { active: false, radius: 40 };
+            }
+        }
+
+        function drawStartScreen() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawStars();
+            
+            ctx.textAlign = 'center';
+            ctx.fillStyle = 'white';
+            ctx.font = '50px Arial';
+            ctx.fillText('בחר את החללית שלך', canvas.width / 2, canvas.height * 0.2);
+
+            const box1X = canvas.width / 4 - 100;
+            const boxY = canvas.height / 2 - 100;
+            ctx.strokeStyle = '#38b6ff';
+            ctx.strokeRect(box1X, boxY, 200, 200);
+            shipTypes.interceptor.draw.call({ x: box1X + 75, y: boxY + 50, width: 50, height: 60, timesUpgraded: 0, wingmen: [] });
+            ctx.font = '24px Arial';
+            ctx.fillText('"מיירט"', box1X + 100, boxY + 160);
+            ctx.font = '16px Arial';
+            ctx.fillText('מהיר וקטלני', box1X + 100, boxY + 185);
+
+            const box2X = canvas.width * 3 / 4 - 100;
+            ctx.strokeStyle = '#ff8c00';
+            ctx.strokeRect(box2X, boxY, 200, 200);
+            shipTypes.guardian.draw.call({ x: box2X + 70, y: boxY + 60, width: 60, height: 50, timesUpgraded: 0, shield: {active: false} });
+            ctx.font = '24px Arial';
+            ctx.fillStyle = 'white';
+            ctx.fillText('"שומר"', box2X + 100, boxY + 160);
+            ctx.font = '16px Arial';
+            ctx.fillText('חזק ומוגן', box2X + 100, boxY + 185);
+        }
+
+        function startGame(shipType) {
+            initPlayer(shipType);
+            gameOver = false; gameWon = false; score = 0; level = 1;
+            setupEnemyForLevel(level);
+            bullets = []; enemyBullets = []; particles = [];
+            createStars();
+            gameState = 'playing';
+            // lastTime = 0; // Removing this fixes the time jump bug on restart
+            requestAnimationFrame(mainLoop);
+        }
+
+        canvas.addEventListener('click', (e) => {
+            if (gameState !== 'startScreen') return;
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            const box1X = canvas.width / 4 - 100;
+            const boxY = canvas.height / 2 - 100;
+            const box2X = canvas.width * 3 / 4 - 100;
+
+            if (y > boxY && y < boxY + 200) {
+                if (x > box1X && x < box1X + 200) {
+                    startGame('interceptor');
+                } else if (x > box2X && x < box2X + 200) {
+                    startGame('guardian');
+                }
+            }
+        });
+
+        // --- Core Game Functions ---
         function setupEnemyForLevel(level) {
             const type = enemyTypes[level - 1];
+            const pattern = type.movementPatterns[Math.floor(Math.random() * type.movementPatterns.length)];
+            
             enemy = {
                 ...type,
                 x: canvas.width / 2 - type.width / 2,
                 y: 30,
                 speed: type.baseSpeed,
+                movementPattern: pattern,
+                angle: 0,
+                dy: 120, // px per second
                 laserCharge: 0, laserDuration: 0,
                 isCharging: false, isFiringLaser: false,
+                fireTimer: type.fireCooldown,
             };
+
+            if (pattern === 'ellipse') {
+                enemy.centerX = canvas.width / 2;
+                enemy.centerY = 120;
+                enemy.radiusX = canvas.width / 4;
+                enemy.radiusY = 60;
+            }
+
             if (level === 2) { createEnemyWingmen(); }
         }
-        
+
         function createStars() {
             stars = [];
             for (let i = 0; i < 200; i++) {
@@ -293,56 +378,39 @@
 
         document.addEventListener('keydown', (e) => {
             keys[e.code] = true;
-            if (e.code === 'Space' && !gameOver && !isPaused) shoot();
-            if (e.code === 'Enter' && gameOver) resetGame();
+            if (e.code === 'Space' && gameState === 'playing' && !isPaused) player.shoot();
+            if (e.code === 'Enter' && gameState === 'gameOver') resetGame();
         });
         document.addEventListener('keyup', (e) => { keys[e.code] = false; });
-        
-        function shoot() {
-            if (player.hasDoubleShot) {
-                if (bullets.length < 10) {
-                    bullets.push({ x: player.x + player.width * 0.2, y: player.y, width: 5, height: 15, speed: 600 });
-                    bullets.push({ x: player.x + player.width * 0.8 - 5, y: player.y, width: 5, height: 15, speed: 600 });
-                }
-            } else {
-                if (bullets.length < 5) {
-                    bullets.push({ x: player.x + player.width / 2 - 2.5, y: player.y, width: 5, height: 15, speed: 600 });
-                }
-            }
-            player.wingmen.forEach(wingman => {
-                if (bullets.length < 12) {
-                     bullets.push({ x: wingman.x + wingman.width / 2 - 2.5, y: wingman.y, width: 4, height: 12, speed: 600 });
-                }
-            });
-        }
         
         function enemyShoot() {
              if (enemyBullets.length < 3) {
                 enemyBullets.push({ x: enemy.x + enemy.width / 2 - 3, y: enemy.y + enemy.height, width: 6, height: 18, speed: enemy.bulletSpeed });
              }
         }
-
         function createExplosion(x, y, color) {
             const particleCount = 30;
             for (let i = 0; i < particleCount; i++) {
                 particles.push({
                     x: x, y: y,
-                    vx: (Math.random() - 0.5) * 360, vy: (Math.random() - 0.5) * 360,
-                    life: 0.7, maxLife: 0.7, color: color, size: Math.random() * 3 + 1
+                    vx: (Math.random() - 0.5) * 300, vy: (Math.random() - 0.5) * 300,
+                    life: 700, // ms
+                    color: color, size: Math.random() * 3 + 1
                 });
             }
         }
         function handleParticles(deltaTime) {
+            const dt = deltaTime / 1000;
             for (let i = particles.length - 1; i >= 0; i--) {
                 const p = particles[i];
-                p.x += p.vx * deltaTime;
-                p.y += p.vy * deltaTime;
+                p.x += p.vx * dt;
+                p.y += p.vy * dt;
                 p.life -= deltaTime;
 
                 if (p.life <= 0) {
                     particles.splice(i, 1);
                 } else {
-                    ctx.globalAlpha = p.life / p.maxLife; // Fade out effect
+                    ctx.globalAlpha = p.life / 700; // Fade out effect
                     ctx.beginPath();
                     ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
                     ctx.fillStyle = p.color;
@@ -353,48 +421,45 @@
         }
 
         function updatePlayerPosition(deltaTime) {
+            const dt = deltaTime / 1000;
             player.dx = 0; player.dy = 0;
             if (keys['ArrowRight'] || keys['KeyD']) player.dx = player.speed;
             if (keys['ArrowLeft'] || keys['KeyA']) player.dx = -player.speed;
             if (keys['ArrowUp'] || keys['KeyW']) player.dy = -player.speed;
             if (keys['ArrowDown'] || keys['KeyS']) player.dy = player.speed;
             
-            player.x += player.dx * deltaTime; 
-            player.y += player.dy * deltaTime;
+            player.x += player.dx * dt;
+            player.y += player.dy * dt;
 
             if (player.x < 0) player.x = 0;
             if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
             
             if (player.y < 0) {
-                player.timesUpgraded++;
-                if (player.timesUpgraded === 1) player.hasDoubleShot = true;
-                if (player.timesUpgraded === 2) createWingmen();
-                player.y = canvas.height - 70;
+                player.applyUpgrade();
             }
             if (player.y + player.height > canvas.height) player.y = canvas.height - player.height;
             
-            player.wingmen.forEach((wingman, index) => {
-                const offset = (index === 0 ? -1 : 1) * (player.width + 10);
-                wingman.x = player.x + offset;
-                wingman.y = player.y + 20;
-            });
+            if (player.wingmen) {
+                player.wingmen.forEach((wingman, index) => {
+                    const offset = (index === 0 ? -1 : 1) * (player.width + 10);
+                    wingman.x = player.x + offset;
+                    wingman.y = player.y + 20;
+                });
+            }
         }
 
         function createWingmen() {
-            if (player.wingmen.length > 0) return;
-            const wingmanDraw = function() {
-                ctx.fillStyle = '#00f2ff';
-                ctx.beginPath();
-                ctx.moveTo(this.x + this.width / 2, this.y);
-                ctx.lineTo(this.x, this.y + this.height);
-                ctx.lineTo(this.x + this.width, this.y + this.height);
-                ctx.closePath();
-                ctx.fill();
-            };
-            player.wingmen.push({ x: 0, y: 0, width: 20, height: 20, draw: wingmanDraw });
-            player.wingmen.push({ x: 0, y: 0, width: 20, height: 20, draw: wingmanDraw });
+             if (player.wingmen.length > 0) return;
+             const wingmanDraw = function() {
+                 ctx.fillStyle = '#00f2ff'; ctx.beginPath();
+                 ctx.moveTo(this.x + this.width / 2, this.y);
+                 ctx.lineTo(this.x, this.y + this.height);
+                 ctx.lineTo(this.x + this.width, this.y + this.height);
+                 ctx.closePath(); ctx.fill();
+             };
+             player.wingmen.push({ x: 0, y: 0, width: 20, height: 20, draw: wingmanDraw });
+             player.wingmen.push({ x: 0, y: 0, width: 20, height: 20, draw: wingmanDraw });
         }
-
         function createEnemyWingmen() {
             enemy.wingmen = [];
             const wingmanDraw = function() {
@@ -406,15 +471,47 @@
             enemy.wingmen.push({ x: 0, y: 0, width: 25, height: 25, draw: wingmanDraw });
             enemy.wingmen.push({ x: 0, y: 0, width: 25, height: 25, draw: wingmanDraw });
         }
-
-        function updateEnemyPosition(deltaTime) {
-            enemy.x += enemy.speed * deltaTime;
-            if (enemy.x <= 0 || enemy.x + enemy.width >= canvas.width) {
-                enemy.speed *= -1;
+        
+        function updateEnemyMovement(deltaTime) {
+            const dt = deltaTime / 1000;
+            switch (enemy.movementPattern) {
+                case 'linear':
+                case 'zigzag':
+                    enemy.x += enemy.speed * dt;
+                    if (enemy.movementPattern === 'zigzag') {
+                        enemy.y += enemy.dy * dt;
+                        // Vertical bounce for zigzag
+                        if (enemy.y <= 20) {
+                            enemy.y = 20;
+                            enemy.dy *= -1;
+                        } else if (enemy.y + enemy.height >= 200) {
+                            enemy.y = 200 - enemy.height;
+                            enemy.dy *= -1;
+                        }
+                    }
+                    // Horizontal wrap-around for both linear and zigzag
+                    if (enemy.x > canvas.width) {
+                        enemy.x = 0 - enemy.width;
+                    } else if (enemy.x + enemy.width < 0) {
+                        enemy.x = canvas.width;
+                    }
+                    break;
+                case 'ellipse':
+                    enemy.angle += 1.2 * Math.sign(enemy.speed) * dt;
+                    enemy.x = enemy.centerX + Math.cos(enemy.angle) * enemy.radiusX - enemy.width / 2;
+                    enemy.y = enemy.centerY + Math.sin(enemy.angle) * enemy.radiusY - enemy.height / 2;
+                    break;
             }
-            const fireChance = enemy.fireRate + (score % 10) * 0.002 * level;
-            if (Math.random() < fireChance && !gameOver && !enemy.isFiringLaser && !enemy.isCharging) {
+        }
+
+        function updateEnemy(deltaTime) {
+            const dt = deltaTime / 1000;
+            updateEnemyMovement(deltaTime);
+
+            enemy.fireTimer -= deltaTime;
+            if (enemy.fireTimer <= 0 && !gameOver && !enemy.isFiringLaser && !enemy.isCharging) {
                 enemyShoot();
+                enemy.fireTimer = enemy.fireCooldown / (1 + (score % 10) * 0.05 * level); // Fire faster with score
             }
 
             if (level === 3) {
@@ -437,56 +534,62 @@
                     }
                 }
             }
-
-            if (enemy.wingmen) {
+            
+            if (enemy.wingmen && enemy.wingmen.length > 0) { 
                 enemy.wingmen.forEach((wingman, index) => {
-                    const offset = (index === 0 ? -1 : 1) * (enemy.width + 5);
-                    wingman.x = enemy.x + offset; wingman.y = enemy.y + 20;
-                    if (Math.random() < 0.01 * level && !gameOver) {
-                        enemyBullets.push({
-                            x: wingman.x + wingman.width / 2 - 3, y: wingman.y + wingman.height,
-                            width: 5, height: 15, speed: enemy.bulletSpeed * 0.9
-                        });
-                    }
+                     const offset = (index === 0 ? -1 : 1) * (enemy.width / 2 + 20);
+                     wingman.x = enemy.x + enemy.width / 2 + offset - wingman.width / 2;
+                     wingman.y = enemy.y + 40;
+                     if (Math.random() < 0.5 * dt) { 
+                         enemyBullets.push({ x: wingman.x + wingman.width / 2 - 3, y: wingman.y + wingman.height, width: 5, height: 15, speed: enemy.bulletSpeed * 0.9 });
+                     }
                 });
             }
         }
 
         function handleBullets(deltaTime) {
+            const dt = deltaTime / 1000;
             for (let i = bullets.length - 1; i >= 0; i--) {
                 const bullet = bullets[i];
-                bullet.y -= bullet.speed * deltaTime;
-                ctx.fillStyle = '#fff000'; ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
-                ctx.shadowColor = '#fff000'; ctx.shadowBlur = 10;
+                
+                // Update position first for all bullets
+                if (bullet.type === 'pellet') {
+                    bullet.x += bullet.dx * bullet.speed * dt;
+                    bullet.y += bullet.dy * bullet.speed * dt;
+                    bullet.life -= deltaTime;
+                } else { // standard bullet
+                    bullet.y -= bullet.speed * dt;
+                }
+
+                // Collision detection
                 let bulletRemoved = false;
-                if ( bullet.x < enemy.x + enemy.width && bullet.x + bullet.width > enemy.x &&
+                if ( enemy && bullet.x < enemy.x + enemy.width && bullet.x + bullet.width > enemy.x &&
                     bullet.y < enemy.y + enemy.height && bullet.y + bullet.height > enemy.y ) {
                     bullets.splice(i, 1);
                     bulletRemoved = true; score++;
 
                     if (score >= 50) {
-                        gameWon = true;
-                        gameOver = true;
+                        gameWon = true; gameOver = true;
                         createExplosion(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2, '#ffd700');
-                        return;
+                        continue; // Skip to next bullet
                     }
 
                     let enemyColor = '#ff4141';
-                    if (level === 2) enemyColor = '#c837ff';
-                    if (level === 3) enemyColor = '#b30000';
+                    if (level === 2) enemyColor = '#c837ff'; if (level === 3) enemyColor = '#b30000';
                     createExplosion(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2, enemyColor);
 
                     if (level === 1 && score >= 10) { startLevel(2); }
                     else if (level === 2 && score >= 25) { startLevel(3); }
-                    else { // Only reset position if not leveling up
-                        const currentDirection = Math.sign(enemy.speed);
-                        const baseSpeed = enemy.baseSpeed + (score % 10) * 4 * level; // Adjusted for delta time
-                        enemy.speed = baseSpeed * currentDirection;
-                        enemy.x = Math.random() * (canvas.width - enemy.width);
+                    else {
+                        const currentLevel = level; const oldSpeedDirection = Math.sign(enemy.speed);
+                        setupEnemyForLevel(currentLevel);
+                        const baseSpeed = enemy.baseSpeed + (score % 10) * 3 * level;
+                        enemy.speed = baseSpeed * oldSpeedDirection;
                         if (level === 2) { createEnemyWingmen(); }
                     }
                 }
-                if (!bulletRemoved && enemy.wingmen) {
+                
+                if (!bulletRemoved && enemy && enemy.wingmen) {
                     for (let j = enemy.wingmen.length - 1; j >= 0; j--) {
                         const wingman = enemy.wingmen[j];
                         if ( bullet.x < wingman.x + wingman.width && bullet.x + bullet.width > wingman.x &&
@@ -497,20 +600,52 @@
                         }
                     }
                 }
-                if (!bulletRemoved && bullet.y < 0) { bullets.splice(i, 1); }
+
+                // Remove off-screen or expired bullets
+                if ((bullet.type === 'pellet' && bullet.life <= 0) || (bullet.type === 'bullet' && bullet.y < 0)) {
+                    if(!bulletRemoved) bullets.splice(i, 1);
+                }
             }
-            ctx.shadowBlur = 0;
+        }
+        
+        // This new function only draws the bullets
+        function drawBullets() {
+            bullets.forEach(bullet => {
+                if (bullet.type === 'pellet') {
+                    ctx.fillStyle = '#ffaf4d';
+                    ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+                } else {
+                    ctx.fillStyle = '#fff000'; 
+                    ctx.shadowColor = '#fff000'; 
+                    ctx.shadowBlur = 10;
+                    ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+                }
+            });
+            ctx.shadowBlur = 0; // Reset shadow
         }
 
         function handleEnemyBullets(deltaTime) {
+            const dt = deltaTime / 1000;
             for (let i = enemyBullets.length - 1; i >= 0; i--) {
                 const bullet = enemyBullets[i];
-                bullet.y += bullet.speed * deltaTime;
-                ctx.fillStyle = '#ff00ff';
-                ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
-                ctx.shadowColor = '#ff00ff'; ctx.shadowBlur = 10;
+                bullet.y += bullet.speed * dt;
                 
                 let bulletRemoved = false;
+
+                if (player.shield && player.shield.active) {
+                    const bulletCenterX = bullet.x + bullet.width / 2;
+                    const bulletCenterY = bullet.y + bullet.height / 2;
+                    const playerCenterX = player.x + player.width / 2;
+                    const playerCenterY = player.y + player.height / 2;
+                    const dist = Math.hypot(bulletCenterX - playerCenterX, bulletCenterY - playerCenterY);
+                    
+                    if (dist < player.shield.radius) {
+                        player.shield.active = false;
+                        enemyBullets.splice(i, 1);
+                        createExplosion(player.x + player.width/2, player.y + player.height/2, '#ff8c00');
+                        continue;
+                    }
+                }
 
                 if ( bullet.x < player.x + player.width && bullet.x + bullet.width > player.x &&
                     bullet.y < player.y + player.height && bullet.y + player.height > player.y ) {
@@ -519,12 +654,12 @@
                     bulletRemoved = true; 
                     if (i < enemyBullets.length) enemyBullets.splice(i, 1);
                 }
-
+                
                 if (!bulletRemoved && player.wingmen) {
                     for (let j = player.wingmen.length - 1; j >= 0; j--) {
                         const wingman = player.wingmen[j];
                         if ( bullet.x < wingman.x + wingman.width && bullet.x + bullet.width > wingman.x &&
-                            bullet.y < wingman.y + wingman.height && bullet.y + bullet.height > wingman.y ) {
+                            bullet.y < wingman.y + wingman.height && bullet.y + wingman.height > wingman.y ) {
                             enemyBullets.splice(i, 1);
                             bulletRemoved = true;
                             createExplosion(wingman.x + wingman.width / 2, wingman.y + wingman.height / 2, '#00f2ff');
@@ -538,10 +673,37 @@
                     enemyBullets.splice(i, 1);
                 }
             }
-            ctx.shadowBlur = 0;
+        }
+        
+        // This new function only draws enemy bullets
+        function drawEnemyBullets() {
+            enemyBullets.forEach(bullet => {
+                ctx.fillStyle = '#ff00ff'; 
+                ctx.shadowColor = '#ff00ff'; 
+                ctx.shadowBlur = 10;
+                ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+            });
+            ctx.shadowBlur = 0; // Reset shadow
         }
 
+
         function checkCollision() {
+            if (!enemy) return;
+
+            if (player.shield && player.shield.active) {
+                 const dist = Math.hypot((enemy.x + enemy.width/2) - (player.x + player.width/2), (enemy.y + enemy.height/2) - (player.y + player.height/2));
+                 if (dist < player.shield.radius + enemy.width/2) {
+                     player.shield.active = false;
+                     score++;
+                     createExplosion(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2, '#ff4141');
+                     const currentLevel = level; const oldSpeedDirection = Math.sign(enemy.speed);
+                     setupEnemyForLevel(currentLevel);
+                     const baseSpeed = enemy.baseSpeed + (score % 10) * 3 * level;
+                     enemy.speed = baseSpeed * oldSpeedDirection;
+                     return;
+                 }
+            }
+            
             if (player.x < enemy.x + enemy.width && player.x + player.width > enemy.x &&
                 player.y < enemy.y + enemy.height && player.y + player.height > enemy.y) {
                 createExplosion(player.x + player.width / 2, player.y + player.height / 2, '#00f2ff');
@@ -558,7 +720,6 @@
                     }
                 }
             }
-            // Laser collision check
             if (level === 3 && enemy.isFiringLaser) {
                 const laserWidth = 20;
                 const laserX = enemy.x + enemy.width / 2 - laserWidth / 2;
@@ -573,9 +734,8 @@
             level = newLevel;
             setupEnemyForLevel(level);
             levelUpMessage = `שלב ${level}!`;
-            levelUpMessageTimer = 3; // 3 seconds
+            levelUpMessageTimer = 3000; // 3 seconds
         }
-
         function drawUI(deltaTime) {
             ctx.fillStyle = 'white';
             ctx.font = '24px Arial';
@@ -583,21 +743,19 @@
             ctx.fillText(`ניקוד: ${score}`, canvas.width - 20, 40);
             ctx.textAlign = 'left';
             ctx.fillText(`שלב: ${level}`, 20, 40);
-            
             if (levelUpMessageTimer > 0) {
                 ctx.font = '60px Arial';
                 ctx.textAlign = 'center';
-                ctx.fillStyle = 'rgba(255, 223, 0, ' + (levelUpMessageTimer / 3) + ')';
+                ctx.fillStyle = 'rgba(255, 223, 0, ' + (levelUpMessageTimer / 3000) + ')';
                 ctx.fillText(levelUpMessage, canvas.width / 2, canvas.height / 2);
                 levelUpMessageTimer -= deltaTime;
             }
         }
         function showGameOver() {
+            gameState = 'gameOver';
             ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
             ctx.textAlign = 'center';
-
             if (gameWon) {
                 ctx.fillStyle = '#ffd700';
                 ctx.font = '60px Arial';
@@ -611,49 +769,68 @@
                 ctx.font = '30px Arial';
                 ctx.fillText(`ניקוד סופי: ${score}`, canvas.width / 2, canvas.height / 2 + 20);
             }
-
             ctx.font = '20px Arial';
             ctx.fillStyle = 'white';
             ctx.fillText('לחץ על Enter כדי להתחיל מחדש', canvas.width / 2, canvas.height / 2 + 70);
         }
         
         function resetGame() {
-            gameOver = false; gameWon = false; score = 0; level = 1;
-            player.x = canvas.width / 2 - player.width / 2;
-            player.y = canvas.height - 70;
-            player.hasDoubleShot = false; player.timesUpgraded = 0;
-            player.wingmen = [];
-            setupEnemyForLevel(level);
-            bullets = []; enemyBullets = []; particles = [];
-            createStars();
-            lastTime = performance.now();
-            requestAnimationFrame(gameLoop);
+            gameState = 'startScreen';
+            lastTime = 0; // Reset time only when going back to start screen
+            requestAnimationFrame(mainLoop);
         }
 
-        function gameLoop(timestamp) {
-            if (isPaused) return;
-            if (gameOver) { showGameOver(); return; }
+        function mainLoop(timestamp = 0) {
+            if (isPaused) {
+                lastTime = timestamp; // Prevent time jump after unpausing
+                requestAnimationFrame(mainLoop);
+                return;
+            }
 
-            const deltaTime = (timestamp - lastTime) / 1000;
+            if (lastTime === 0) {
+                lastTime = timestamp;
+                requestAnimationFrame(mainLoop);
+                return;
+            }
+
+            const deltaTime = timestamp - lastTime;
             lastTime = timestamp;
 
-            requestAnimationFrame(gameLoop);
-            
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            drawStars();
-            player.draw();
-            enemy.draw();
-            handleParticles(deltaTime); 
-            updatePlayerPosition(deltaTime);
-            updateEnemyPosition(deltaTime);
-            handleBullets(deltaTime);
-            handleEnemyBullets(deltaTime);
-            checkCollision();
-            drawUI(deltaTime);
-        }
+            if (gameState === 'startScreen') {
+                drawStartScreen();
+                requestAnimationFrame(mainLoop);
+            } else if (gameState === 'playing') {
+                if (gameOver) {
+                    showGameOver();
+                    return; 
+                }
+                
+                // --- UPDATE LOGIC ---
+                updatePlayerPosition(deltaTime);
+                updateEnemy(deltaTime);
+                handleBullets(deltaTime);       
+                handleEnemyBullets(deltaTime);  
+                if (!gameOver) checkCollision();
 
+                // --- DRAW LOGIC ---
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                drawStars();
+                if (player.draw) player.draw();
+                if (enemy.draw) enemy.draw();
+                drawBullets(); // New draw call
+                drawEnemyBullets(); // New draw call
+                handleParticles(deltaTime);
+                drawUI(deltaTime);
+
+                requestAnimationFrame(mainLoop);
+            } else if (gameState === 'gameOver') {
+                showGameOver();
+            }
+        }
+        
         // --- Event Listeners for Instructions ---
         instructionsBtn.addEventListener('click', () => {
+            if (gameState !== 'playing') return;
             isPaused = true;
             controlsPanel.classList.add('visible');
             overlay.classList.remove('hidden');
@@ -663,11 +840,12 @@
             isPaused = false;
             controlsPanel.classList.remove('visible');
             overlay.classList.add('hidden');
-            lastTime = performance.now(); // Reset lastTime to avoid a large jump
-            requestAnimationFrame(gameLoop); // Resume game
+            requestAnimationFrame(mainLoop); // Resume game
         });
         
+        // --- Initial Load ---
         resetGame();
+
     </script>
 </body>
 </html>

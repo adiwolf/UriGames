@@ -250,6 +250,11 @@
                 </button>
             `;
         }
+        
+        // פונקציה גלובלית לאיפוס קווסט הפיסטוס
+        function resetHephaestusBuild() {
+             renderQuest();
+        }
 
         // --- לוגיקת משחק מרכזית ---
 
@@ -320,7 +325,7 @@
                         <p class="font-bold">❌ כישלון...</p>
                         <p>${message}</p>
                     </div>
-                    ${createActionButton("נסה שוב", "resetCurrentQuest()")}
+                    ${gameState.currentQuest === 8 ? createActionButton("נסה שוב (בנייה מחדש)", "resetHephaestusBuild()") : createActionButton("נסה שוב", "resetCurrentQuest()")}
                 `;
             }
             // עדכון אזור התוצאה
@@ -379,8 +384,12 @@
 
             // עדכון הוראות שליטה בהתאם לקווסט הפיסטוס
             const controlInstructions = quest.gameName === 'hephaestus_build' ? 
-                'השתמשו במקשי החצים (← ↑ → ↓) כדי לנווט. לחצו **רווח** כדי לאסוף/לשחרר חלק רובוט.' : 
-                'השתמש במקשי החצים (← ↑ → ↓) כדי לשלוט בדמות. קליק על המקשים למטה עבור מובייל. (מקש רווח לקווסט של אפרודיטה).';
+                'השתמשו במקשי החיצים (← ↑ → ↓) כדי לנווט. לחצו **רווח** כדי לאסוף/לשחרר חלק רובוט.' : 
+                'השתמש במקשי החיצים (← ↑ → ↓) כדי לשלוט בדמות. קליק על המקשים למטה עבור מובייל. (מקש רווח לקווסט של אפרודיטה).';
+            
+            // כפתור איפוס לקווסט הפיסטוס
+            const hephaestusResetButton = quest.gameName === 'hephaestus_build' ? 
+                `<button onclick="resetHephaestusBuild()" class="action-btn bg-red-500 hover:bg-red-600 focus:ring-red-300 w-full md:w-auto text-base mt-2">איפוס (RESET)</button>` : '';
 
             return `
                 <div class="flex flex-col items-center space-y-4">
@@ -390,11 +399,14 @@
                         ${quest.gameName === 'hephaestus_build' ? 'בנה את הרובוט שלך!' : 'לחץ \'התחל קווסט\' כדי להתחיל!'}
                     </div>
                     <div id="quest-area">
-                        <button onclick="${quest.gameName === 'hephaestus_build' ? 'checkBuildCompletion()' : `startGameLogic('${quest.gameName}')`}" id="start-game-btn"
-                            class="action-btn w-64 h-14 text-xl bg-blue-700 hover:bg-blue-800 focus:ring-blue-300 transition duration-150 transform hover:scale-105"
-                            style="display: ${showStartButton ? 'block' : 'none'};">
-                            ${showStartButton ? 'התחל קווסט' : 'התחל מירוץ רובוט!'}
-                        </button>
+                        <div class="flex flex-col md:flex-row justify-center gap-4">
+                            <button onclick="${quest.gameName === 'hephaestus_build' ? 'checkBuildCompletion()' : `startGameLogic('${quest.gameName}')`}" id="start-game-btn"
+                                class="action-btn w-64 h-14 text-xl bg-blue-700 hover:bg-blue-800 focus:ring-blue-300 transition duration-150 transform hover:scale-105"
+                                style="display: ${showStartButton ? 'block' : 'none'};">
+                                ${showStartButton ? 'התחל קווסט' : 'התחל מירוץ רובוט!'}
+                            </button>
+                            ${hephaestusResetButton}
+                        </div>
                         <p class="text-sm text-gray-500 mt-4">${controlInstructions}</p>
                         <!-- כפתורי שליטה למסכי מגע -->
                         <div class="touch-controls flex justify-center mt-4 space-x-4 ${showTouchControls ? '' : 'hidden'} md:hidden">
@@ -947,11 +959,11 @@
             const quest = quests[gameState.currentQuest - 1];
             const player = canvasState.player;
             const now = Date.now();
-            const elapsed = (now - canvasState.lastTick) / (1000/60); // שינוי: חישוב קצב עדכון לפי פריימים
+            const elapsed = (now - canvasState.lastTick) / 1000; // חזרה ל-elapsed מבוסס זמן
             canvasState.lastTick = now;
 
-            // תנועת שחקן (המהירות היא קבועה 9)
-            const playerMove = player.speed * elapsed / (60/player.speed); // ניסיון לאזן מהירות מול FPS
+            // תנועת שחקן
+            const speed = player.speed * elapsed * 60 / 16.66; // נורמליזציה של המהירות 9
             
             if (keys['ArrowLeft'] && player.x > 0) player.x -= player.speed;
             if (keys['ArrowRight'] && player.x < canvas.width - player.w) player.x += player.speed;
@@ -1007,18 +1019,16 @@
                     let collision = false;
                     
                     // 1. Segment 1 (Left): 0 to gap1Start
-                    if (player.x < wall.gap1Start && player.x + player.w > 0) {
+                    if (player.x < wall.gap1Start) {
                         collision = true;
                     }
                     // 2. Segment 2 (Middle): gap1End to gap2Start
-                    if (player.x < wall.gap2Start && player.x + player.w > wall.gap1End) {
-                        // אם הפער הראשון נגמר לפני תחילת השחקן והשחקן מתחיל לפני הפער השני
-                        if (player.x + player.w > wall.gap1End && player.x < wall.gap2Start) {
-                           collision = true;
-                        }
+                    // התנגשות מתרחשת אם: השחקן מתחיל לפני סוף הפער הראשון AND השחקן נגמר אחרי תחילת הפער השני
+                    if (player.x + player.w > wall.gap1End && player.x < wall.gap2Start) {
+                       collision = true;
                     }
                     // 3. Segment 3 (Right): gap2End to canvas.width
-                    if (player.x + player.w > wall.gap2End && player.x < canvas.width) {
+                    if (player.x + player.w > wall.gap2End) {
                         collision = true;
                     }
                     
@@ -1661,11 +1671,14 @@
             [ROBOT_PARTS.WHEEL]: { x: 175, y: 260, radius: 25, assignedPart: null },
         };
 
-        // 3. הגדרת מכשולים במסלול
+        // 3. הגדרת מכשולים במסלול (עם דרישות גלויות)
         const OBSTACLES = [
-            { type: 'SPEED_CHALLENGE', name: "מכשול 1: מנהרת מהירות", requiredStat: 'speed', threshold: 12, failMessage: "הרובוט שלך היה איטי מדי במנהרת המהירות!" },
-            { type: 'FORCE_CHALLENGE', name: "מכשול 2: קיר הריסות כבד", requiredStat: 'weight', threshold: 12, failMessage: "הרובוט לא היה חזק מספיק כדי לשבור את קיר ההריסות!" },
-            { type: 'PRECISION_CHALLENGE', name: "מכשול 3: גשר כבלים דק", requiredStat: 'balance', threshold: 18, failMessage: "הרובוט איבד יציבות על גשר הכבלים ונפל!" },
+            // הדרישות הוגדרו כך: צירוף 3 מהירים (5*3=15) ואחד מאוזן (3) ייתן 18, עובר. 4 מאוזנים ייתנו 12, נכשל.
+            { type: 'SPEED_CHALLENGE', name: "מכשול 1: מנהרת מהירות (דרישה: 14)", requiredStat: 'speed', threshold: 14, failMessage: "הרובוט שלך היה איטי מדי במנהרת המהירות! (נדרש >14)" },
+            // הדרישות הוגדרו כך: צירוף 4 מאוזנים (3*4=12) עובר בקושי. צירוף עם חלק כוח (5) יעבור בבטחה.
+            { type: 'FORCE_CHALLENGE', name: "מכשול 2: קיר הריסות כבד (דרישה: 12)", requiredStat: 'weight', threshold: 12, failMessage: "הרובוט לא היה חזק מספיק כדי לשבור את קיר ההריסות! (נדרש >12)" },
+            // הדרישות הוגדרו כך: רק צירוף 4 מאוזנים (5*4=20) יכול לעבור. כל חלק 'מהיר' יפיל את הציון (2*X) ויגרום לכישלון.
+            { type: 'PRECISION_CHALLENGE', name: "מכשול 3: גשר כבלים דק (דרישה: 20)", requiredStat: 'balance', threshold: 20, failMessage: "הרובוט איבד יציבות על גשר הכבלים ונפל! (נדרש >20)" },
         ];
 
 
@@ -1689,7 +1702,7 @@
             }
 
             canvasState = {
-                isRunning: false,
+                isRunning: false, // יוגדר ל-true כדי לאפשר תנועה
                 phase: 'BUILD', // 'BUILD' | 'TEST'
                 
                 lastTick: Date.now(),
@@ -1708,7 +1721,7 @@
                 obstaclesPassed: 0,
                 robotProgress: 0, 
                 robotX: 0, 
-                robotY: 0,
+                robotY: canvas.height / 2 - 20, // ממורכז ליד הרצפה
                 robotW: 40, 
                 robotH: 40,
                 robotSpeed: 2, 
@@ -1719,9 +1732,8 @@
                 draw: drawHephaestusBuild,
             };
 
-            // אין יותר מאזיני עכבר/מגע DND
-            // השליטה עברה ל-handleKeyDown/Up הגלובליים והפונקציה updateHephaestusBuild
-            canvasState.isRunning = true; // התחלת לולאת המשחק כדי לאפשר תנועה
+            // התחל לולאה מיד כדי לאפשר תנועה בשלב BUILD
+            canvasState.isRunning = true; 
             if (gameLoopId) cancelAnimationFrame(gameLoopId);
             gameLoopId = requestAnimationFrame(gameLoop);
             
@@ -1753,38 +1765,51 @@
                     stats.balance += slot.assignedPart.stats.balance;
                 });
 
-                // ציון איזון משוקלל: (מהירות + משקל) * איזון
-                stats.totalScore = (stats.speed + stats.weight) * stats.balance; 
+                // ציון איזון משוקלל: (מהירות + משקל + איזון) * (קבוע, לצורך הגדלה ויזואלית)
+                stats.totalScore = stats.balance * 4; 
 
                 // 3. הגדר את מצב הרובוט לטסט
                 canvasState.robot = stats;
                 canvasState.phase = 'TEST';
                 canvasState.robotX = 0;
-                canvasState.robotY = canvas.height / 2 - canvasState.robotH / 2; // ממורכז
+                canvasState.robotY = canvas.height / 2 - canvasState.robotH / 2;
                 canvasState.obstaclesPassed = 0;
-                canvasState.testRunning = true;
+                canvasState.testRunning = false; // עדיין לא רץ
                 
-                // הגדר מהירות רובוט (יחסית למהירות הממוצעת)
-                canvasState.robotSpeed = stats.speed / 4; 
+                // הגדר מהירות רובוט (יחסית למהירות המצטברת)
+                // במבחן ה-TEST, נשתמש בציון המהירות המצטבר (stats.speed).
+                // נשתמש בקבוע קטן כדי שהמהירות לא תהיה גבוהה מדי על המסך.
+                canvasState.robotSpeed = 1 + (stats.speed / 10); 
 
                 // 4. הצג כפתור והוראות
                 if (btn) {
                     btn.textContent = "התחל מירוץ רובוט!";
                     btn.onclick = () => {
-                        // מעבר ללולאת משחק רגילה לטסט
-                        canvasState.isRunning = true;
-                        if (gameLoopId) cancelAnimationFrame(gameLoopId);
-                        gameLoopId = requestAnimationFrame(gameLoop);
+                        // התחלת המירוץ: משנה את הסטטוס לריצה ומאפשר ל-updateTest לזוז
+                        canvasState.testRunning = true; 
+                        // לוודא שהלולאה אכן רצה
+                        if (!canvasState.isRunning) {
+                            canvasState.isRunning = true;
+                            gameLoopId = requestAnimationFrame(gameLoop);
+                        }
                         btn.style.display = 'none';
-                        info.textContent = `הרובוט מוכן! איזון כולל: ${stats.totalScore.toFixed(1)}`;
+                        info.textContent = `הרובוט במירוץ!`;
+                        // הסתרת כפתור האיפוס ברגע שהמירוץ מתחיל
+                        const resetButton = document.querySelector('button[onclick="resetHephaestusBuild()"]');
+                        if (resetButton) resetButton.style.display = 'none';
+
                     };
                     btn.style.display = 'block';
                 }
-                if (info) info.innerHTML = `הרכבה הושלמה! הרובוט מוכן למבחן. **ציון איזון כולל: <span class="text-green-600">${stats.totalScore.toFixed(1)}</span>**`;
+                if (info) info.innerHTML = `הרכבה הושלמה! הרובוט מוכן למבחן. <br> **מהירות: ${stats.speed} | כוח: ${stats.weight} | איזון: ${stats.balance}**`;
                 
-                // עצור את לולאת ה-BUILD (התנועה)
+                // עצור את תנועת הגיבור (שלב BUILD)
                 canvasState.isRunning = false; 
-
+                if (gameLoopId) {
+                    cancelAnimationFrame(gameLoopId);
+                    gameLoopId = null;
+                }
+                canvasState.draw(); // ציור פריים אחד סטטי של מצב המירוץ לפני ההתחלה
             } else {
                 if (btn) btn.style.display = 'none';
                 if (info) info.innerHTML = "נווט עם החצים, אסוף/שחרר חלקים עם **רווח**. חסרים חלקים.";
@@ -1831,8 +1856,13 @@
                     
                     // אם שוחרר בהצלחה, בודקים השלמה ומציירים מחדש
                     if (dropped) {
-                        checkBuildCompletion();
-                        canvasState.draw();
+                        // בדיקה האם כל הסלוטים מלאים לאחר השחרור
+                        const allFilled = Object.values(canvasState.buildSlots).every(slot => slot.assignedPart !== null);
+                        if(allFilled) {
+                            checkBuildCompletion(); // אם הושלם, מעבר לטסט
+                        } else {
+                            canvasState.draw();
+                        }
                     } else {
                         // אם לא שוחרר בסלוט, מחזירים אותו למאגר (כדי שיהיה אפשר לאסוף אותו שוב)
                          canvasState.heldPart.isHeld = false;
@@ -1892,11 +1922,12 @@
                 handleBuildInput();
 
                 // 4. ציור מחדש
-                canvasState.draw();
+                // הציור מתבצע בסוף לולאת המשחק הכללית, אין צורך לקרוא לו כאן
 
             } else if (canvasState.phase === 'TEST' && canvasState.testRunning) {
                 
                 // 1. תנועת הרובוט
+                // מכפילים ב-60 כדי לפצות על תנועה מבוססת FPS
                 canvasState.robotX += canvasState.robotSpeed * elapsed * 60; 
 
                 // 2. בדיקת סיום מכשול (לוגיקה זהה לשמירה על טוויסט המסלול)
@@ -1910,18 +1941,26 @@
                     return;
                 }
                 
+                // בדיקת הגעה למכשול הנוכחי
                 const obstacle = canvasState.obstacles[currentObstacleIndex];
                 const obstacleX = 100 + currentObstacleIndex * 100; 
 
                 // בדיקת פגיעה במכשול
-                if (canvasState.robotX > obstacleX && canvasState.robotX - canvasState.robotSpeed * elapsed * 60 < obstacleX) {
+                if (canvasState.robotX + canvasState.robotW >= obstacleX && canvasState.robotX < obstacleX + 5) {
                     
                     const requiredStatValue = canvasState.robot[obstacle.requiredStat];
 
-                    const scoreToCheck = obstacle.requiredStat === 'balance' ? 
-                                          canvasState.robot.totalScore : 
-                                          requiredStatValue * 4; 
-
+                    // חישוב הציון הנבדק
+                    let scoreToCheck;
+                    if (obstacle.requiredStat === 'balance') {
+                         scoreToCheck = canvasState.robot.totalScore; 
+                    } else {
+                         // הציון המצטבר הוא סכום המאפיינים (5+3+5+3 = 16). 
+                         // הדרישה היא 14, לכן נשתמש בסכום המאפיינים ישירות.
+                         scoreToCheck = requiredStatValue;
+                    }
+                    
+                    // בדיקת עמידה בסף המכשול
                     if (scoreToCheck < obstacle.threshold) {
                         canvasState.testRunning = false;
                         canvasState.isRunning = false;
@@ -1933,7 +1972,7 @@
                 }
                 
                 // עדכון ציור
-                canvasState.draw();
+                // הציור מתבצע בסוף לולאת המשחק הכללית, אין צורך לקרוא לו כאן
             }
         }
 
@@ -1942,9 +1981,11 @@
             const quest = quests[gameState.currentQuest - 1];
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             const info = document.getElementById('game-info');
-            const player = canvasState.player;
-
+            
+            // שלב BUILD
             if (canvasState.phase === 'BUILD') {
+                const player = canvasState.player;
+
                 // --- ציור שלב ההרכבה ---
                 
                 // קו הפרדה בין אזור הרכבה לאזור חלקי חילוף
@@ -2035,17 +2076,19 @@
 
             } 
             
+            // שלב TEST (אחרי לחיצת כפתור או לפני לחיצת כפתור - סטטי)
             else if (canvasState.phase === 'TEST') {
                 // --- ציור שלב המירוץ ---
                 ctx.textAlign = 'center';
                 
-                // 1. ציור רובוט (משתמשים באימוג'י רובוט כדי להדגיש את המעבר)
-                ctx.fillStyle = '#b91c1c';
-                // ציור גוף הרובוט
-                ctx.fillRect(canvasState.robotX, canvasState.robotY, canvasState.robotW, canvasState.robotH);
-                ctx.font = '30px Arial';
-                ctx.fillText('🤖', canvasState.robotX + canvasState.robotW / 2, canvasState.robotY + 30);
-                
+                // 1. ציור קו הבסיס (הרצפה)
+                ctx.strokeStyle = '#1f2937';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(0, canvasState.robotY + canvasState.robotH);
+                ctx.lineTo(canvas.width, canvasState.robotY + canvasState.robotH);
+                ctx.stroke();
+
                 // 2. ציור מכשולים
                 ctx.lineWidth = 3;
                 canvasState.obstacles.forEach((obstacle, index) => {
@@ -2054,14 +2097,18 @@
                     // צבע אפור לפני ההגעה, צהוב בזמן המכשול, ירוק אחרי מעבר
                     let lineColor = '#9ca3af'; // אפור
                     if (index === canvasState.obstaclesPassed) {
-                        lineColor = '#fcd34d'; // צהוב/זהב בזמן המכשול
+                        lineColor = '#b91c1c'; // אדום: כעת המבחן
+                        ctx.fillStyle = '#fef3c7'; // צהוב בהיר
+                        // ציור מלבן המכשול כמעבר ויזואלי
+                        ctx.fillRect(obstacleX, canvasState.robotY + canvasState.robotH - 20, 5, 20);
+                        
                     } else if (index < canvasState.obstaclesPassed) {
                         lineColor = '#059669'; // ירוק אחרי מעבר
                     }
                     
                     ctx.strokeStyle = lineColor; 
                     
-                    // ציור סימן המכשול
+                    // ציור סימן המכשול (קו)
                     ctx.beginPath();
                     ctx.moveTo(obstacleX, 0);
                     ctx.lineTo(obstacleX, canvas.height);
@@ -2070,7 +2117,8 @@
                     // כיתוב
                     ctx.fillStyle = '#1f2937';
                     ctx.font = '12px Inter';
-                    ctx.fillText(obstacle.name, obstacleX, 20);
+                    // הצגת דרישת הסף בכיתוב המכשול
+                    ctx.fillText(`${obstacle.name} (${obstacle.threshold})`, obstacleX, 20);
 
                     // סימון הצלחה
                     if (index < canvasState.obstaclesPassed) {
@@ -2079,16 +2127,32 @@
                         ctx.fillText('✅', obstacleX, canvas.height - 20);
                     }
                 });
+
+
+                // 3. ציור רובוט (משתמשים באימוג'י רובוט כדי להדגיש את המעבר)
                 
-                // 3. עדכון מידע
+                // ציור רובוט כריבוע (כדי לעזור בהתנגשות)
+                ctx.fillStyle = '#1f2937';
+                ctx.fillRect(canvasState.robotX, canvasState.robotY, canvasState.robotW, canvasState.robotH);
+                
+                // ציור אימוג'י בתוך הריבוע
+                ctx.font = '30px Arial';
+                ctx.fillText('🤖', canvasState.robotX + canvasState.robotW / 2, canvasState.robotY + 30);
+                
+                // 4. עדכון מידע
                 if (info) {
+                    const currentObstacle = canvasState.obstacles[canvasState.obstaclesPassed];
                     const obstacleName = canvasState.obstaclesPassed < quest.target ? 
-                        canvasState.obstacles[canvasState.obstaclesPassed].name : 
+                        currentObstacle.name : 
                         "הרובוט במסלול לסיום...";
                     
                     info.innerHTML = `
-                        שלב: <span class="text-blue-600">${canvasState.obstaclesPassed + 1} / ${quest.target} (${obstacleName})</span> | 
-                        ניקוד כולל (איזון): <span class="text-red-600">${canvasState.robot.totalScore.toFixed(1)}</span>
+                        <div class="text-xs text-gray-700">
+                             מהירות: ${canvasState.robot.speed} | משקל: ${canvasState.robot.weight} | איזון: ${canvasState.robot.balance}
+                        </div>
+                        <div class="text-lg font-bold mt-1">
+                            שלב: <span class="text-blue-600">${canvasState.obstaclesPassed + 1} / ${quest.target} (${obstacleName})</span>
+                        </div>
                     `;
                 }
             }

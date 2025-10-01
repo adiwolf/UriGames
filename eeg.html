@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>סימולטור הרפתקאת ביצת השוקולד</title>
+    <!-- טעינת Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* הגדרת פונט Heebo לשיפור הנראות בעברית */
+        @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@400;700;900;bold&display=swap');
+        body {
+            font-family: 'Heebo', sans-serif;
+            background-color: #f7fafc; /* רקע בהיר */
+        }
+        /* אנימציית קפיצה קלה לאייקון בעת שינוי סצנה */
+        .bounce-animation {
+            animation: bounce 0.5s ease-in-out;
+        }
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0) scale(1.0); }
+            50% { transform: translateY(-10px) scale(1.1); }
+        }
+
+        /* סגנון זכוכית המגדלת והמכונה */
+        #magnifier {
+            /* אפקט ה"הגדלה" או הבהירות - נותן תחושה שמשהו נחשף */
+            box-shadow: 0 0 15px 5px rgba(255, 255, 255, 0.7);
+            cursor: move;
+            mix-blend-mode: overlay; /* יוצר אפקט בהיר יותר על הרקע */
+            transition: box-shadow 0.1s ease;
+        }
+
+        /* סגנון רכיבי המעגל החשמלי (נשאר לשמירת סדר) */
+        #circuit-grid svg {
+            stroke-width: 15;
+            stroke-linecap: round;
+        }
+        .code-input {
+            width: 4rem; 
+            height: 4rem; 
+            text-align: center;
+            font-size: 2rem;
+            font-weight: 900;
+            border-radius: 0.75rem;
+            border: 2px solid #9ca3af;
+        }
+        
+        .tile-element {
+            /* מבטיח שה-SVG ימלא את התא ושהלחיצה תפעל */
+            box-sizing: border-box; 
+        }
+
+        /* העברת רכיבי הקליק דרך הרמז כדי שיהיה ניתן לגרור מעליו */
+        #hidden-clue p {
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <div id="story-card" class="p-8 rounded-xl shadow-2xl transition-all duration-500 text-center mx-4 md:mx-auto max-w-lg w-full bg-gray-100">
+        
+        <h1 class="text-3xl font-extrabold mb-6 text-gray-800">סימולטור הרפתקאת ביצת השוקולד</h1>
+        
+        <!-- אייקון ויזואלי המייצג את השלב הנוכחי -->
+        <div id="icon" class="text-6xl mb-6 transition-transform duration-500 transform scale-100">🥚</div>
+        
+        <!-- טקסט הסיפור המשתנה -->
+        <p id="story-text" class="text-xl mb-8 text-gray-700 leading-relaxed"></p>
+        
+        <!-- אזור משחקיות אינטראקטיבי -->
+        <div id="game-controls-container" class="space-y-4">
+            
+            <!-- סטטוס משחק 1 (ילד) -->
+            <div id="game-status-child" class="bg-gray-200 p-3 rounded-lg shadow-inner text-right text-base border border-gray-300 hidden">
+                <p class="font-bold text-gray-700">סיכוי נוכחי לפיצוי: <span id="chance-display" class="text-indigo-600 font-extrabold">40%</span></p>
+                <p class="font-bold text-gray-700">ניסיונות שכנוע נותרו: <span id="attempts-display" class="text-red-500 font-extrabold">3</span></p>
+            </div>
+
+            <!-- כפתורי פעולה 1 (ילד) -->
+            <div id="action-buttons-child" class="grid grid-cols-1 sm:grid-cols-2 gap-4 hidden">
+                <button id="cry-button" class="action-btn bg-pink-500 hover:bg-pink-600 text-white font-bold py-3 px-4 rounded-full shadow-lg transition-all duration-200 text-base">
+                    😢 בכי דרמטי (+15% או -10%)
+                </button>
+                <button id="logic-button" class="action-btn bg-cyan-500 hover:bg-cyan-600 text-white font-bold py-3 px-4 rounded-full shadow-lg transition-all duration-200 text-base">
+                    🧐 הצגת הוכחות (+10% בטוח)
+                </button>
+            </div>
+            
+            <!-- **משחק 3: פתיחת הביצים (אמצעי)** -->
+            <div id="egg-opening-game" class="hidden grid grid-cols-5 gap-2 justify-items-center p-4">
+                <!-- הביצים יטענו כאן באמצעות JavaScript -->
+            </div>
+
+            <!-- **משחק 6: ניתוח יומנים (אבא)** -->
+            <div id="log-analysis-game" class="hidden flex flex-col items-center space-y-4 p-4 bg-gray-900 rounded-xl shadow-inner w-full">
+                <p class="text-base text-white font-semibold text-center">
+                    לחץ על העמודה (חיישן) שבה אתה מזהה את הנתון החריג ביותר.
+                </p>
+                <div id="log-grid" class="grid gap-2 p-2 bg-gray-700 rounded-md mx-auto">
+                    <!-- Log tiles here -->
+                </div>
+            </div>
+
+            <!-- **משחק 4: תכנון החקירה (אבא)** -->
+            <div id="planning-game" class="hidden space-y-3">
+                <!-- רמזים מילוליים בתוך הכפתורים והסרת הצבע הצהוב מהתשובה הנכונה -->
+                <button id="plan-vats" class="plan-btn w-full bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-3 px-4 rounded-full shadow-md transition-all duration-200 text-base">
+                    1. מיכלי הערבוב (שלב יצירת השוקולד)
+                </button>
+                <button id="plan-insertion" class="plan-btn w-full bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-3 px-4 rounded-full shadow-md transition-all duration-200 text-base">
+                    2. זרוע הזרקת הצעצוע (האם זה קשור לצעצוע?)
+                </button>
+                <button id="plan-weight" class="plan-btn w-full bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-3 px-4 rounded-full shadow-md transition-all duration-200 text-base">
+                    3. תא בדיקת המשקל (בודק משקל סופי)
+                </button>
+            </div>
+
+
+            <!-- כפתורי פעולה 2 (אבא - חקירה) - נסתרים לחלוטין -->
+            <div id="action-buttons-father" class="hidden"></div>
+            
+            <!-- **אזור החקירה האינטראקטיבי (אבא)** -->
+            <div id="investigation-area" class="hidden flex flex-col items-center p-4 bg-gray-900 rounded-xl shadow-xl border-4 border-gray-700 w-full">
+                <p class="text-sm font-semibold mb-2 text-white text-right">הזז את זכוכית המגדלת כדי למצוא את החיישן התקול במכונה!</p>
+                <div id="machine-visual" class="relative w-full h-64 bg-gray-800 rounded-md cursor-move border-dashed border-2 border-red-500/50">
+                    
+                    <!-- רכיבים ויזואליים להסוואה (נראים כמו חלקים פנימיים של המכונה) -->
+                    <div class="absolute top-10 left-10 w-20 h-4 bg-gray-600 rounded"></div>
+                    <div class="absolute top-20 right-5 w-16 h-8 bg-yellow-400 rounded"></div>
+                    <div class="absolute bottom-5 left-1/4 w-1/2 h-10 bg-gray-700 rounded"></div>
+                    
+                    <!-- רכיבים נוספים להסוואה -->
+                    <div class="absolute top-20 left-20 w-12 h-12 bg-gray-700 rounded-full border-2 border-red-500/50"></div>
+                    <div class="absolute bottom-10 right-10 w-16 h-4 bg-gray-600 rounded"></div>
+
+                    <!-- מיקום הבעיה: זה המיקום של הבעיה (0.65, 0.30). נשאיר אותו ריק או נוסיף משהו קטן ולא ברור. -->
+                    <div class="absolute" style="top: 30%; left: 65%;">
+                         <div class="w-2 h-2 rounded-full bg-yellow-200/50 ring-2 ring-yellow-300"></div>
+                    </div>
+
+
+                    <!-- זכוכית המגדלת - תזוז עם JS -->
+                    <div id="magnifier" class="absolute w-24 h-24 rounded-full border-4 border-white bg-white/20" style="top: 0; left: 0;">
+                    </div>
+                </div>
+                <button id="give-up-button" class="mt-4 bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-full shadow-md transition-all duration-200 text-base">
+                    😫 האבא מוותר (כישלון)
+                </button>
+            </div>
+
+
+            <!-- כפתור להתקדמות בסיפור (או הפניה אחרונה) -->
+            <button id="next-button" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-full shadow-lg transition-all duration-300 transform hover:scale-105 active:scale-95 w-full text-lg"></button>
+        </div>
+        
+        <!-- הודעת משוב על הצלחה/כישלון -->
+        <p id="feedback-message" class="mt-4 text-sm font-semibold text-transparent"></p>
+    </div>
+
+    <script>
+        // --- משתני משחק גלובליים ---
+        let currentScene = 0; // מעקב אחר הסצנה הנוכחית
+        let attemptsLeft = 3; // מספר ניסיונות שכנוע שנותרו במפעל (משחק 1)
+        let currentSuccessChance = 0.40; // סיכוי התחלתי לניצחון (40%) (משחק 1)
+        const MAX_CHANCE = 0.95; // סיכוי מקסימלי שניתן להגיע אליו
+
+        // --- משתני משחק 2 (אבא - גרירה) ---
+        let isDragging = false;
+        let magnifier = null;
+        let machineVisual = null;
+        let checkInterval = null;
+        
+        // **הגדרות קושי משחק 2 (גרירה):**
+        const SOLUTION_TOLERANCE_PX = 25; // רדיוס קטן יותר (25 פיקסלים) דורש דיוק גבוה מאוד
+        const SUCCESS_HOLD_TIME_MS = 2000; // זמן החזקה ארוך יותר (2 שניות) דורש יציבות
+        
+        // **מיקום הפתרון הנסתר** (אחוזים יחסיים במכונה)
+        const SOLUTION_X_RATIO = 0.65; // 65% מהרוחב
+        const SOLUTION_Y_RATIO = 0.30; // 30% מהגובה
+        
+        let holdStartTime = null; // הזמן שבו החל השחקן להחזיק מעל הפתרון
+
+        // --- משתני משחק 3 (סעודה) ---
+        let emptyEggFound = false;
+        let eggsToOpen = 5;
+        let EMPTY_EGG_INDEX = -1; 
+        
+        // --- משתני משחק 6 (ניתוח יומנים) - NEW ---
+        const LOG_GRID_SIZE = 5; // *הגדלתי את הגודל ל-5x5*
+        let faultyColumn = -1;
+        let logDataGrid = [];
+
+
+        // הגדרת מערך של שלבים (סצנות) בסיפור
+        const scenes = [
+            // 0: התחלה
+            { text: "היי! קיבלת **ביצת הפתעה** חדשה! היא גדולה, מבריקה ומבטיחה הפתעה נהדרת בפנים.", button: "פתח את הביצה", color: "bg-yellow-100", icon: "🥚" },
+            // 1: גילוי האכזבה
+            { text: "רגע... פתחת את הביצה וגילית שהיא **ריקה**! אין בפנים לא שוקולד ולא צעצוע. איזו **אכזבה נוראית**!", button: "פנה למפעל בבקשת פיצוי", color: "bg-red-200", icon: "😭" },
+            // 2: הגעה למפעל (שלב משחקי אינטראקטיבי - ילד)
+            { text: "אתה במפעל! המנהל נראה עסוק. עליך **להגדיל את הסיכוי שלך** לפיצוי המלא באמצעות שכנוע אינטנסיבי. יש לך 3 ניסיונות!", button: "עבור להפניה אחרונה", color: "bg-blue-100", icon: "🏭" , isGameChild: true },
+            // 3: הצלחה בשיכנוע (פיצוי מלא - סוף פרק 1)
+            { text: "המנהל מזדעזע! הוא מתנצל... **זכית בפיצוי המלא!** 5 ביצים חדשות, מארז שוקולד ענק וכרטיס לפארק.", button: "לך הביתה לחגוג עם המשפחה", color: "bg-green-200", icon: "🥳" },
+            // 4: כישלון בשיכנוע (פיצוי מעליב - לולאה)
+            { text: "המנהל מגלגל עיניים ואומר: 'בסדר ילד, קח **ביצה בודדת אחת** כדי שתשתוק.' (פיצוי חלקי ומעליב! האם תוותר?)", button: "לא מוותר! נסה לשכנע שוב!", color: "bg-orange-200", icon: "😤" },
+            // 5: סעודת הפיצוי (משחק פתיחת ביצים)
+            { text: "חזרתם הביתה עם השלל! המשפחה מתכנסת לפתוח את 5 ביצי הפיצוי הענקיות. בואו נפתח אותן אחת-אחת...", button: "המשך לפתיחת הביצים", color: "bg-green-100", icon: "👨‍👩‍👧‍👦" , isGameFeast: true},
+            // 6: NEW - ניתוח יומני ייצור (אבא - אתגר אנליטי, החליף את המעגל החשמלי)
+            { text: "האבא מורשה להיכנס לחדר בקרת האיכות ולבחון את **יומני הייצור** האחרונים. עליו לאתר במהירות איזה **חיישן משקל** מציג נתונים חריגים.", button: "", color: "bg-blue-300", icon: "📊", isGameLogAnalysis: true },
+            // 7: תכנון החקירה (משחק בחירת אזור)
+            { text: "האבא קיבל מפה של המפעל. מכיוון שהביצה הייתה **ריקה לגמרי** (חסר בה שוקולד), עליו לבחור את האזור **ההגיוני ביותר** להתחיל את החקירה. איזה שלב במפעל אחראי לאיתור מוצר חסר?", button: "", color: "bg-orange-300", icon: "🗺️", isGamePlanning: true },
+            // 8: האבא מגיע למפעל (שלב חקירה - משחק גרירה)
+            { text: "הגעתם לאזור **תא בדיקת המשקל**! המקום נראה עמוס. עליך **להזיז את זכוכית המגדלת** מעל המכונה כדי למצוא את החלק התקול. הבעיה לא ברורה! (דרושות 2 שניות של יציבות)", button: "", color: "bg-gray-500", icon: "🕵️" , isGameFather: true},
+            // 9: הצלחה - האבא מקבל עבודה
+            { text: "מצאת את הבעיה! החיישן בתא בדיקת המשקל היה תקול. המנהל, נדהם מהמקצועיות שלך, מציע לך משרה מלאה כמנהל בקרת איכות! **האבא מקבל עבודה!**", button: "התחל סיפור חדש", color: "bg-purple-300", icon: "💼" },
+            // 10: כישלון - האבא מאבד תקווה
+            { text: "חיפשת שעות במכונה הלא נכונה, אך לא מצאת כלום. המנהל כועס וקורא למאבטח. חזרת הביתה מאוכזב. **המשפחה עדיין רעבה.**", button: "התחל סיפור חדש", color: "bg-black-700 text-white", icon: "😢" }
+        ];
+
+        // --- פונקציות עזר - משחק 1 (ילד) ---
+
+        /** מעדכן את תצוגת הסיכויים והניסיונות הנותרים */
+        function updateStatusDisplay() {
+            document.getElementById('chance-display').textContent = `${Math.round(currentSuccessChance * 100)}%`;
+            document.getElementById('attempts-display').textContent = attemptsLeft;
+            
+            // עדכון כפתור הפניה אחרונה בהתאם לניסיונות שנותרו
+            const nextButton = document.getElementById('next-button');
+            if (attemptsLeft === 0) {
+                 nextButton.textContent = 'לחץ כאן לתוצאה (אין יותר ניסיונות)';
+            } else {
+                 nextButton.textContent = `עבור להפניה אחרונה (נותרו ${attemptsLeft} ניסיונות)`;
+            }
+        }
+
+        /** מחשב את הסיכוי לניצחון הסופי ומעדכן את הסצנה */
+        function handleFinalPlea() {
+            if (currentScene !== 2) return;
+            
+            const feedbackElement = document.getElementById('feedback-message');
+            const roll = Math.random(); 
+
+            // הסתרת כפתורי הפעולה והסטטוס בזמן הבדיקה
+            document.getElementById('action-buttons-child').classList.add('hidden');
+            document.getElementById('game-status-child').classList.add('hidden');
+
+            feedbackElement.textContent = '';
+            feedbackElement.classList.remove('text-green-700', 'text-red-700');
+            
+            // השהייה קצרה לפני תוצאה כדי ליצור מתח
+            setTimeout(() => {
+                if (roll < currentSuccessChance) {
+                    // הצלחה (מעבר לסצנה 3, הפיצוי המלא)
+                    feedbackElement.textContent = `הצלחה מדהימה! הסיכוי שלך (${Math.round(currentSuccessChance * 100)}%) הוביל לניצחון!`;
+                    feedbackElement.classList.add('text-green-700');
+                    currentScene = 3; 
+                } else {
+                    // כישלון (מעבר לסצנה 4, פיצוי מעליב)
+                    feedbackElement.textContent = `המנהל קמצן! הסיכוי שלך (${Math.round(currentSuccessChance * 100)}%) לא הספיק.`;
+                    feedbackElement.classList.add('text-red-700');
+                    currentScene = 4; 
+                }
+                
+                // עדכון התצוגה לאחר קביעת התוצאה
+                updateScene();
+            }, 750);
+        }
+
+        /** לוגיקה לפעולת "בכי דרמטי" */
+        function handleCry() {
+            if (attemptsLeft <= 0) return;
+            attemptsLeft--;
+            const feedbackElement = document.getElementById('feedback-message');
+            feedbackElement.classList.remove('text-green-700', 'text-red-700');
+            
+            const cryRoll = Math.random();
+            if (cryRoll < 0.7) { // 70% סיכוי להצלחה
+                currentSuccessChance = Math.min(MAX_CHANCE, currentSuccessChance + 0.15); // +15%
+                feedbackElement.textContent = `😢 הבכי שלך נגע לליבו! (+15% סיכוי)`;
+                feedbackElement.classList.add('text-green-700');
+            } else {
+                currentSuccessChance = Math.max(0.1, currentSuccessChance - 0.10); // -10% (מינימום סיכוי 10%)
+                feedbackElement.textContent = `😠 המנהל חשב שאתה מזויף והתעצבן! (-10% סיכוי)`;
+                feedbackElement.classList.add('text-red-700');
+            }
+            updateStatusDisplay();
+        }
+
+        /** לוגיקה לפעולת "הצגת הוכחות" */
+        function handleLogic() {
+            if (attemptsLeft <= 0) return;
+            attemptsLeft--;
+            const feedbackElement = document.getElementById('feedback-message');
+            feedbackElement.classList.remove('text-green-700', 'text-red-700');
+
+            currentSuccessChance = Math.min(MAX_CHANCE, currentSuccessChance + 0.10); // +10% בטוח
+            feedbackElement.textContent = `🧐 הצגת את הביצה הריקה בבהירות. ההיגיון עובד! (+10% סיכוי)`;
+            feedbackElement.classList.add('text-green-700');
+            updateStatusDisplay();
+        }
+        
+        // --- פונקציות עזר - משחק 2 (אבא - גרירה) ---
+
+        // קבלת קואורדינטות מתאימות לעכבר או לטאצ'
+        function getClientCoords(event) {
+            if (event.touches) {
+                return { x: event.touches[0].clientX, y: event.touches[0].clientY };
+            }
+            return { x: event.clientX, y: event.clientY };
+        }
+
+        // התחלת גרירה
+        function startDrag(event) {
+            isDragging = true;
+            if (event.type === 'touchstart') {
+                event.preventDefault(); // מונע גלילה בטאצ'
+            }
+        }
+
+        // סיום גרירה
+        function endDrag() {
+            isDragging = false;
+        }
+
+        // פעולת גרירה
+        function drag(event) {
+            if (!isDragging || currentScene !== 8 || !magnifier) return; // Note: currentScene is now 8
+
+            const coords = getClientCoords(event);
+            const machineRect = machineVisual.getBoundingClientRect();
+            const magnifierSize = magnifier.offsetWidth;
+            const halfSize = magnifierSize / 2;
+
+            // חישוב מיקום יחסי בתוך המכונה
+            let x = coords.x - machineRect.left - halfSize;
+            let y = coords.y - machineRect.top - halfSize;
+
+            // שמירה על גבולות המכונה
+            x = Math.max(0, Math.min(x, machineRect.width - magnifierSize));
+            y = Math.max(0, Math.min(y, machineRect.height - magnifierSize));
+
+            magnifier.style.left = `${x}px`;
+            magnifier.style.top = `${y}px`;
+        }
+
+        // בדיקה חוזרת ונשנית האם זכוכית המגדלת נמצאת מעל הפתרון
+        function checkForSolution() {
+            if (currentScene !== 8 || !magnifier) return; // Note: currentScene is now 8
+
+            const machineRect = machineVisual.getBoundingClientRect();
+            const magnifierRect = magnifier.getBoundingClientRect();
+            const feedbackElement = document.getElementById('feedback-message');
+            
+            // מרכז המגדלת
+            const magCenterX = magnifierRect.left + magnifierRect.width / 2;
+            const magCenterY = magnifierRect.top + magnifierRect.height / 2;
+            
+            // **מיקום הפתרון הנסתר (חיישן המשקל) - מחושב לפי יחס קבוע**
+            const solutionCenterX = machineRect.left + machineRect.width * SOLUTION_X_RATIO;
+            const solutionCenterY = machineRect.top + machineRect.height * SOLUTION_Y_RATIO;
+
+            // חישוב מרחק בין המרכזים
+            const distance = Math.sqrt(
+                Math.pow(magCenterX - solutionCenterX, 2) + 
+                Math.pow(magCenterY - solutionCenterY, 2)
+            );
+
+            // אם המרחק קטן מסף הסבילות - המגדלת מעל הפתרון
+            if (distance < SOLUTION_TOLERANCE_PX) {
+                if (holdStartTime === null) {
+                    // התחל ספירה לאחור
+                    holdStartTime = Date.now();
+                    feedbackElement.textContent = `נראה שמצאת משהו! החזק את המגדלת במקום...`;
+                    feedbackElement.classList.remove('text-transparent', 'text-red-500', 'text-green-500');
+                    feedbackElement.classList.add('text-yellow-400', 'font-extrabold');
+
+                } else {
+                    const heldDuration = Date.now() - holdStartTime;
+                    const remainingTime = SUCCESS_HOLD_TIME_MS - heldDuration;
+                    
+                    // עדכון התקדמות ויזואלית (מעוגל לעשירית השנייה)
+                    const remainingSeconds = (remainingTime / 1000).toFixed(1);
+                    feedbackElement.textContent = `מחזיק יציב... נותרו ${Math.max(0, remainingSeconds)} שניות.`;
+                    
+                    // הצלחה!
+                    if (heldDuration >= SUCCESS_HOLD_TIME_MS) {
+                        clearInterval(checkInterval); // הפסק לבדוק
+                        currentScene = 9; // הצלחה (New Scene 9)
+                        feedbackElement.textContent = `✅ מצאת את החיישן התקול! האבא מקבל עבודה!`;
+                        feedbackElement.classList.remove('text-yellow-400', 'text-red-500');
+                        feedbackElement.classList.add('text-green-500');
+                        updateScene();
+                    }
+                }
+            } else {
+                // לא נמצא מעל הפתרון
+                if (holdStartTime !== null) {
+                    // רק אם הוא בדיוק יצא מהאזור
+                    feedbackElement.textContent = `איבדת את המיקוד! נסה שוב.`;
+                    feedbackElement.classList.remove('text-green-500', 'text-yellow-400');
+                    feedbackElement.classList.add('text-red-500');
+                }
+                holdStartTime = null;
+            }
+        }
+
+        /** אתחול משחק החקירה האינטראקטיבית של האבא */
+        function setupFatherGame() {
+            magnifier = document.getElementById('magnifier');
+            machineVisual = document.getElementById('machine-visual');
+            const giveUpButton = document.getElementById('give-up-button');
+            
+            // איפוס זמן ההחזקה
+            holdStartTime = null; 
+            
+            // מיקום התחלתי של המגדלת
+            magnifier.style.left = '10px';
+            magnifier.style.top = '10px';
+
+            // מנגנון הבדיקה: בודק כל 100ms אם המגדלת נמצאת מעל הרמז
+            checkInterval = setInterval(checkForSolution, 100);
+
+            // הגדרת מאזיני האירועים לגרירה (עכבר וטאצ')
+            machineVisual.onmousedown = startDrag;
+            document.onmouseup = endDrag;
+            document.onmousemove = drag;
+
+            machineVisual.ontouchstart = startDrag;
+            document.ontouchend = endDrag;
+            document.ontouchmove = drag;
+
+            // כפתור ויתור
+            giveUpButton.onclick = () => {
+                clearInterval(checkInterval);
+                currentScene = 10; // כישלון (New Scene 10)
+                document.getElementById('feedback-message').textContent = `😫 האבא התייאש מהחיפוש וחזר הביתה בידיים ריקות.`;
+                document.getElementById('feedback-message').classList.remove('text-transparent', 'text-green-500', 'text-yellow-400');
+                document.getElementById('feedback-message').classList.add('text-red-500', 'font-extrabold');
+                updateScene();
+            };
+        }
+        
+        // --- פונקציות עזר - משחק 3 (סעודה) ---
+
+        /** אתחול משחק פתיחת הביצים */
+        function setupFeastGame() {
+            const container = document.getElementById('egg-opening-game');
+            const feedbackElement = document.getElementById('feedback-message');
+            
+            container.classList.remove('hidden');
+            container.innerHTML = '';
+            
+            eggsToOpen = 5;
+            emptyEggFound = false;
+            // בחירת מיקום אקראי לביצה הריקה
+            EMPTY_EGG_INDEX = Math.floor(Math.random() * 5); 
+            
+            feedbackElement.textContent = "פתחו את 5 הביצים כדי לחשוף את התוכן שלהן!";
+            feedbackElement.classList.remove('text-red-700');
+            feedbackElement.classList.add('text-gray-700');
+
+
+            for (let i = 0; i < 5; i++) {
+                const eggDiv = document.createElement('div');
+                // סגנון בסיס לביצה סגורה
+                eggDiv.className = 'w-16 h-16 text-4xl bg-yellow-300 rounded-full flex items-center justify-center cursor-pointer transition-transform hover:scale-110 shadow-lg egg-item';
+                eggDiv.innerHTML = '🥚';
+                eggDiv.dataset.index = i;
+                eggDiv.onclick = handleEggClick;
+                container.appendChild(eggDiv);
+            }
+        }
+        
+        /** לוגיקה ללחיצה על ביצה */
+        function handleEggClick(event) {
+            if (emptyEggFound) return;
+            
+            const eggDiv = event.target;
+            const index = parseInt(eggDiv.dataset.index);
+
+            // אם כבר נפתח, צא
+            if (eggDiv.classList.contains('bg-green-500') || eggDiv.classList.contains('bg-red-500')) {
+                return; 
+            }
+
+            eggsToOpen--;
+            eggDiv.onclick = null; // מונע קליקים נוספים
+
+            const feedbackElement = document.getElementById('feedback-message');
+            
+            if (index === EMPTY_EGG_INDEX) {
+                // הביצה הריקה נמצאה! (שלב גילוי הבעיה)
+                emptyEggFound = true;
+                eggDiv.innerHTML = '😱';
+                eggDiv.classList.remove('bg-yellow-300');
+                eggDiv.classList.add('bg-red-500', 'text-white', 'bounce-animation');
+                
+                // הודעת גילוי הבעיה והכנת מעבר לסצנה הבאה
+                feedbackElement.textContent = "רגע! גם הביצה הזו ריקה! 'זה לא צירוף מקרים,' האבא ממלמל. 'יש פה בעיה גדולה.'";
+                feedbackElement.classList.remove('text-gray-700');
+                feedbackElement.classList.add('text-red-700', 'font-extrabold');
+
+                // אפשר התקדמות למשחק החקירה של האבא
+                setTimeout(() => {
+                    const buttonElement = document.getElementById('next-button');
+                    buttonElement.classList.remove('hidden');
+                    buttonElement.textContent = "האבא יוצא לחקור את הבעיה"; 
+                    buttonElement.onclick = () => { currentScene = 6; updateScene(); }; // מעבר למשחק הניתוח יומנים (New Scene 6)
+                }, 1500);
+
+            } else {
+                // ביצה מלאה בפרס
+                eggDiv.innerHTML = '🎁';
+                eggDiv.classList.remove('bg-yellow-300');
+                eggDiv.classList.add('bg-green-500', 'text-white');
+                feedbackElement.textContent = `ביצה מלאה! נותרו ${eggsToOpen} ביצים לפתיחה.`;
+                feedbackElement.classList.remove('text-red-700');
+                feedbackElement.classList.add('text-gray-700');
+            }
+        }
+        
+        // --- פונקציות עזר - משחק 6 (ניתוח יומנים) - NEW ---
+        
+        /** יצירת נתוני יומן אקראיים עם עמודה פגומה אחת */
+        function generateLogData() {
+            logDataGrid = [];
+            // בחירת עמודה פגומה אקראית
+            faultyColumn = Math.floor(Math.random() * LOG_GRID_SIZE);
+
+            for (let r = 0; r < LOG_GRID_SIZE; r++) {
+                logDataGrid[r] = [];
+                for (let c = 0; c < LOG_GRID_SIZE; c++) {
+                    let weight;
+                    if (c === faultyColumn) {
+                        // *נתון חריג (משקל נמוך באופן ניכר אך לא אפס)*: 50-100 גרם
+                        weight = Math.floor(Math.random() * 51) + 50; 
+                    } else {
+                        // *נתון תקין (טווח רחב יותר)*: 150-250 גרם
+                        weight = Math.floor(Math.random() * 101) + 150; 
+                    }
+                    logDataGrid[r][c] = weight;
+                }
+            }
+        }
+        
+        /** טיפול בלחיצה על עמודת נתונים */
+        function handleLogClick(event) {
+            if (currentScene !== 6) return;
+            
+            const clickedColumn = parseInt(event.target.dataset.column);
+            const feedbackElement = document.getElementById('feedback-message');
+            const logGrid = document.getElementById('log-grid');
+
+            // הסרת ה-onclick מכל התאים לאחר הלחיצה הראשונה
+            Array.from(logGrid.children).forEach(tile => {
+                tile.onclick = null;
+            });
+
+            if (clickedColumn === faultyColumn) {
+                // הצלחה
+                feedbackElement.textContent = "✅ הצלחה! זיהיתם נכון את הנתון החריג של חיישן המשקל.";
+                feedbackElement.classList.remove('text-gray-400', 'text-red-700');
+                feedbackElement.classList.add('text-green-700', 'font-extrabold');
+                
+                // סימון ויזואלי של העמודה הנכונה
+                Array.from(logGrid.children).forEach(tile => {
+                    if (parseInt(tile.dataset.column) === faultyColumn) {
+                        tile.classList.remove('bg-gray-800', 'hover:bg-yellow-500');
+                        tile.classList.add('bg-green-600', 'text-black', 'font-bold');
+                    }
+                });
+
+                setTimeout(() => {
+                    currentScene = 7; // מעבר למשחק התכנון
+                    updateScene();
+                }, 2000);
+                
+            } else {
+                // כישלון
+                feedbackElement.textContent = `❌ טעות! זהו חיישן תקין. עליך לחזור ולתכנן את החקירה מההתחלה.`;
+                feedbackElement.classList.remove('text-gray-400', 'text-green-700');
+                feedbackElement.classList.add('text-red-700', 'font-extrabold');
+
+                // סימון ויזואלי של הבחירה השגויה והנכונה
+                Array.from(logGrid.children).forEach(tile => {
+                    if (parseInt(tile.dataset.column) === clickedColumn) {
+                        tile.classList.remove('bg-gray-800', 'hover:bg-yellow-500');
+                        tile.classList.add('bg-red-600', 'text-white', 'font-bold');
+                    } else if (parseInt(tile.dataset.column) === faultyColumn) {
+                         tile.classList.remove('bg-gray-800', 'hover:bg-yellow-500');
+                         tile.classList.add('bg-yellow-500', 'text-black', 'font-bold');
+                    }
+                });
+
+                setTimeout(() => {
+                    // כישלון אנליטי מוביל לכישלון כללי
+                    currentScene = 10; 
+                    updateScene();
+                }, 3000);
+            }
+        }
+
+        /** אתחול משחק ניתוח היומנים */
+        function setupLogAnalysisGame() {
+            const container = document.getElementById('log-analysis-game');
+            const gridContainer = document.getElementById('log-grid');
+            const feedbackElement = document.getElementById('feedback-message');
+            
+            container.classList.remove('hidden');
+            gridContainer.innerHTML = '';
+            
+            // הגדרת גודל הרשת (5x5)
+            gridContainer.style.gridTemplateColumns = `repeat(${LOG_GRID_SIZE}, minmax(0, 1fr))`;
+            
+            generateLogData(); // יצירת נתונים חדשים
+            
+            // יצירת הכותרות (שמות החיישנים)
+            for (let c = 0; c < LOG_GRID_SIZE; c++) {
+                const header = document.createElement('div');
+                header.className = `p-1 text-xs font-bold text-center text-gray-400 border-b-2 border-gray-600`;
+                header.textContent = `חיישן ${c + 1}`;
+                gridContainer.appendChild(header);
+            }
+            
+            // יצירת תאי הנתונים
+            for (let r = 0; r < LOG_GRID_SIZE; r++) {
+                for (let c = 0; c < LOG_GRID_SIZE; c++) {
+                    const tile = document.createElement('div');
+                    // רכיבי הנתונים
+                    tile.className = `p-3 text-lg font-mono text-white text-center rounded-md bg-gray-800 hover:bg-yellow-500 hover:shadow-lg cursor-pointer transition-all duration-150`;
+                    tile.textContent = logDataGrid[r][c] + 'g'; // הצגת משקל בגרמים
+                    tile.dataset.column = c;
+                    tile.dataset.row = r;
+                    tile.onclick = handleLogClick;
+                    gridContainer.appendChild(tile);
+                }
+            }
+            
+            feedbackElement.textContent = "נתח את הנתונים ובחר את העמודה הפגומה.";
+            feedbackElement.classList.remove('text-red-700', 'text-green-700');
+            feedbackElement.classList.add('text-gray-400');
+        }
+
+        // --- פונקציות עזר - משחק 4 (תכנון חקירה) ---
+
+        /** לוגיקה לטיפול בבחירת אזור חקירה */
+        function handlePlanningChoice(choice) {
+            const feedbackElement = document.getElementById('feedback-message');
+            const container = document.getElementById('planning-game');
+            container.classList.add('hidden'); // הסתרת כפתורי הבחירה
+
+            if (choice === 'weight') {
+                // הצלחה: זה האזור הנכון, עבור למשחק הגרירה (סצנה 8)
+                feedbackElement.textContent = "היגיון מצוין! התחלתם בתא בדיקת המשקל, האזור הרגיש ביותר לתקלה זו.";
+                feedbackElement.classList.remove('text-red-700');
+                feedbackElement.classList.add('text-green-700', 'font-extrabold');
+
+                setTimeout(() => {
+                    currentScene = 8; // מעבר למשחק הגרירה (New Scene 8)
+                    updateScene();
+                }, 1500);
+
+            } else {
+                // כישלון: בזבוז זמן, חזור לבחירה (סצנה 7)
+                let message = '';
+                if (choice === 'vats') {
+                    message = "טעות בשיקול! מיכלי הערבוב היו נקיים. חזרו לנקודת ההתחלה כדי לבחור אזור אחר.";
+                } else if (choice === 'insertion') {
+                    message = "טעות בשיקול! זרוע הזרקת הצעצוע תקינה, הבעיה היא בשוקולד עצמו. חזרו לנקודת ההתחלה.";
+                }
+
+                feedbackElement.textContent = message;
+                feedbackElement.classList.remove('text-green-700');
+                feedbackElement.classList.add('text-red-700', 'font-extrabold');
+
+                setTimeout(() => {
+                    // נשארים בסצנה 7, רק מנקים את ה-Feedback
+                    feedbackElement.textContent = scenes[7].text;
+                    feedbackElement.classList.remove('text-red-700', 'font-extrabold');
+                    feedbackElement.classList.add('text-gray-700');
+                    container.classList.remove('hidden'); // הצג שוב את כפתורי הבחירה
+                }, 2500);
+            }
+        }
+
+        /** אתחול משחק תכנון החקירה */
+        function setupPlanningGame() {
+            const container = document.getElementById('planning-game');
+            container.classList.remove('hidden');
+            
+            // הגדרת מאזיני האירועים לכפתורי הבחירה
+            document.getElementById('plan-vats').onclick = () => handlePlanningChoice('vats');
+            document.getElementById('plan-insertion').onclick = () => handlePlanningChoice('insertion');
+            document.getElementById('plan-weight').onclick = () => handlePlanningChoice('weight');
+
+        }
+
+        /**
+         * פונקציה לעדכון התצוגה בהתאם לסצנה הנוכחית בסיפור.
+         */
+        function updateScene() {
+            const card = document.getElementById('story-card');
+            const textElement = document.getElementById('story-text');
+            const buttonElement = document.getElementById('next-button');
+            const iconElement = document.getElementById('icon');
+            const feedbackElement = document.getElementById('feedback-message');
+            const actionButtonsChild = document.getElementById('action-buttons-child');
+            const gameStatusChild = document.getElementById('game-status-child');
+            const investigationArea = document.getElementById('investigation-area');
+            const eggOpeningGame = document.getElementById('egg-opening-game');
+            const planningGame = document.getElementById('planning-game');
+            const logAnalysisGame = document.getElementById('log-analysis-game'); // NEW
+            
+            const scene = scenes[currentScene];
+
+            // --- ניקוי מצבים קודמים ואיפוס כללי ---
+            actionButtonsChild.classList.add('hidden');
+            gameStatusChild.classList.add('hidden');
+            investigationArea.classList.add('hidden');
+            eggOpeningGame.classList.add('hidden');
+            planningGame.classList.add('hidden'); 
+            logAnalysisGame.classList.add('hidden'); // NEW
+            buttonElement.classList.remove('hidden'); 
+            feedbackElement.classList.remove('text-red-500', 'text-yellow-400', 'text-green-500', 'text-red-700', 'text-gray-700', 'font-extrabold');
+            feedbackElement.classList.add('text-transparent');
+            
+            // עצירת לולאת הבדיקה אם יוצאים מהמשחק
+            if (checkInterval) {
+                 clearInterval(checkInterval);
+                 checkInterval = null;
+            }
+
+            // --- לוגיקת משחק ספציפית ---
+
+            // משחק 1: שכנוע המנהל (ילד)
+            if (scene.isGameChild) {
+                actionButtonsChild.classList.remove('hidden');
+                gameStatusChild.classList.remove('hidden');
+                feedbackElement.classList.remove('text-transparent');
+                buttonElement.onclick = handleFinalPlea;
+                updateStatusDisplay();
+            } 
+            // משחק 3: סעודת הפיצוי (פתיחת ביצים)
+            else if (scene.isGameFeast) {
+                buttonElement.classList.add('hidden'); // כפתור ה-Next מופיע רק כשנמצאת הביצה הריקה
+                feedbackElement.classList.remove('text-transparent');
+                setupFeastGame();
+            }
+            // משחק 6: ניתוח יומנים (אבא) - NEW
+            else if (scene.isGameLogAnalysis) {
+                 buttonElement.classList.add('hidden'); 
+                 feedbackElement.classList.remove('text-transparent');
+                 setupLogAnalysisGame();
+            }
+            // משחק 4: תכנון החקירה (אבא - בחירה)
+            else if (scene.isGamePlanning) {
+                buttonElement.classList.add('hidden'); 
+                feedbackElement.classList.remove('text-transparent');
+                setupPlanningGame();
+            }
+            // משחק 2: חקירת המפעל (אבא - גרירה)
+            else if (scene.isGameFather) {
+                investigationArea.classList.remove('hidden');
+                buttonElement.classList.add('hidden'); 
+                feedbackElement.classList.add('text-transparent');
+                
+                setTimeout(setupFatherGame, 100); 
+            } 
+            // לוגיקה מחוץ למשחק (התקדמות ליניארית או איפוס)
+            else {
+                buttonElement.onclick = () => {
+                    let nextSceneIndex = currentScene + 1;
+
+                    // ניווט מיוחד
+                    if (currentScene === 3) { // אחרי פיצוי מלא -> סצנת הסעודה (משחק 3)
+                         nextSceneIndex = 5;
+                    } else if (currentScene === 4) { // אחרי פיצוי חלקי -> לולאה חזרה למשחק הילד
+                         nextSceneIndex = 2;
+                    } else if (currentScene === 9 || currentScene === 10) { // ניצחון/כישלון של האבא (האינדקסים החדשים)
+                        // סוף הסיפור -> איפוס
+                        nextSceneIndex = 0; 
+                        attemptsLeft = 3; 
+                        currentSuccessChance = 0.40; 
+                        feedbackElement.textContent = '';
+                    } 
+                    
+                    currentScene = nextSceneIndex;
+                    updateScene();
+                };
+            }
+
+            // --- עדכון רכיבי UI כלליים ---
+            textElement.innerHTML = scene.text;
+            if (!scene.isGameChild && !scene.isGameFather && !scene.isGameFeast && !scene.isGamePlanning && !scene.isGameLogAnalysis) {
+                 buttonElement.textContent = scene.button; 
+            }
+
+            // עדכון האייקון + הוספת אנימציית קפיצה קלה
+            iconElement.textContent = scene.icon;
+            iconElement.classList.add('bounce-animation');
+            setTimeout(() => {
+                iconElement.classList.remove('bounce-animation');
+            }, 500);
+
+            // עדכון צבע הרקע של הכרטיס
+            card.className = `p-8 rounded-xl shadow-2xl transition-all duration-500 text-center mx-4 md:mx-auto max-w-lg w-full ${scene.color}`;
+        }
+
+        // --- אתחול ---
+        window.onload = () => {
+            // הגדרת מאזינים לכפתורי הפעולה של הילד פעם אחת
+            document.getElementById('cry-button').onclick = handleCry;
+            document.getElementById('logic-button').onclick = handleLogic;
+            
+            // אתחול הסיפור
+            updateScene();
+        };
+    </script>
+
+</body>
+</html>

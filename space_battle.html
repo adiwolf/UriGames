@@ -142,53 +142,118 @@
         let enemy = {};
         let lastTime = 0;
         
+        // --- DRONE SPECIFICATIONS (USED BY COMMANDER) ---
+        const droneSpecs = {
+            Fighter: {
+                width: 15, height: 15, speed: 200, // מהיר, משוטט חופשי
+                targetCooldown: 3000, // משנה מטרה כל 3 שניות
+                draw: function() {
+                     ctx.fillStyle = '#ffd700'; // Gold/Yellow (Fighter)
+                     ctx.strokeStyle = '#ffc800';
+                     ctx.lineWidth = 1;
+                     ctx.beginPath();
+                     ctx.arc(this.x + this.width / 2, this.y + this.height / 2, this.width / 2, 0, Math.PI * 2);
+                     ctx.fill();
+                     ctx.stroke();
+                }
+            },
+            Defender: {
+                width: 20, height: 20, speed: 100, // איטי, נשאר קרוב למפקד
+                targetCooldown: 5000, // משנה מטרה כל 5 שניות
+                draw: function() {
+                     ctx.fillStyle = '#38b6ff'; // Blue/Cyan (Defender)
+                     ctx.strokeStyle = '#00f2ff';
+                     ctx.lineWidth = 2;
+                     ctx.beginPath();
+                     ctx.rect(this.x, this.y, this.width, this.height);
+                     ctx.fill();
+                     ctx.stroke();
+                }
+            }
+        };
+
+        // --- Helper Function for Wingman Spawning (Used by Commander) ---
+        function spawnNewWingman() {
+            if (player.shipType !== 'commander' || player.wingmen.length >= player.maxWingmen) return;
+
+            // Randomly pick a drone type
+            const types = Object.keys(droneSpecs);
+            const droneTypeKey = types[Math.floor(Math.random() * types.length)];
+            const spec = droneSpecs[droneTypeKey];
+
+            // Initial random target for the drone in the middle top section
+            const newTargetX = Math.random() * canvas.width;
+            const newTargetY = canvas.height * 0.1 + Math.random() * (canvas.height * 0.4); 
+
+            player.wingmen.push({ 
+                x: player.x + (Math.random() - 0.5) * 50, 
+                y: player.y + (Math.random() - 0.5) * 50, 
+                width: spec.width, 
+                height: spec.height, 
+                draw: spec.draw,
+                droneType: droneTypeKey, 
+                speed: spec.speed, 
+                targetX: newTargetX, 
+                targetY: newTargetY, 
+                vx: 0, 
+                vy: 0, 
+                targetTimer: 0, 
+                targetCooldown: spec.targetCooldown
+            });
+        }
+
         // --- Ship Definitions ---
         const shipTypes = {
-            interceptor: {
-                width: 50, height: 60, speed: 420, // px per second
+            // --- SHIP 1: COMMANDER (מפקד) ---
+            commander: {
+                width: 70, height: 50, speed: 380, // slightly bigger, slightly slower
+                wingmanCooldown: 5000, // Initial 5 seconds until first spawn
+                maxWingmen: 1, // Max 1 wingman initially
+                droneFireCooldown: 700, // Autonomous firing cooldown (ms)
                 draw: function() {
-                    ctx.fillStyle = '#00f2ff'; ctx.beginPath();
-                    ctx.moveTo(this.x + this.width / 2, this.y);
-                    ctx.lineTo(this.x, this.y + this.height * 0.8);
-                    ctx.lineTo(this.x + this.width, this.y + this.height * 0.8);
+                    // Commander aesthetics: boxy, yellow/gold accents
+                    ctx.fillStyle = '#ffc800'; ctx.beginPath();
+                    ctx.moveTo(this.x, this.y + this.height * 0.5);
+                    ctx.lineTo(this.x + this.width / 2, this.y);
+                    ctx.lineTo(this.x + this.width, this.y + this.height * 0.5);
+                    ctx.lineTo(this.x + this.width, this.y + this.height);
+                    ctx.lineTo(this.x, this.y + this.height);
                     ctx.closePath(); ctx.fill();
+                    
                     let cockpitColor = '#111';
-                    if (this.timesUpgraded === 1) cockpitColor = '#ffd700';
+                    if (this.timesUpgraded === 1) cockpitColor = '#38b6ff';
                     if (this.timesUpgraded >= 2) cockpitColor = '#00ff7f';
-                    ctx.fillStyle = cockpitColor; ctx.strokeStyle = '#38b6ff'; ctx.lineWidth = 2;
-                    ctx.beginPath(); ctx.arc(this.x + this.width / 2, this.y + this.height * 0.4, 8, 0, Math.PI * 2);
+                    ctx.fillStyle = cockpitColor; ctx.strokeStyle = '#ffc800'; ctx.lineWidth = 2;
+                    ctx.beginPath(); ctx.rect(this.x + this.width / 2 - 10, this.y + 10, 20, 20);
                     ctx.fill(); ctx.stroke();
+                    
+                    // Engine
                     ctx.fillStyle = Math.random() < 0.5 ? '#ffdd00' : '#ff9900'; ctx.beginPath();
-                    ctx.moveTo(this.x + this.width * 0.3, this.y + this.height * 0.8);
-                    ctx.lineTo(this.x + this.width * 0.7, this.y + this.height * 0.8);
-                    ctx.lineTo(this.x + this.width / 2, this.y + this.height + Math.random() * 15);
-                    ctx.closePath(); ctx.fill();
+                    ctx.rect(this.x + 5, this.y + this.height, this.width - 10, 8 + Math.random() * 8);
+                    ctx.fill();
+                    
                     this.wingmen.forEach(wingman => wingman.draw());
                 },
                 shoot: function() {
-                    if (this.hasDoubleShot) {
-                        if (bullets.length < 10) {
-                            bullets.push({ x: this.x + this.width * 0.2, y: this.y, width: 5, height: 15, speed: 600, type: 'bullet' });
-                            bullets.push({ x: this.x + this.width * 0.8 - 5, y: this.y, width: 5, height: 15, speed: 600, type: 'bullet' });
-                        }
-                    } else {
-                        if (bullets.length < 5) {
-                            bullets.push({ x: this.x + this.width / 2 - 2.5, y: this.y, width: 5, height: 15, speed: 600, type: 'bullet' });
-                        }
+                    // Commander fires only its main shot (drones shoot autonomously)
+                    if (bullets.length < 5) {
+                        bullets.push({ x: this.x + this.width / 2 - 2.5, y: this.y, width: 5, height: 15, speed: 600, type: 'bullet' });
                     }
-                    this.wingmen.forEach(wingman => {
-                        if (bullets.length < 12) {
-                             bullets.push({ x: wingman.x + wingman.width / 2 - 2.5, y: wingman.y, width: 4, height: 12, speed: 600, type: 'bullet' });
-                        }
-                    });
                 },
                 applyUpgrade: function() {
                     this.timesUpgraded++;
-                    if (this.timesUpgraded === 1) this.hasDoubleShot = true;
-                    if (this.timesUpgraded === 2) this.createWingmen();
+                    if (this.timesUpgraded === 1) {
+                         this.wingmanCooldown = 2500; // Faster spawn (from 5s to 2.5s)
+                         this.droneFireCooldown = 500; // Faster drone firing
+                    }
+                    if (this.timesUpgraded === 2) {
+                        this.maxWingmen = 3; // Max 3 drones
+                        this.droneFireCooldown = 350; // Even faster drone firing
+                    }
                     this.y = canvas.height - 70;
                 }
             },
+            // --- SHIP 2: GUARDIAN (שומר) ---
             guardian: {
                 width: 60, height: 50, speed: 300, // px per second
                 draw: function() {
@@ -228,9 +293,158 @@
                     if (this.timesUpgraded === 2) this.shield.active = true;
                     this.y = canvas.height - 70;
                 }
+            },
+            // --- SHIP 3: INTERCEPTOR (מיירט) ---
+            interceptor: {
+                width: 50, height: 60, speed: 420, // px per second
+                draw: function() {
+                    // Blue Interceptor aesthetics (classic fighter)
+                    ctx.fillStyle = '#00f2ff'; ctx.beginPath();
+                    ctx.moveTo(this.x + this.width / 2, this.y);
+                    ctx.lineTo(this.x, this.y + this.height * 0.8);
+                    ctx.lineTo(this.x + this.width, this.y + this.height * 0.8);
+                    ctx.closePath(); ctx.fill();
+                    let cockpitColor = '#111';
+                    if (this.timesUpgraded === 1) cockpitColor = '#ffd700';
+                    if (this.timesUpgraded >= 2) cockpitColor = '#00ff7f';
+                    ctx.fillStyle = cockpitColor; ctx.strokeStyle = '#38b6ff'; ctx.lineWidth = 2;
+                    ctx.beginPath(); ctx.arc(this.x + this.width / 2, this.y + this.height * 0.4, 8, 0, Math.PI * 2);
+                    ctx.fill(); ctx.stroke();
+                    ctx.fillStyle = Math.random() < 0.5 ? '#ffdd00' : '#ff9900'; ctx.beginPath();
+                    ctx.moveTo(this.x + this.width * 0.3, this.y + this.height * 0.8);
+                    ctx.lineTo(this.x + this.width * 0.7, this.y + this.height * 0.8);
+                    ctx.lineTo(this.x + this.width / 2, this.y + this.height + Math.random() * 15);
+                    ctx.closePath(); ctx.fill();
+                    this.wingmen.forEach(wingman => wingman.draw());
+                },
+                shoot: function() {
+                    if (this.hasDoubleShot) {
+                        if (bullets.length < 10) {
+                            bullets.push({ x: this.x + this.width * 0.2, y: this.y, width: 5, height: 15, speed: 600, type: 'bullet' });
+                            bullets.push({ x: this.x + this.width * 0.8 - 5, y: this.y, width: 5, height: 15, speed: 600, type: 'bullet' });
+                        }
+                    } else {
+                        if (bullets.length < 5) {
+                            bullets.push({ x: this.x + this.width / 2 - 2.5, y: this.y, width: 5, height: 15, speed: 600, type: 'bullet' });
+                        }
+                    }
+                    this.wingmen.forEach(wingman => {
+                        if (bullets.length < 12) {
+                             bullets.push({ x: wingman.x + wingman.width / 2 - 2.5, y: wingman.y, width: 4, height: 12, speed: 600, type: 'bullet' });
+                        }
+                    });
+                },
+                createWingmen: function() {
+                     if (this.wingmen.length > 0) return;
+                     const wingmanDraw = function() {
+                         ctx.fillStyle = '#38b6ff'; 
+                         ctx.beginPath();
+                         ctx.moveTo(this.x + this.width / 2, this.y);
+                         ctx.lineTo(this.x, this.y + this.height);
+                         ctx.lineTo(this.x + this.width, this.y + this.height);
+                         ctx.closePath(); ctx.fill();
+                     };
+                     this.wingmen.push({ x: 0, y: 0, width: 20, height: 20, draw: wingmanDraw });
+                     this.wingmen.push({ x: 0, y: 0, width: 20, height: 20, draw: wingmanDraw });
+                },
+                applyUpgrade: function() {
+                    this.timesUpgraded++;
+                    if (this.timesUpgraded === 1) this.hasDoubleShot = true;
+                    if (this.timesUpgraded === 2) this.createWingmen();
+                    this.y = canvas.height - 70;
+                }
+            },
+            // --- SHIP 4: VANGUARD (חלוץ) ---
+            vanguard: {
+                width: 80, height: 70, speed: 250, // Slow and heavy
+                spreadFactor: 10, // Initial horizontal offset for shots
+                draw: function() {
+                    ctx.fillStyle = '#8a2be2'; // Deep violet/purple
+                    ctx.beginPath();
+                    ctx.moveTo(this.x, this.y + 40);
+                    ctx.lineTo(this.x + 20, this.y);
+                    ctx.lineTo(this.x + this.width - 20, this.y);
+                    ctx.lineTo(this.x + this.width, this.y + 40);
+                    ctx.lineTo(this.x + this.width, this.y + this.height);
+                    ctx.lineTo(this.x, this.y + this.height);
+                    ctx.closePath(); ctx.fill();
+
+                    // Cockpit/Core
+                    let coreColor = '#111';
+                    if (this.timesUpgraded === 1) coreColor = '#ffffff';
+                    if (this.timesUpgraded >= 2) coreColor = '#ff66ff'; // Pink/Magenta for quad shot
+                    ctx.fillStyle = coreColor; ctx.strokeStyle = '#c8a2c8'; ctx.lineWidth = 2;
+                    ctx.beginPath(); ctx.rect(this.x + this.width / 2 - 15, this.y + 20, 30, 15);
+                    ctx.fill(); ctx.stroke();
+
+                    // Engines
+                    ctx.fillStyle = Math.random() < 0.5 ? '#ff66ff' : '#cc33cc';
+                    ctx.fillRect(this.x + 10, this.y + this.height, 15, 10 + Math.random() * 8);
+                    ctx.fillRect(this.x + this.width - 25, this.y + this.height, 15, 10 + Math.random() * 8);
+                },
+                shoot: function() {
+                    if (bullets.length < 10) {
+                        const base_y = this.y - 10;
+                        const base_speed = 500;
+                        
+                        // Center shot
+                        bullets.push({ x: this.x + this.width / 2 - 2, y: base_y, width: 4, height: 20, speed: base_speed, type: 'bullet' });
+
+                        // Spread shots (left and right)
+                        bullets.push({ x: this.x + this.width / 2 - this.spreadFactor - 2, y: base_y, width: 4, height: 20, speed: base_speed, type: 'bullet' });
+                        bullets.push({ x: this.x + this.width / 2 + this.spreadFactor - 2, y: base_y, width: 4, height: 20, speed: base_speed, type: 'bullet' });
+
+                        if (this.timesUpgraded >= 2) {
+                            // Quad/Side shots (U2)
+                            bullets.push({ x: this.x + this.width / 2 - this.spreadFactor * 2 - 2, y: base_y, width: 4, height: 20, speed: base_speed, type: 'bullet' });
+                            bullets.push({ x: this.x + this.width / 2 + this.spreadFactor * 2 - 2, y: base_y, width: 4, height: 20, speed: base_speed, type: 'bullet' });
+                        }
+                    }
+                },
+                applyUpgrade: function() {
+                    this.timesUpgraded++;
+                    if (this.timesUpgraded === 1) {
+                        this.spreadFactor = 20; // Wider spread for U1
+                    }
+                    if (this.timesUpgraded === 2) {
+                        // U2 adds side cannons (quad shot in shoot function)
+                        this.spreadFactor = 15; // Re-adjust spread for quad fire pattern
+                    }
+                    this.y = canvas.height - 70;
+                }
             }
         };
         
+        // --- Helper Function for Wingman Spawning (Used by Commander) ---
+        function spawnNewWingman() {
+            if (player.shipType !== 'commander' || player.wingmen.length >= player.maxWingmen) return;
+
+            // Randomly pick a drone type
+            const types = Object.keys(droneSpecs);
+            const droneTypeKey = types[Math.floor(Math.random() * types.length)];
+            const spec = droneSpecs[droneTypeKey];
+
+            // Initial random target for the drone in the middle top section
+            const newTargetX = Math.random() * canvas.width;
+            const newTargetY = canvas.height * 0.1 + Math.random() * (canvas.height * 0.4); 
+
+            player.wingmen.push({ 
+                x: player.x + (Math.random() - 0.5) * 50, 
+                y: player.y + (Math.random() - 0.5) * 50, 
+                width: spec.width, 
+                height: spec.height, 
+                draw: spec.draw,
+                droneType: droneTypeKey, 
+                speed: spec.speed, 
+                targetX: newTargetX, 
+                targetY: newTargetY, 
+                vx: 0, 
+                vy: 0, 
+                targetTimer: 0, 
+                targetCooldown: spec.targetCooldown
+            });
+        }
+
         // --- Enemy Definitions ---
         const enemyTypes = [
             { 
@@ -254,20 +468,29 @@
             const template = shipTypes[shipType];
             player = {
                 ...template,
+                shipType: shipType, // Added shipType for logic checks
                 x: canvas.width / 2 - template.width / 2,
                 y: canvas.height - 70,
                 dx: 0, dy: 0,
                 timesUpgraded: 0,
             };
-            if (shipType === 'interceptor') {
-                player.hasDoubleShot = false;
+            if (shipType === 'commander') {
                 player.wingmen = [];
-                player.createWingmen = createWingmen;
+                player.wingmanTimer = player.wingmanCooldown; // Start cooldown for spawning
+                player.droneFireTimer = 0; // Fire timer for autonomous shooting
+                player.droneFireCooldown = template.droneFireCooldown; // Cooldown value
             }
             if (shipType === 'guardian') {
-                player.pelletCount = 4; // Nerfed from 5
-                player.spread = 1.0; // Nerfed from 0.8 (wider spread)
+                player.pelletCount = 4;
+                player.spread = 1.0;
                 player.shield = { active: false, radius: 40 };
+            }
+            if (shipType === 'interceptor') { 
+                player.hasDoubleShot = false;
+                player.wingmen = [];
+            }
+            if (shipType === 'vanguard') { 
+                player.spreadFactor = template.spreadFactor;
             }
         }
 
@@ -278,27 +501,71 @@
             ctx.textAlign = 'center';
             ctx.fillStyle = 'white';
             ctx.font = '50px Arial';
-            ctx.fillText('בחר את החללית שלך', canvas.width / 2, canvas.height * 0.2);
+            ctx.fillText('בחר את החללית שלך', canvas.width / 2, canvas.height * 0.15); // Title higher up
 
-            const box1X = canvas.width / 4 - 100;
-            const boxY = canvas.height / 2 - 100;
-            ctx.strokeStyle = '#38b6ff';
-            ctx.strokeRect(box1X, boxY, 200, 200);
-            shipTypes.interceptor.draw.call({ x: box1X + 75, y: boxY + 50, width: 50, height: 60, timesUpgraded: 0, wingmen: [] });
+            // --- 2x2 Layout Calculations ---
+            const boxWidth = 180; 
+            const boxHeight = 200; 
+            const offset = 30; // Spacing between boxes
+
+            // Calculate overall grid dimensions
+            const gridWidth = boxWidth * 2 + offset;
+            const gridHeight = boxHeight * 2 + offset;
+
+            // Calculate starting point for centering the 2x2 grid
+            const startX = (canvas.width / 2) - (gridWidth / 2);
+            const startY = (canvas.height / 2) - (gridHeight / 2);
+
+            // Define coordinates for the 4 boxes
+            const row1Y = startY;
+            const row2Y = startY + boxHeight + offset;
+
+            const col1X = startX;
+            const col2X = startX + boxWidth + offset;
+
+            const box1X = col1X; const box1Y = row1Y; // Commander (Top Left)
+            const box2X = col2X; const box2Y = row1Y; // Guardian (Top Right)
+            const box3X = col1X; const box3Y = row2Y; // Interceptor (Bottom Left)
+            const box4X = col2X; const box4Y = row2Y; // Vanguard (Bottom Right)
+            
+            // --- Ship 1: COMMANDER (Top Left) ---
+            ctx.strokeStyle = '#ffc800'; // Gold border
+            ctx.strokeRect(box1X, box1Y, boxWidth, boxHeight);
+            shipTypes.commander.draw.call({ x: box1X + (boxWidth-70) / 2, y: box1Y + 50, width: 70, height: 50, timesUpgraded: 0, wingmen: [] });
             ctx.font = '24px Arial';
-            ctx.fillText('"מיירט"', box1X + 100, boxY + 160);
+            ctx.fillText('"מפקד"', box1X + boxWidth/2, box1Y + 160);
             ctx.font = '16px Arial';
-            ctx.fillText('מהיר וקטלני', box1X + 100, boxY + 185);
+            ctx.fillText('שולח מל"טים', box1X + boxWidth/2, box1Y + 185);
 
-            const box2X = canvas.width * 3 / 4 - 100;
+            // --- Ship 2: Guardian (Top Right) ---
             ctx.strokeStyle = '#ff8c00';
-            ctx.strokeRect(box2X, boxY, 200, 200);
-            shipTypes.guardian.draw.call({ x: box2X + 70, y: boxY + 60, width: 60, height: 50, timesUpgraded: 0, shield: {active: false} });
+            ctx.strokeRect(box2X, box2Y, boxWidth, boxHeight);
+            shipTypes.guardian.draw.call({ x: box2X + (boxWidth-60) / 2, y: box2Y + 60, width: 60, height: 50, timesUpgraded: 0, shield: {active: false} });
             ctx.font = '24px Arial';
             ctx.fillStyle = 'white';
-            ctx.fillText('"שומר"', box2X + 100, boxY + 160);
+            ctx.fillText('"שומר"', box2X + boxWidth/2, box2Y + 160);
             ctx.font = '16px Arial';
-            ctx.fillText('חזק ומוגן', box2X + 100, boxY + 185);
+            ctx.fillText('חזק ומוגן', box2X + boxWidth/2, box2Y + 185);
+            
+            // --- Ship 3: INTERCEPTOR (Bottom Left) ---
+            ctx.strokeStyle = '#38b6ff';
+            ctx.strokeRect(box3X, box3Y, boxWidth, boxHeight);
+            shipTypes.interceptor.draw.call({ x: box3X + (boxWidth-50) / 2, y: box3Y + 50, width: 50, height: 60, timesUpgraded: 0, wingmen: [] }); 
+            ctx.font = '24px Arial';
+            ctx.fillStyle = 'white';
+            ctx.fillText('"מיירט"', box3X + boxWidth/2, box3Y + 160);
+            ctx.font = '16px Arial';
+            ctx.fillText('מהיר וקטלני', box3X + boxWidth/2, box3Y + 185);
+
+            // --- Ship 4: VANGUARD (Bottom Right) ---
+            ctx.strokeStyle = '#8a2be2'; // Violet border
+            ctx.strokeRect(box4X, box4Y, boxWidth, boxHeight);
+            shipTypes.vanguard.draw.call({ x: box4X + (boxWidth-80) / 2, y: box4Y + 45, width: 80, height: 70, timesUpgraded: 0 }); 
+            ctx.font = '24px Arial';
+            ctx.fillStyle = 'white';
+            ctx.fillText('"חלוץ"', box4X + boxWidth/2, box4Y + 160);
+            ctx.font = '16px Arial';
+            ctx.fillText('ירי מפוצל כבד', box4X + boxWidth/2, box4Y + 185);
         }
 
         function startGame(shipType) {
@@ -318,15 +585,39 @@
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
             
-            const box1X = canvas.width / 4 - 100;
-            const boxY = canvas.height / 2 - 100;
-            const box2X = canvas.width * 3 / 4 - 100;
+            const boxWidth = 180; 
+            const boxHeight = 200; 
+            const offset = 30;
 
-            if (y > boxY && y < boxY + 200) {
-                if (x > box1X && x < box1X + 200) {
-                    startGame('interceptor');
-                } else if (x > box2X && x < box2X + 200) {
-                    startGame('guardian');
+            const gridWidth = boxWidth * 2 + offset;
+            const gridHeight = boxHeight * 2 + offset;
+            const startX = (canvas.width / 2) - (gridWidth / 2);
+            const startY = (canvas.height / 2) - (gridHeight / 2);
+
+            const row1Y = startY;
+            const row2Y = startY + boxHeight + offset;
+
+            const col1X = startX;
+            const col2X = startX + boxWidth + offset;
+            
+            // Check if click is within the grid vertically and horizontally
+            if (x > startX && x < startX + gridWidth && y > startY && y < startY + gridHeight) { 
+                
+                // Row 1 check (Commander & Guardian)
+                if (y >= row1Y && y < row1Y + boxHeight) {
+                    if (x >= col1X && x < col1X + boxWidth) {
+                        startGame('commander'); // Top Left
+                    } else if (x >= col2X && x < col2X + boxWidth) {
+                        startGame('guardian'); // Top Right
+                    }
+                } 
+                // Row 2 check (Interceptor & Vanguard)
+                else if (y >= row2Y && y < row2Y + boxHeight) { 
+                    if (x >= col1X && x < col1X + boxWidth) {
+                        startGame('interceptor'); // Bottom Left
+                    } else if (x >= col2X && x < col2X + boxWidth) {
+                        startGame('vanguard'); // Bottom Right
+                    }
                 }
             }
         });
@@ -378,10 +669,15 @@
 
         document.addEventListener('keydown', (e) => {
             keys[e.code] = true;
-            if (e.code === 'Space' && gameState === 'playing' && !isPaused) player.shoot();
+            if (e.code === 'Space' && gameState === 'playing' && !isPaused) {
+                // All ships fire the main shot on keydown
+                player.shoot();
+            }
             if (e.code === 'Enter' && gameState === 'gameOver') resetGame();
         });
-        document.addEventListener('keyup', (e) => { keys[e.code] = false; });
+        document.addEventListener('keyup', (e) => { 
+            keys[e.code] = false; 
+        });
         
         function enemyShoot() {
              if (enemyBullets.length < 3) {
@@ -439,27 +735,94 @@
             }
             if (player.y + player.height > canvas.height) player.y = canvas.height - player.height;
             
-            if (player.wingmen) {
+            // --- Commander Ship Wingman Spawning & Autonomous Firing Logic ---
+            if (player.shipType === 'commander') {
+                // 1. Spawning Logic
+                player.wingmanTimer -= deltaTime;
+                
+                if (player.wingmanTimer <= 0) {
+                    // Check if we can spawn a new wingman
+                    if (player.wingmen.length < player.maxWingmen) {
+                        spawnNewWingman();
+                    }
+                    player.wingmanTimer = player.wingmanCooldown; // Reset timer regardless of spawn success
+                }
+
+                // 2. Autonomous Firing Logic
+                if (player.wingmen.length > 0) {
+                    player.droneFireTimer -= deltaTime;
+                    if (player.droneFireTimer <= 0) {
+                        player.wingmen.forEach(wingman => {
+                            // Wingmen shoot autonomously (basic shot)
+                            bullets.push({ x: wingman.x + wingman.width / 2 - 2, y: wingman.y, width: 4, height: 12, speed: 600, type: 'bullet' });
+                        });
+                        player.droneFireTimer = player.droneFireCooldown;
+                    }
+                }
+            }
+
+            // --- Update Wingmen Position: Free Roaming AI ---
+            if (player.shipType === 'commander' && player.wingmen) {
+                player.wingmen.forEach((wingman, index) => {
+                    const dt = deltaTime / 1000;
+                    
+                    const distanceToTarget = Math.hypot(wingman.targetX - wingman.x, wingman.targetY - wingman.y);
+                    wingman.targetTimer += deltaTime;
+
+                    // 1. Check if target is reached or timer expired (Drone AI)
+                    if (distanceToTarget < 10 || wingman.targetTimer > wingman.targetCooldown) {
+                        wingman.targetTimer = 0;
+                        
+                        let targetAreaX, targetAreaY;
+
+                        if (wingman.droneType === 'Fighter') {
+                            // Fighter: Roams the top half of the screen
+                            targetAreaX = Math.random() * canvas.width;
+                            targetAreaY = canvas.height * 0.1 + Math.random() * (canvas.height * 0.5); 
+                        } else {
+                            // Defender: Stays closer to the player
+                            const maxOffset = 100;
+                            targetAreaX = player.x + player.width / 2 + (Math.random() - 0.5) * maxOffset;
+                            targetAreaY = player.y + player.height / 2 + (Math.random() - 0.5) * maxOffset;
+                            
+                            // Ensure Defender target is within screen bounds
+                            targetAreaX = Math.max(wingman.width / 2, Math.min(canvas.width - wingman.width / 2, targetAreaX));
+                            targetAreaY = Math.max(canvas.height / 2, Math.min(canvas.height - wingman.height / 2, targetAreaY));
+                        }
+                        
+                        wingman.targetX = targetAreaX - wingman.width / 2;
+                        wingman.targetY = targetAreaY - wingman.height / 2;
+
+                        // Recalculate velocity vector towards new target
+                        const angle = Math.atan2(wingman.targetY - wingman.y, wingman.targetX - wingman.x);
+                        wingman.vx = Math.cos(angle) * wingman.speed;
+                        wingman.vy = Math.sin(angle) * wingman.speed;
+                    }
+
+                    // 2. Update position based on velocity
+                    wingman.x += wingman.vx * dt;
+                    wingman.y += wingman.vy * dt;
+
+                    // Keep drones within bounds
+                    if (wingman.x < 0) { wingman.x = 0; wingman.targetTimer = wingman.targetCooldown; }
+                    if (wingman.x + wingman.width > canvas.width) { wingman.x = canvas.width - wingman.width; wingman.targetTimer = wingman.targetCooldown; }
+                    if (wingman.y < 0) { wingman.y = 0; wingman.targetTimer = wingman.targetCooldown; }
+                    if (wingman.y + wingman.height > canvas.height) { wingman.y = canvas.height - wingman.height; wingman.targetTimer = wingman.targetCooldown; }
+
+                });
+            } else if (player.shipType === 'interceptor' && player.wingmen) {
+                // INTERCEPTOR: Fixed formation logic (kept for the other ship)
                 player.wingmen.forEach((wingman, index) => {
                     const offset = (index === 0 ? -1 : 1) * (player.width + 10);
-                    wingman.x = player.x + offset;
+                    wingman.x = player.x + player.width / 2 + offset - wingman.width / 2;
                     wingman.y = player.y + 20;
                 });
             }
         }
+        
+        // This function is no longer needed globally as it is now defined inside shipTypes.interceptor
+        function createWingmen() {}
 
-        function createWingmen() {
-             if (player.wingmen.length > 0) return;
-             const wingmanDraw = function() {
-                 ctx.fillStyle = '#00f2ff'; ctx.beginPath();
-                 ctx.moveTo(this.x + this.width / 2, this.y);
-                 ctx.lineTo(this.x, this.y + this.height);
-                 ctx.lineTo(this.x + this.width, this.y + this.height);
-                 ctx.closePath(); ctx.fill();
-             };
-             player.wingmen.push({ x: 0, y: 0, width: 20, height: 20, draw: wingmanDraw });
-             player.wingmen.push({ x: 0, y: 0, width: 20, height: 20, draw: wingmanDraw });
-        }
         function createEnemyWingmen() {
             enemy.wingmen = [];
             const wingmanDraw = function() {
@@ -565,8 +928,12 @@
                 let bulletRemoved = false;
                 if ( enemy && bullet.x < enemy.x + enemy.width && bullet.x + bullet.width > enemy.x &&
                     bullet.y < enemy.y + enemy.height && bullet.y + bullet.height > enemy.y ) {
+                    
                     bullets.splice(i, 1);
-                    bulletRemoved = true; score++;
+                    bulletRemoved = true; 
+                    
+                    // Simple score increase
+                    score += 1; 
 
                     if (score >= 50) {
                         gameWon = true; gameOver = true;
@@ -594,7 +961,10 @@
                         const wingman = enemy.wingmen[j];
                         if ( bullet.x < wingman.x + wingman.width && bullet.x + bullet.width > wingman.x &&
                             bullet.y < wingman.y + wingman.height && bullet.y + bullet.height > wingman.y ) {
-                            bullets.splice(i, 1); bulletRemoved = true; score += 2;
+                            bullets.splice(i, 1); bulletRemoved = true; 
+                            
+                            score += 2; // Wingman gives double base score
+
                             createExplosion(wingman.x + wingman.width / 2, wingman.y + wingman.height / 2, '#c837ff');
                             enemy.wingmen.splice(j, 1); break;
                         }
@@ -602,7 +972,7 @@
                 }
 
                 // Remove off-screen or expired bullets
-                if ((bullet.type === 'pellet' && bullet.life <= 0) || (bullet.type === 'bullet' && bullet.y < 0)) {
+                if ((bullet.type === 'pellet' && bullet.life <= 0) || (bullet.type !== 'pellet' && bullet.y < 0)) {
                     if(!bulletRemoved) bullets.splice(i, 1);
                 }
             }
@@ -611,15 +981,19 @@
         // This new function only draws the bullets
         function drawBullets() {
             bullets.forEach(bullet => {
+                let color = '#fff000';
+                let shadowColor = '#fff000';
+                
                 if (bullet.type === 'pellet') {
                     ctx.fillStyle = '#ffaf4d';
                     ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
-                } else {
-                    ctx.fillStyle = '#fff000'; 
-                    ctx.shadowColor = '#fff000'; 
-                    ctx.shadowBlur = 10;
-                    ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+                    return; // Stop here for pellet
                 }
+
+                ctx.fillStyle = color; 
+                ctx.shadowColor = shadowColor; 
+                ctx.shadowBlur = 10;
+                ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
             });
             ctx.shadowBlur = 0; // Reset shadow
         }
@@ -658,7 +1032,19 @@
                 if (!bulletRemoved && player.wingmen) {
                     for (let j = player.wingmen.length - 1; j >= 0; j--) {
                         const wingman = player.wingmen[j];
-                        if ( bullet.x < wingman.x + wingman.width && bullet.x + bullet.width > wingman.x &&
+                        // Check collision with Commander drones
+                        if (player.shipType === 'commander' && 
+                            bullet.x < wingman.x + wingman.width && bullet.x + bullet.width > wingman.x &&
+                            bullet.y < wingman.y + wingman.height && bullet.y + wingman.height > wingman.y ) {
+                            enemyBullets.splice(i, 1);
+                            bulletRemoved = true;
+                            createExplosion(wingman.x + wingman.width / 2, wingman.y + wingman.height / 2, droneSpecs[wingman.droneType].draw.fillStyle);
+                            player.wingmen.splice(j, 1);
+                            break;
+                        }
+                         // Check collision with Interceptor wingmen
+                        if (player.shipType === 'interceptor' && 
+                            bullet.x < wingman.x + wingman.width && bullet.x + bullet.width > wingman.x &&
                             bullet.y < wingman.y + wingman.height && bullet.y + wingman.height > wingman.y ) {
                             enemyBullets.splice(i, 1);
                             bulletRemoved = true;
@@ -675,7 +1061,26 @@
             }
         }
         
-        // This new function only draws enemy bullets
+        // This new function only draws the bullets
+        function drawBullets() {
+            bullets.forEach(bullet => {
+                let color = '#fff000';
+                let shadowColor = '#fff000';
+                
+                if (bullet.type === 'pellet') {
+                    ctx.fillStyle = '#ffaf4d';
+                    ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+                    return; // Stop here for pellet
+                }
+
+                ctx.fillStyle = color; 
+                ctx.shadowColor = shadowColor; 
+                ctx.shadowBlur = 10;
+                ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+            });
+            ctx.shadowBlur = 0; // Reset shadow
+        }
+
         function drawEnemyBullets() {
             enemyBullets.forEach(bullet => {
                 ctx.fillStyle = '#ff00ff'; 
@@ -743,6 +1148,11 @@
             ctx.fillText(`ניקוד: ${score}`, canvas.width - 20, 40);
             ctx.textAlign = 'left';
             ctx.fillText(`שלב: ${level}`, 20, 40);
+            if (player.shipType === 'commander' && player.wingmen) {
+                ctx.font = '16px Arial';
+                const fireText = player.wingmen.length >= player.maxWingmen ? '' : ` (טעינה: ${Math.max(0, (player.wingmanTimer / 1000).toFixed(1))}s)`;
+                ctx.fillText(`מל"טים: ${player.wingmen.length} / ${player.maxWingmen}${fireText}`, 20, 70);
+            }
             if (levelUpMessageTimer > 0) {
                 ctx.font = '60px Arial';
                 ctx.textAlign = 'center';
@@ -849,4 +1259,3 @@
     </script>
 </body>
 </html>
-

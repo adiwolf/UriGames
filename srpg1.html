@@ -1,0 +1,1675 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>מפקד הממלכה (אנימציית קרב צידית)</title>
+    <!-- Firebase Imports -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        // הגדרת משתני Firebase גלובליים
+        window.db = null;
+        window.auth = null;
+        window.userId = null;
+        window.initializeApp = initializeApp;
+        window.getAuth = getAuth;
+        window.signInAnonymously = signInAnonymously;
+        window.signInWithCustomToken = signInWithCustomToken;
+        window.onAuthStateChanged = onAuthStateChanged;
+        window.getFirestore = getFirestore;
+        window.doc = doc;
+        window.getDoc = getDoc;
+        window.setDoc = setDoc;
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@400;700&display=swap');
+        
+        :root {
+            --tile-size: 80px; /* Base for tile sizing */
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            /* שינוי: רקע כללי של הגוף לדשא כהה ועמוק */
+            background-color: #385138; 
+            background-image: linear-gradient(135deg, #4f6e4f 25%, #385138 75%);
+            color: #e9e9f4;
+            font-family: 'Heebo', sans-serif;
+            flex-direction: column;
+            padding: 20px;
+            text-align: right;
+        }
+
+        #game-container {
+            display: flex;
+            flex-direction: row-reverse;
+            gap: 20px;
+            width: 90vw;
+            max-width: 900px;
+            background-color: rgba(93, 64, 55, 0.9); /* Medium Brown - outer frame, slightly transparent */
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            flex-wrap: wrap;
+            transition: opacity 0.5s; /* Smooth fade for cutscene */
+        }
+
+        #board-container {
+            width: 100%;
+            max-width: 400px;
+            aspect-ratio: 1 / 1; 
+            border: none; /* הסרת הגבול הראשי */
+            box-shadow: none; /* הסרת צל מהלוח הראשי */
+            border-radius: 8px;
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            grid-template-rows: repeat(5, 1fr);
+            background-color: transparent; /* שקיפות לרקע הדשא הכללי */
+            overflow: hidden;
+            margin: 0 auto;
+            position: relative; 
+        }
+
+        .tile {
+            border: none; /* הסרת גבול האריח */
+            background-color: #558B2F; /* Richer, darker base grass */
+            /* UPDATED: Grass texture simulating earth and foliage */
+            background-image: linear-gradient(135deg, #689f38 25%, #4caf50 50%, #558b2f 75%); 
+            box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.5); /* Inner shadow for depth */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: background-color 0.15s, transform 0.1s;
+            position: relative; 
+        }
+        
+        .tile:hover:not(.highlight) {
+            background-color: #689f38; /* Brighter green hover */
+        }
+
+        /* Unit Icon - Base Styling */
+        .unit-icon {
+            font-size: 2.5rem;
+            width: 80%; /* הגדלת שטח ה-SVG */
+            height: 80%;
+            text-shadow: none; /* הסרת הצללים של האימוג'י */
+            position: absolute; 
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%); /* Center the icon */
+            transition: transform 0.15s ease-out, font-size 0.3s ease-out; 
+            z-index: 10;
+        }
+
+        .unit-icon svg {
+            width: 100%;
+            height: 100%;
+            /* הסרת fill/stroke מ-currentColor כדי לאפשר צבעים מפורטים בתוך ה-SVG */
+            filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.5));
+        }
+        
+        /* Battle Overlay (New Full Screen Cutscene) */
+        #battle-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            /* שימוש באותו רקע של הדשא */
+            background-color: #558B2F; 
+            background-image: linear-gradient(135deg, #689f38 25%, #4caf50 50%, #558b2f 75%); 
+            display: none; /* Hidden by default */
+            justify-content: center;
+            align-items: center;
+            flex-direction: row;
+            z-index: 1000;
+            gap: 10%;
+        }
+
+        .overlay-unit-slot {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            position: relative;
+            transform: scale(1); /* Base scale */
+            transition: transform 0.1s ease-out;
+        }
+        
+        /* הגדלת הסמליל בסצנת הקרב */
+        .overlay-unit-icon {
+            width: 250px; /* גודל פיזי גדול יותר */
+            height: 250px;
+            transition: transform 0.1s ease-out;
+        }
+
+        .overlay-defender .overlay-unit-icon {
+            /* הופך את ה-SVG כך שיפנה לתוקף */
+            transform: scaleX(-1); 
+        }
+        
+        .overlay-unit-icon svg {
+            width: 100%;
+            height: 100%;
+            /* הסרת fill/stroke מ-currentColor כדי לאפשר צבעים מפורטים בתוך ה-SVG */
+            stroke-width: 1px; /* Slightly thicker stroke for zoom */
+            filter: drop-shadow(0 0 8px rgba(0, 0, 0, 0.9));
+        }
+
+        /* Animations for Hit Effect */
+        @keyframes shake {
+            0% { transform: translate(10px, 0); } /* הגדלת עוצמת הרעד */
+            25% { transform: translate(-10px, 0); }
+            50% { transform: translate(10px, 0); }
+            75% { transform: translate(-10px, 0); }
+            100% { transform: translate(0, 0); }
+        }
+        
+        .overlay-hp-bar {
+            width: 300px;
+            height: 25px;
+            border: 2px solid #fff;
+            margin-top: 15px;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        .overlay-hp-fill {
+            height: 100%;
+            transition: width 0.3s;
+        }
+        .overlay-hp-player { background-color: #4CAF50; }
+        .overlay-hp-enemy { background-color: #f44336; }
+        
+        /* Unit Colors (Used for background elements, not SVG fill) */
+        .player-unit { color: #4CAF50; } 
+        .enemy-unit { color: #f44336; } 
+        
+        /* Highlight States */
+        .highlight-move {
+            background-color: rgba(70, 160, 70, 0.8); 
+            border: 2px solid #32cd32; 
+            animation: pulse-move 1s infinite alternate;
+        }
+        .highlight-attack {
+            background-color: rgba(255, 69, 0, 0.8); 
+            border: 2px solid #ff4500; 
+            animation: pulse-attack 1s infinite alternate;
+        }
+        .selected {
+            border: 3px solid #ffeb3b;
+            transform: scale(0.95);
+        }
+
+        @keyframes pulse-move {
+            from { box-shadow: 0 0 5px rgba(50, 200, 50, 0.8); }
+            to { box-shadow: 0 0 15px rgba(50, 200, 50, 1); }
+        }
+        @keyframes pulse-attack {
+            from { box-shadow: 0 0 5px rgba(255, 69, 0, 0.8); }
+            to { box-shadow: 0 0 15px rgba(255, 69, 0, 1); }
+        }
+
+        /* Side Panel */
+        #info-panel {
+            width: 100%;
+            max-width: 400px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        /* Main Controls (End Turn & Restart) always visible at the top */
+        #main-controls {
+            display: flex;
+            gap: 10px;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #795548;
+            flex-wrap: wrap; /* מאפשר כפתורים נוספים למטה במוביל */
+        }
+        
+        .main-control-btn {
+            flex-grow: 1;
+            min-width: 120px;
+        }
+
+
+        #game-status {
+            background-color: #3e2723;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 5px solid #ffc107; 
+        }
+
+        #unit-stats {
+            background-color: #3e2723;
+            padding: 15px;
+            border-radius: 8px;
+            min-height: 150px;
+            border-right: 5px solid #4CAF50; 
+        }
+        
+        #upgrade-shop {
+            background-color: #5d4037; 
+            padding: 15px; 
+            border-radius: 8px; 
+            border-right: 5px solid #ffc107;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        /* NEW: Story Panel Styling */
+        #story-panel {
+            background-color: #3e2723;
+            padding: 15px;
+            border-radius: 8px;
+            border-bottom: 5px solid #795548;
+            display: none; /* נסתר כברירת מחדל */
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        #story-panel h2, #story-panel h3 {
+            color: #ffc107;
+            margin-top: 5px;
+        }
+        #story-panel ul {
+            padding-right: 20px;
+        }
+
+        .action-btn {
+            background-color: #ffc107; 
+            color: #3e2723;
+            border: none;
+            padding: 10px 15px;
+            font-weight: 700;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+            flex-grow: 1; 
+        }
+        .action-btn:hover:not(:disabled) { background-color: #ffeb3b; }
+        .action-btn:disabled { background-color: #795548; cursor: not-allowed; } 
+        
+        #end-turn-btn {
+            background-color: #f44336; 
+            color: white;
+            flex-grow: 2; 
+        }
+        #end-turn-btn:hover:not(:disabled) { background-color: #ff7043; }
+        
+        #restart-btn {
+            background-color: #ff9800 !important;
+        }
+        
+        #toggle-story-btn {
+            background-color: #5d4037;
+            color: white;
+            flex-grow: 1;
+            margin-top: 5px; 
+        }
+        #toggle-story-btn:hover { background-color: #795548; }
+
+        .hp-bar {
+            height: 5px;
+            width: 100%;
+            background-color: #795548;
+            border-radius: 3px;
+            position: absolute;
+            bottom: 3px;
+            left: 0;
+            overflow: hidden;
+        }
+        .hp-fill {
+            height: 100%;
+            transition: width 0.3s;
+        }
+        .hp-player { background-color: #4CAF50; }
+        .hp-enemy { background-color: #f44336; }
+        
+        /* Mobile Layout */
+        @media (max-width: 900px) {
+            #game-container {
+                flex-direction: column;
+                align-items: center;
+                gap: 15px;
+            }
+            #board-container {
+                margin: 0;
+            }
+            #info-panel {
+                order: 3; 
+                max-width: 100%;
+            }
+            #main-controls {
+                order: -1; 
+                flex-direction: column;
+            }
+            .main-control-btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>מפקד הממלכה: קרב ימי הביניים</h1>
+    <div id="game-container">
+        
+        <!-- לוח המשחק -->
+        <div id="board-container">
+            <!-- אריחים ייווצרו כאן -->
+        </div>
+
+        <!-- פאנל מידע ובקרה -->
+        <div id="info-panel">
+            
+            <!-- NEW: Main Controls at the top of the info panel -->
+            <div id="main-controls">
+                <button id="end-turn-btn" class="action-btn main-control-btn" disabled>סיום תור &gt;&gt;</button>
+                <button id="restart-btn" class="action-btn main-control-btn" disabled>התחל קרב חדש</button>
+                <!-- NEW: Story Toggle Button -->
+                <button id="toggle-story-btn" class="action-btn main-control-btn">סיפור ומדריך</button>
+            </div>
+            
+            <!-- NEW: Story Panel -->
+            <div id="story-panel">
+                <h2>סיפור רקע: מפקד הממלכה: קרב הדרור</h2>
+                <p>ממלכת הדרור, שפעם הייתה נחלת שלווה המוגנת על ידי חומות עתיקות, עומדת כעת בפני מבחן. בעקבות גילוי עורק נדיר של **זהב קסום** בהרי צפון, התעוררו ישויות רעבות ותאבות בצע.</p>
+
+                <p>אתה, המפקד הצעיר של חיל המצב, נותרת עם שניים בלבד מהלוחמים הנאמנים ביותר:</p>
+                <ul>
+                    <li>**האביר:** מגן אמיץ, עם שריון בסיסי וחרב חלודה. הוא קו ההגנה הראשון.</li>
+                    <li>**הקשת:** צייד מיומן, עם קשת עץ פשוטה ועין חדה. היא התקווה לטווח ארוך.</li>
+                </ul>
+                <h3>החוקים וההתקדמות</h3>
+                <p>כל קרב על לוח זה הוא מארב. תצטרכו להשתמש בחוכמה ובטקטיקה כדי להביס את גלי האויבים (אורקים ושודדים) שנוהרים לעבר המפקדה שלכם.</p>
+                <ul>
+                    <li>**צבירת XP ודרגות:** כל אויב מושמד מעניק **נקודות ניסיון (XP)**. עלייה בדרגה משפרת את הסטטיסטיקות הבסיסיות של הגיבור (חיים, התקפה, הגנה).</li>
+                    <li>**זהב ושדרוג:** זהב נצבר מכל ניצחון. השתמש בו ב**חנות הציוד** כדי לרכוש נשקים ושריונות משופרים (חרבות וקשתות ברזל, שריונות פלדה).</li>
+                    <li>**ציוד מותנה:** פריטי ה**פלדה** דורשים מהיחידה להיות **בדרגה 3 ומעלה** כדי שתוכל להשתמש בהם.</li>
+                    <li>**ריפוי מלא:** בין קרב לקרב, הגיבורים שלך מטופלים היטב ו**החיים שלהם מתמלאים במלואם**.</li>
+                </ul>
+            </div>
+
+
+            <div id="game-status">
+                <h2>סטטוס המשחק</h2>
+                <p id="status-message">טוען נתונים. נא להמתין...</p>
+                <p id="gold-display">זהב: 0</p>
+                <p id="turn-display">תור: -</p>
+            </div>
+
+            <div id="unit-stats">
+                <h2>יחידה נבחרת</h2>
+                <p id="selected-unit-info">בחר יחידה מהלוח...</p>
+            </div>
+            
+            <!-- ADDED: Action Buttons div for MOVE_BTN and ATTACK_BTN -->
+            <div id="action-buttons" style="display: flex; gap: 10px;">
+                <!-- הכפתורים האלה מוגדרים ב-JS כאינדיקטורים -->
+                <button id="move-btn" class="action-btn" disabled>תזוזה</button>
+                <button id="attack-btn" class="action-btn" disabled>התקפה</button>
+            </div>
+
+            
+            <!-- NEW: Upgrade Shop (Hidden until victory) -->
+            <div id="upgrade-shop" style="display: none;">
+                <h2>חנות שדרוגי ציוד</h2>
+                <div id="upgrade-controls" style="display: flex; gap: 10px; flex-direction: column;">
+                    
+                    <!-- אביר - שדרוג נשק ושריון -->
+                    <button id="buy-knight-iron-sword" class="action-btn upgrade-btn">אביר: חרב ברזל (+$1500 | +10 התקפה)</button>
+                    <!-- NEW: חרב פלדה -->
+                    <button id="buy-knight-steel-sword" class="action-btn upgrade-btn">אביר: חרב פלדה (+$2500 | רמה 3+ | +20 התקפה, +1 טווח)</button>
+                    <button id="buy-knight-steel-armor" class="action-btn upgrade-btn">אביר: שריון פלדה (+$2000 | רמה 3+ | +50 חיים, +5 הגנה)</button>
+                    
+                    <!-- קשת - שדרוג נשק וחפץ מיוחד -->
+                    <button id="buy-archer-iron-bow" class="action-btn upgrade-btn">קשת: קשת ברזל (+$1800 | +15 התקפה)</button>
+                    <button id="buy-archer-steel-bow" class="action-btn upgrade-btn">קשת: קשת פלדה (+$2500 | רמה 3+ | +20 התקפה, +1 טווח)</button>
+                    <button id="buy-archer-move" class="action-btn upgrade-btn">קשת: מגפי עור (+$1500 | +1 טווח תנועה)</button>
+
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- NEW: Battle Overlay Container -->
+    <div id="battle-overlay">
+        <div id="overlay-attacker" class="overlay-unit-slot">
+            <!-- Attacker info goes here -->
+        </div>
+        <div id="overlay-defender" class="overlay-unit-slot">
+            <!-- Defender info goes here -->
+        </div>
+    </div>
+
+    <script>
+        // משתנים גלובליים ואלמנטי DOM
+        const GAME_CONTAINER = document.getElementById('game-container');
+        const BOARD_CONTAINER = document.getElementById('board-container');
+        const STATUS_MESSAGE = document.getElementById('status-message');
+        const GOLD_DISPLAY = document.getElementById('gold-display');
+        const TURN_DISPLAY = document.getElementById('turn-display');
+        const SELECTED_UNIT_INFO = document.getElementById('selected-unit-info');
+        const MOVE_BTN = document.getElementById('move-btn'); 
+        const ATTACK_BTN = document.getElementById('attack-btn'); 
+        const END_TURN_BTN = document.getElementById('end-turn-btn');
+        const RESTART_BTN = document.getElementById('restart-btn');
+        const UPGRADE_SHOP = document.getElementById('upgrade-shop'); 
+        
+        // NEW: Story Panel DOM
+        const STORY_PANEL = document.getElementById('story-panel');
+        const TOGGLE_STORY_BTN = document.getElementById('toggle-story-btn');
+        
+        // New Overlay Elements
+        const BATTLE_OVERLAY = document.getElementById('battle-overlay');
+        const OVERLAY_ATTACKER = document.getElementById('overlay-attacker');
+        const OVERLAY_DEFENDER = document.getElementById('overlay-defender');
+
+
+        // משתני משחק
+        const BOARD_SIZE = 5;
+        let board = [];
+        let units = [];
+        let selectedUnit = null;
+        let gameState = 'loading'; // loading, ready, playerTurn, enemyTurn, gameOver, animating, upgradePhase
+        let currentTurn = 0;
+        let isReady = false; // דגל טעינת Firebase
+        let gold = 0;
+        let goldHighScore = 0;
+        // NEW: עוקב אחרי באיזה קרב השחקן נמצא (1, 2, 3...)
+        let currentBattleIndex = 1; 
+        
+        // NEW: שמירת שדרוגי ציוד קבועים (Items)
+        // שומר פריטים שנקנו: { knight: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, archer: { ... } }
+        let itemUpgrades = {
+            knight: { hp: 0, atk: 0, def: 0, move: 0, range: 0 },
+            archer: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }
+        };
+        // NEW: שמירת נתוני רמה/XP
+        let unitProgress = {
+            knight: { level: 1, xp: 0, nextLevelXp: 1000 },
+            archer: { level: 1, xp: 0, nextLevelXp: 1000 }
+        };
+
+
+        // מצבי פעולה - כבר לא משתמשים בו בצורה מפורשת עבור ה-UI
+        let currentAction = null; 
+        
+        // ------------------------------------
+        // פונקציות עזר (Utility)
+        // ------------------------------------
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        // NEW: פונקציה לחישוב בונוס סטטוס לפי רמה
+        function calculateLevelBonus(unitType, level) {
+            // סטטיסטיקות בסיס (Level 1)
+            let baseHp = (unitType === 'knight' ? 120 : 80);
+            let baseAtk = (unitType === 'knight' ? 30 : 20);
+            let baseDef = (unitType === 'knight' ? 10 : 5);
+            let baseMove = (unitType === 'knight' ? 2 : 3);
+            let baseRange = (unitType === 'knight' ? 1 : 3);
+            
+            // פקטור צמיחה (לכל רמה נוספת מעבר ל-1)
+            const levelFactor = level - 1;
+            
+            const totalHp = baseHp + (levelFactor * 10); // צמיחת חיים מהירה יותר
+            const totalAtk = baseAtk + (levelFactor * 3);  // צמיחת התקפה
+            const totalDef = baseDef + (levelFactor * 1);
+
+            return { totalHp, totalAtk, totalDef, baseMove, baseRange };
+        }
+        
+        // ------------------------------------
+        // הגדרת אייקוני SVG (במקום אימוג'י) - פיקסל ארט משופר
+        // ------------------------------------
+        function getUnitSVG(type) {
+            
+            const SILVER = '#B0B0B0';
+            const WHITE = '#FFFFFF';
+            const DARK_STEEL = '#606060';
+            const WOOD = '#795548';
+            const LIGHT_WOOD = '#A1887F';
+            const SKIN = '#F0D4A8';
+            const ORC_SKIN = '#558B2F';
+            const ORC_TEETH = '#FFFFFF';
+            const RED = '#F44336';
+            const BLACK_GARB = '#1a1a1a'; 
+            const MAROON_ACCENT = '#5C3333'; 
+            const BRONZE_LIGHT = '#D4A017'; // Lighter Bronze for highlights
+            
+            // Viewbox set to 10x10 for a low-resolution pixel feel
+            
+            switch (type) {
+                case 'knight':
+                    // **KNIGHT: Heavy Armor, Bronze Accents, Silver Shield**
+                    return `
+                        <svg viewBox="0 0 10 10" xmlns="http://www.w3.org/2000/svg">
+                            <!-- Body/Armor (Silver base) -->
+                            <rect x="3" y="4" width="4" height="6" fill="${SILVER}"/>
+                            <!-- Chest Accent is now Bronze highlight -->
+                            <rect x="3.5" y="4" width="3" height="1" fill="${BRONZE_LIGHT}"/> 
+                            
+                            <!-- Right Arm/Shoulder - REMOVED the extra silver block to clean up the outline -->
+                            <rect x="7.5" y="5.5" width="0.5" height="0.5" fill="${SKIN}"/> <!-- Exposed Hand/Skin -->
+                            
+                            <!-- Helmet (Dark Steel) -->
+                            <rect x="3" y="1.5" width="4" height="3" fill="${DARK_STEEL}"/>
+                            
+                            <!-- Exposed Face (SKIN) -->
+                            <rect x="4" y="3.5" width="2" height="1" fill="${SKIN}"/> 
+                            
+                            <rect x="4.5" y="2.5" width="1" height="1" fill="${SILVER}"/> <!-- Visor/Light reflection -->
+                            <!-- Sword (Silver) -->
+                            <rect x="7" y="2" width="1" height="4" fill="${SILVER}"/>
+                            <rect x="6.5" y="5" width="2" height="1" fill="${DARK_STEEL}"/> <!-- Guard -->
+                            <!-- Shield (Silver) -->
+                            <rect x="2" y="4" width="1" height="4" fill="${SILVER}"/>
+                        </svg>`;
+                case 'archer':
+                    // **ARCHER (PLAYER): Longbow (Horizontal Ellipse), drawn string, light garb**
+                    return `
+                        <svg viewBox="0 0 10 10" xmlns="http://www.w3.org/2000/svg">
+                            <!-- Body/Garb (Light Wood/Brown) -->
+                            <rect x="4" y="4" width="2" height="6" fill="${LIGHT_WOOD}"/>
+                            <!-- Hood/Head (Darker Brown) -->
+                            <rect x="4" y="2.5" width="2" height="2" fill="${WOOD}"/>
+                            <!-- Face peek (Skin) -->
+                            <rect x="4.5" y="3" width="1" height="1" fill="${SKIN}"/>
+                            
+                            <!-- FIX 1: Wide, horizontal half-ellipse bow (brown/wood) - MODIFIED: Y control point changed to 3.5 (More Curved) -->
+                            <path d="M 1 5 Q 3.5 3.5, 6 5" fill="none" stroke="${WOOD}" stroke-width="0.5"/>
+                            
+                            <!-- FIX 2: String (White) - Longer, horizontal line drawn back - Y set to 5.3 to create space from the bow -->
+                            <line x1="1" y1="5.3" x2="5.5" y2="5.3" stroke="${WHITE}" stroke-width="0.5"/> 
+
+                            <!-- Hand (Skin) - holding the bow string/arrow (Positioned at the end of the drawn string) - Y set to 4.8 to hold the string -->
+                            <rect x="5.5" y="4.8" width="1" height="1" fill="${SKIN}"/> 
+                        </svg>`;
+                case 'banditArcher': // NEW ENEMY TYPE
+                    // **BANDIT ARCHER (ENEMY): Dark Garb, Dark Bow**
+                    return `
+                        <svg viewBox="0 0 10 10" xmlns="http://www.w3.org/2000/svg">
+                            <!-- Body/Garb (Black Garb) -->
+                            <rect x="4" y="4" width="2" height="6" fill="${BLACK_GARB}"/>
+                            <!-- Hood/Head (Dark Garb) -->
+                            <rect x="4" y="2.5" width="2" height="2" fill="${BLACK_GARB}"/>
+                            <!-- Face peek (Skin) -->
+                            <rect x="4.5" y="3" width="1" height="1" fill="${SKIN}"/>
+                            
+                            <!-- FIX 1: Wide, horizontal half-ellipse bow (Dark Steel) -->
+                            <path d="M 1 5 Q 3.5 3.5, 6 5" fill="none" stroke="${DARK_STEEL}" stroke-width="0.5"/>
+                            
+                            <!-- FIX 2: String (White) - Longer, horizontal line drawn back - Y set to 5.3 to create space from the bow -->
+                            <line x1="1" y1="5.3" x2="5.5" y2="5.3" stroke="${WHITE}" stroke-width="0.5"/> 
+
+                            <!-- Hand (Skin) - holding the bow string/arrow (Positioned at the end of the drawn string) - Y set to 4.8 to hold the string -->
+                            <rect x="5.5" y="4.8" width="1" height="1" fill="${SKIN}"/> 
+                        </svg>`;
+                case 'orc':
+                    // Orc: Bulky, green skin, pronounced teeth, simple weapon
+                    return `
+                        <svg viewBox="0 0 10 10" xmlns="http://www.w3.org/2000/svg">
+                            <!-- Body (Orc Green, Bulky) -->
+                            <rect x="2.5" y="5" width="5.5" height="5" fill="${ORC_SKIN}"/>
+                            <!-- Head (Orc Green, wide) -->
+                            <rect x="2" y="1.5" width="6" height="4" fill="${ORC_SKIN}"/>
+                            <!-- Eyes (Red) -->
+                            <rect x="3.5" y="2.5" width="1" height="1" fill="${RED}"/>
+                            <rect x="5.5" y="2.5" width="1" height="1" fill="${RED}"/>
+                            <!-- Tusks (White, pronounced) -->
+                            <rect x="2" y="4.5" width="1" height="1" fill="${ORC_TEETH}"/>
+                            <rect x="7" y="4.5" width="1" height="1" fill="${ORC_TEETH}"/>
+                            <!-- Weapon (Axe Head - Silver) -->
+                            <rect x="7" y="5" width="2" height="1" fill="${SILVER}"/>
+                            <rect x="8" y="6" width="1" height="1" fill="${SILVER}"/>
+                            <!-- Handle (Dark Steel) -->
+                            <rect x="7.5" y="6" width="0.5" height="3" fill="${DARK_STEEL}"/>
+                        </svg>`;
+                case 'bandit':
+                    // **BANDIT: Exposing skin, dark cloak, maroon accent**
+                    return `
+                        <svg viewBox="0 0 10 10" xmlns="http://www.w3.org/2000/svg">
+                            <!-- Body/Cloak (New Darker Garb) -->
+                            <rect x="4" y="4" width="2" height="6" fill="${BLACK_GARB}"/>
+                            <!-- Maroon Accent/Belt -->
+                            <rect x="3.5" y="6" width="3" height="0.5" fill="${MAROON_ACCENT}"/>
+                            <!-- Hood/Head (Dark Garb) -->
+                            <rect x="3" y="2.5" width="4" height="2" fill="${BLACK_GARB}"/>
+                            <!-- Face peek (Skin) -->
+                            <rect x="4.5" y="3" width="1" height="1" fill="${SKIN}"/>
+                            
+                            <!-- Exposed Hand/Arm (Skin) -->
+                            <rect x="5.5" y="4" width="1" height="1" fill="${SKIN}"/> 
+                            
+                            <!-- Dagger (Silver) -->
+                            <rect x="6" y="3" width="1" height="3" fill="${SILVER}"/>
+                            <rect x="5.5" y="5" width="2" height="0.5" fill="${DARK_STEEL}"/> <!-- Hilt -->
+                        </svg>`;
+                default:
+                    return `?`;
+            }
+        }
+        // ------------------------------------
+        // מחלקת יחידה
+        // ------------------------------------
+        class Unit {
+            // Units now receive base stats and apply item upgrades and level bonuses on creation
+            constructor(type, team, row, col, name, xp, level, initialHpRatio = 1.0) {
+                this.type = type; // 'knight', 'archer', 'orc', 'bandit', 'banditArcher'
+                this.team = team; // 'player', 'enemy'
+                this.row = row;
+                this.col = col;
+                this.name = name;
+                
+                // NEW: XP and Level tracking (only for player units)
+                this.level = level;
+                this.xp = xp;
+                this.xpToNextLevel = level * 1000;
+                
+                // 1. Calculate stats based on Level
+                const levelStats = calculateLevelBonus(type, level);
+                
+                // 2. Apply permanent Item Upgrades (stored in itemUpgrades global)
+                const itemUpgradesForType = itemUpgrades[type] || { hp: 0, atk: 0, def: 0, move: 0, range: 0 };
+                
+                // Final Stats
+                this.maxHp = levelStats.totalHp + itemUpgradesForType.hp; 
+                this.atk = levelStats.totalAtk + itemUpgradesForType.atk;
+                this.def = levelStats.totalDef + itemUpgradesForType.def;
+                
+                // Movement/Range stats get a bonus if items were bought
+                this.moveRange = levelStats.baseMove + itemUpgradesForType.move;
+                this.attackRange = levelStats.baseRange + itemUpgradesForType.range;
+                
+                // NEW: Keep current HP ratio unless it's a new game (or full heal is intended)
+                this.hp = Math.floor(this.maxHp * initialHpRatio);
+                
+                this.icon = type;
+                this.hasMoved = false;
+                this.hasAttacked = false;
+            }
+
+            get isAlive() {
+                return this.hp > 0;
+            }
+            
+            // NEW: פונקציה לטיפול בעליית רמה
+            checkLevelUp() {
+                if (this.team !== 'player') return false;
+                
+                let leveledUp = false;
+                while (this.xp >= this.xpToNextLevel) {
+                    const currentHpRatio = this.hp / this.maxHp;
+                    
+                    this.level++;
+                    this.xp -= this.xpToNextLevel; // נשאר עודף XP
+                    this.xpToNextLevel = this.level * 1000; // הגדלת הדרישה לרמה הבאה
+                    
+                    // חישוב מחדש של הסטטיסטיקות (Level + Item)
+                    const levelStats = calculateLevelBonus(this.type, this.level);
+                    const itemUpgradesForType = itemUpgrades[this.type];
+                    
+                    this.maxHp = levelStats.totalHp + itemUpgradesForType.hp;
+                    this.atk = levelStats.totalAtk + itemUpgradesForType.atk;
+                    this.def = levelStats.totalDef + itemUpgradesForType.def;
+                    
+                    // NEW LOGIC: HP מתעדכן באופן פרופורציונלי (לא ריפוי מלא)
+                    this.hp = Math.min(this.maxHp, Math.floor(this.maxHp * currentHpRatio));
+                    
+                    STATUS_MESSAGE.innerHTML = `<span style="color:#32cd32; font-weight:700;">היחידה ${this.name} עלתה לרמה ${this.level}!</span>`;
+                    leveledUp = true;
+                }
+                return leveledUp;
+            }
+
+            // תצוגת HP כאלמנט HTML
+            renderHpBar(tile) {
+                let hpBar = tile.querySelector('.hp-bar');
+                if (!hpBar) {
+                    hpBar = document.createElement('div');
+                    hpBar.className = 'hp-bar';
+                    tile.appendChild(hpBar);
+                }
+
+                let hpFill = hpBar.querySelector('.hp-fill');
+                if (!hpFill) {
+                    hpFill = document.createElement('div');
+                    hpFill.className = `hp-fill ${this.team === 'player' ? 'hp-player' : 'hp-enemy'}`;
+                    hpBar.appendChild(hpFill);
+                }
+                
+                const hpPercent = (this.hp / this.maxHp) * 100;
+                hpFill.style.width = `${hpPercent}%`;
+            }
+
+            // עדכון חזותי
+            draw(tile) {
+                // הסרת תוכן קיים (אם יש) וציור מחדש
+                tile.innerHTML = ''; 
+                const iconSpan = document.createElement('span');
+                iconSpan.className = `unit-icon ${this.team}-unit ${this.type}`;
+                // שימוש ב-SVG במקום אימוג'י
+                iconSpan.innerHTML = getUnitSVG(this.type);
+                tile.appendChild(iconSpan);
+                this.renderHpBar(tile);
+            }
+            
+            // לקיחת נזק
+            takeDamage(damage) {
+                const effectiveDamage = Math.max(1, damage - this.def);
+                this.hp = Math.max(0, this.hp - effectiveDamage);
+                if (this.hp === 0) {
+                    // NEW: יחידה מתה נעלמת מהלוח באופן מיידי
+                    const tile = board[this.row] ? board[this.row][this.col] : null;
+                    if(tile) tile.innerHTML = '';
+                    
+                    return true; // היחידה מתה
+                }
+                return false;
+            }
+        }
+
+        // ------------------------------------
+        // פונקציות עזר ללוח
+        // ------------------------------------
+
+        function getUnitAt(row, col) {
+            // אם יחידה מתה, היא לא נחשבת כיחידה "בשטח"
+            return units.find(u => u.row === row && u.col === col && u.isAlive);
+        }
+
+        function renderBoard() {
+            BOARD_CONTAINER.innerHTML = '';
+            board = [];
+            for (let r = 0; r < BOARD_SIZE; r++) {
+                board[r] = [];
+                for (let c = 0; c < BOARD_SIZE; c++) {
+                    const tile = document.createElement('div');
+                    tile.className = 'tile';
+                    tile.dataset.row = r;
+                    tile.dataset.col = c;
+                    // קריאה לפונקציית לחיצה
+                    tile.onclick = () => handleTileClick(r, c); 
+                    
+                    const unit = getUnitAt(r, c);
+                    if (unit) {
+                        unit.draw(tile);
+                    }
+                    
+                    board[r][c] = tile;
+                    BOARD_CONTAINER.appendChild(tile);
+                }
+            }
+        }
+
+        function clearHighlights() {
+            board.flat().forEach(tile => {
+                tile.classList.remove('highlight-move', 'highlight-attack', 'selected');
+            });
+            currentAction = null;
+            updateActionButtons();
+        }
+        
+        // NEW: פונקציה כללית לעדכון תצוגה
+        function updateUI() {
+            GOLD_DISPLAY.textContent = `זהב: ${gold} (שיא: ${goldHighScore})`;
+            
+            // עדכון כפתורי קנייה
+            const costIronSword = 1500;
+            const costSteelSword = 2500;
+            const costSteelArmor = 2000;
+            const costIronBow = 1800;
+            const costSteelBow = 2500;
+            const costMove = 1500;
+
+            const knightLevel = unitProgress.knight.level;
+            const archerLevel = unitProgress.archer.level;
+
+            const buyKnightIronSwordBtn = document.getElementById('buy-knight-iron-sword');
+            const buyKnightSteelSwordBtn = document.getElementById('buy-knight-steel-sword');
+            const buyKnightSteelArmorBtn = document.getElementById('buy-knight-steel-armor');
+            const buyArcherIronBowBtn = document.getElementById('buy-archer-iron-bow');
+            const buyArcherSteelBowBtn = document.getElementById('buy-archer-steel-bow');
+            const buyArcherMoveBtn = document.getElementById('buy-archer-move');
+
+            // עדכון כפתורי הקנייה: בדיקת זהב ורמה
+            if (buyKnightIronSwordBtn) buyKnightIronSwordBtn.disabled = gold < costIronSword;
+            if (buyKnightSteelSwordBtn) buyKnightSteelSwordBtn.disabled = gold < costSteelSword || knightLevel < 3;
+            if (buyKnightSteelArmorBtn) buyKnightSteelArmorBtn.disabled = gold < costSteelArmor || knightLevel < 3;
+            if (buyArcherIronBowBtn) buyArcherIronBowBtn.disabled = gold < costIronBow;
+            if (buyArcherSteelBowBtn) buyArcherSteelBowBtn.disabled = gold < costSteelBow || archerLevel < 3;
+            if (buyArcherMoveBtn) buyArcherMoveBtn.disabled = gold < costMove;
+
+            // עדכון תצוגת חנות
+            UPGRADE_SHOP.style.display = (gameState === 'upgradePhase') ? 'flex' : 'none';
+
+             // עדכון כפתור סיום תור
+            if (gameState === 'upgradePhase') {
+                END_TURN_BTN.textContent = `התחל קרב הבא (${currentBattleIndex + 1})`;
+                END_TURN_BTN.disabled = false;
+            } else if (gameState !== 'gameOver') {
+                 END_TURN_BTN.textContent = "סיום תור >>";
+            }
+            
+            // עדכון כותרת הסטטוס (קרב נוכחי)
+            document.querySelector('#game-status h2').textContent = `סטטוס המשחק (קרב ${currentBattleIndex})`;
+        }
+
+        // ------------------------------------
+        // אנימציה ופעולת התקפה (Cutscene)
+        // ------------------------------------
+        
+        function setupOverlayUnit(unit, slot, isAttacker = false) {
+            const teamClass = unit.team === 'player' ? 'hp-player' : 'hp-enemy';
+            const iconClass = unit.team === 'player' ? 'player-unit' : 'enemy-unit';
+            
+            // For defender, we flip the icon in CSS
+            const slotClass = isAttacker ? 'overlay-attacker' : 'overlay-defender';
+            
+            slot.className = `overlay-unit-slot ${slotClass}`;
+
+            // HP Percentage
+            const hpPercent = (unit.hp / unit.maxHp) * 100;
+
+            slot.innerHTML = `
+                <h3 style="margin-bottom: 5px;">${unit.name}</h3>
+                <div class="overlay-hp-bar">
+                    <div id="${unit.team}-hp-fill" class="overlay-hp-fill ${teamClass}" style="width: ${hpPercent}%"></div>
+                </div>
+                <!-- שימוש ב-SVG ב-Overlay -->
+                <span id="${unit.team}-icon" class="overlay-unit-icon ${iconClass} ${unit.type}">${getUnitSVG(unit.type)}</span>
+                <p>HP: <span id="${unit.team}-hp-text">${Math.floor(unit.hp)}</span>/${unit.maxHp}</p>
+            `;
+            return {
+                icon: slot.querySelector(`#${unit.team}-icon`),
+                hpFill: slot.querySelector(`#${unit.team}-hp-fill`),
+                hpText: slot.querySelector(`#${unit.team}-hp-text`),
+            };
+        }
+
+        // פונקציית האנימציה בפועל
+        async function animateAttack(attacker, defender) {
+            const ZOOM_IN_TIME = 500;
+            const ATTACK_LUNGE_TIME = 150;
+            const SHAKE_TIME = 300;
+            
+            // 1. הסתרת ה-UI והצגת האוברליי
+            GAME_CONTAINER.style.opacity = '0';
+            BATTLE_OVERLAY.style.display = 'flex';
+            
+            await sleep(ZOOM_IN_TIME); // Pause for the fade transition
+
+            // 2. הכנת יחידות האוברליי
+            const attackerElements = setupOverlayUnit(attacker, OVERLAY_ATTACKER, true);
+            const defenderElements = setupOverlayUnit(defender, OVERLAY_DEFENDER, false);
+            
+            await sleep(300); // Pause for unit display to settle
+
+            // 3. תקיפה (זינוק קדימה)
+            const lungeDistance = 30; // פיקסלים
+            attackerElements.icon.style.transition = `transform ${ATTACK_LUNGE_TIME}ms ease-out`;
+            
+            // זינוק של התוקף לעבר המגן
+            attackerElements.icon.style.transform = `translateX(${lungeDistance}px)`; 
+            
+            await sleep(ATTACK_LUNGE_TIME); 
+
+            // 4. יישום נזק
+            const isDead = defender.takeDamage(attacker.atk);
+            
+            // אנימציית רעד קלה על המגן
+            defenderElements.icon.style.animation = `shake ${SHAKE_TIME}ms`;
+            
+            // עדכון חזותי של HP באוברליי
+            const hpPercent = (defender.hp / defender.maxHp) * 100;
+            defenderElements.hpFill.style.width = `${hpPercent}%`;
+            defenderElements.hpText.textContent = Math.floor(defender.hp);
+            
+            await sleep(SHAKE_TIME); // מחכים שהרעד יסתיים
+
+            // 5. חזרה למיקום
+            attackerElements.icon.style.transform = 'translateX(0)'; 
+            defenderElements.icon.style.animation = 'none'; 
+            
+            await sleep(ATTACK_LUNGE_TIME);
+            
+            // 6. סיום האוברליי
+            OVERLAY_ATTACKER.innerHTML = '';
+            OVERLAY_DEFENDER.innerHTML = '';
+            BATTLE_OVERLAY.style.display = 'none';
+            GAME_CONTAINER.style.opacity = '1';
+            
+            // NEW: אם התוקף הרג, תן לו XP
+            if (isDead && attacker.team === 'player') {
+                attacker.xp += 500; // XP קבוע על הריגה
+                attacker.checkLevelUp(); 
+                await saveGold(); // שמור התקדמות
+            }
+
+            return isDead;
+        }
+
+        // פונקציה עוטפת שמבצעת את כל רצף ההתקפה
+        async function performAttackAction(attacker, defender) {
+            // נעילת המשחק
+            gameState = 'animating'; 
+            
+            const isDead = await animateAttack(attacker, defender);
+
+            // 5. לוגיקה לאחר האנימציה
+            if (isDead) {
+                // עדכן סטטוס
+                STATUS_MESSAGE.textContent = `${attacker.name} השמיד את ${defender.name}!`;
+                checkWinCondition(); 
+            } else {
+                 STATUS_MESSAGE.textContent = `${attacker.name} תקף את ${defender.name}. נותרו לו ${Math.floor(defender.hp)} חיים.`;
+            }
+            
+            // עדכון הלוח לאחר הקרב (כדי שפס החיים יתעדכן)
+            renderBoard();
+
+            // שחרור נעילת המשחק (אם המשחק לא הסתיים)
+            if (gameState !== 'gameOver' && gameState !== 'upgradePhase') {
+                 gameState = 'playerTurn';
+            }
+            
+            return isDead;
+        }
+
+        // ------------------------------------
+        // לוגיקת משחק עיקרית
+        // ------------------------------------
+        
+        // NEW: הגדרת אויבים לפי שלב הקרב
+        function spawnEnemiesForBattle(battleIndex) {
+            let enemies = [];
+            
+            // קרב 1: קרב מבוא קל (3 אויבים)
+            if (battleIndex === 1) {
+                enemies.push(new Unit('orc', 'enemy', 0, 2, 'מפקד אורק', 0, 1, 1.0));
+                enemies.push(new Unit('bandit', 'enemy', 1, 1, 'שודד', 0, 1, 1.0));
+                enemies.push(new Unit('bandit', 'enemy', 1, 3, 'שודד', 0, 1, 1.0));
+            } 
+            
+            // קרב 2: תגבורת אורקים וקשתים חדשים (4 אויבים)
+            else if (battleIndex === 2) {
+                enemies.push(new Unit('orc', 'enemy', 0, 1, 'מפקד אורק מנוסה', 0, 2, 1.0)); // חזק יותר
+                enemies.push(new Unit('orc', 'enemy', 0, 3, 'אורק לוחם', 0, 1, 1.0)); 
+                // NEW ENEMY TYPE
+                enemies.push(new Unit('banditArcher', 'enemy', 1, 0, 'קשת שודד', 0, 1, 1.0)); // טווח 3
+                enemies.push(new Unit('banditArcher', 'enemy', 1, 4, 'קשת שודד', 0, 1, 1.0)); // טווח 3
+            }
+            
+            // קרב 3+: קרב קשה יותר (5 אויבים)
+            else {
+                 enemies.push(new Unit('orc', 'enemy', 0, 2, `מפקד ${battleIndex}`, 0, Math.min(5, battleIndex), 1.0)); 
+                 enemies.push(new Unit('bandit', 'enemy', 1, 1, 'שודד', 0, 1, 1.0));
+                 enemies.push(new Unit('bandit', 'enemy', 1, 3, 'שודד', 0, 1, 1.0));
+                 enemies.push(new Unit('banditArcher', 'enemy', 0, 4, 'קשת מאגף', 0, 2, 1.0));
+                 enemies.push(new Unit('orc', 'enemy', 1, 2, 'אורק משוריין', 0, 2, 1.0));
+            }
+            
+            // ודא שלכל יחידות האויב מוגדר טווח התקפה הגיוני
+            enemies.forEach(e => {
+                if (e.type === 'orc' || e.type === 'bandit') {
+                    e.attackRange = 1; // יחידות מליאה
+                } else if (e.type === 'banditArcher') {
+                    e.attackRange = 3; // קשתים
+                }
+            });
+            
+            return enemies;
+        }
+        
+        function initGame() {
+            // שימוש ב-currentBattleIndex
+            const knightProgress = unitProgress.knight;
+            const archerProgress = unitProgress.archer;
+            
+            // יצירת יחידות השחקן עם סטטיסטיקות מעודכנות ו-HP מלא
+            const playerUnits = [
+                new Unit('knight', 'player', 4, 1, 'אביר', knightProgress.xp, knightProgress.level, 1.0),
+                new Unit('archer', 'player', 4, 3, 'קשת', archerProgress.xp, archerProgress.level, 1.0),
+            ];
+            
+            // יצירת אויבים לפי מספר הקרב
+            const enemyUnits = spawnEnemiesForBattle(currentBattleIndex);
+            
+            units = playerUnits.concat(enemyUnits);
+            
+            selectedUnit = null;
+            currentTurn = 0;
+            gameState = 'ready';
+            clearHighlights();
+            renderBoard(); // עכשיו מוצגות היחידות
+            
+            STATUS_MESSAGE.textContent = `מתחילים קרב ${currentBattleIndex}! בחר יחידה והתחל.`;
+            RESTART_BTN.disabled = true;
+            END_TURN_BTN.disabled = false;
+            END_TURN_BTN.textContent = "התחל תור (1)";
+            
+            updateUI(); // NEW: עדכון UI לאחר אתחול
+            startGameTurn();
+        }
+        
+        function startGameTurn() {
+            currentTurn++;
+            clearHighlights();
+            selectedUnit = null;
+            
+            // איפוס פעולות ליחידות השחקן
+            units.filter(u => u.team === 'player' && u.isAlive).forEach(u => {
+                u.hasMoved = false;
+                u.hasAttacked = false;
+                // בודק אם האריח קיים לפני הסרת המחלקה
+                const tile = board[u.row] ? board[u.row][u.col] : null;
+                if (tile) {
+                    tile.classList.remove('selected');
+                }
+            });
+            
+            if (currentTurn === 1) { // התור הראשון הוא תמיד של השחקן
+                startPlayerTurn();
+            } else if (currentTurn % 2 !== 0) {
+                 startPlayerTurn();
+            } else {
+                startEnemyTurn();
+            }
+            updateUI();
+        }
+        
+        function startPlayerTurn() {
+            gameState = 'playerTurn';
+            TURN_DISPLAY.textContent = `תור: ${currentTurn} (שחקן)`;
+            STATUS_MESSAGE.textContent = "בחר יחידה כדי להזיז או לתקוף.";
+            END_TURN_BTN.textContent = "סיום תור >>";
+            END_TURN_BTN.disabled = false;
+            updateActionButtons();
+        }
+        
+        function startEnemyTurn() {
+            gameState = 'enemyTurn';
+            TURN_DISPLAY.textContent = `תור: ${currentTurn} (אויב)`;
+            STATUS_MESSAGE.textContent = "תור האויב... נא להמתין.";
+            END_TURN_BTN.disabled = true;
+            updateActionButtons();
+            
+            // התחלת תהליך תור האויב האסינכרוני
+            setTimeout(processEnemyTurn, 1000); 
+        }
+        
+        async function processEnemyTurn() {
+            // רק יחידות חיות יכולות לפעול
+            const enemyUnits = units.filter(u => u.team === 'enemy' && u.isAlive);
+            
+            for (const enemy of enemyUnits) {
+                if (gameState === 'gameOver' || gameState === 'upgradePhase') break; 
+
+                // 1. נסה לתקוף
+                const playerUnits = units.filter(u => u.team === 'player' && u.isAlive);
+                let target = playerUnits.find(p => isAttackable(enemy.row, enemy.col, p.row, p.col, enemy.attackRange));
+
+                if (target) {
+                    await performAttackAction(enemy, target); // ממתינים לאנימציה
+                    if (gameState === 'gameOver' || gameState === 'upgradePhase') break;
+                } else {
+                    // 2. נסה להתקרב
+                    moveEnemyTowardsClosestPlayer(enemy);
+                }
+                renderBoard(); // עדכון הלוח לאחר כל פעולה
+                await sleep(1000); // השהיה קלה בין פעולות אויב
+            }
+            
+            // לאחר שכל האויבים סיימו
+            if (gameState !== 'gameOver' && gameState !== 'upgradePhase') {
+                 startGameTurn();
+            }
+        }
+
+        function moveEnemyTowardsClosestPlayer(enemy) {
+            const playerUnits = units.filter(u => u.team === 'player' && u.isAlive);
+            if (playerUnits.length === 0) return;
+
+            // מציאת היחידה הקרובה ביותר
+            let closestTarget = playerUnits.reduce((closest, current) => {
+                const distCurrent = Math.abs(enemy.row - current.row) + Math.abs(enemy.col - enemy.col);
+                if (distCurrent < closest.distance) {
+                    return { unit: current, distance: distCurrent };
+                }
+                return closest;
+            }, { unit: playerUnits[0], distance: Infinity });
+
+            const target = closestTarget.unit;
+            
+            // חישוב הנתיב (פשוט: צעד אחד לכיוון הכללי)
+            let newRow = enemy.row;
+            let newCol = enemy.col;
+
+            const dr = target.row - enemy.row;
+            const dc = target.col - enemy.col;
+
+            // קביעת כיוון התנועה
+            if (Math.abs(dr) > Math.abs(dc)) {
+                newRow += (dr > 0 ? 1 : -1);
+            } else if (dc !== 0) {
+                newCol += (dc > 0 ? 1 : -1);
+            } else if (dr !== 0) {
+                 newRow += (dr > 0 ? 1 : -1);
+            }
+
+            // הגבלה לטווח תנועה (צעד אחד, ללא בדיקת חסימה מורכבת)
+            if (Math.abs(newRow - enemy.row) + Math.abs(newCol - enemy.col) <= enemy.moveRange) {
+                if (isValidMove(enemy.row, enemy.col, newRow, newCol, enemy)) {
+                    moveUnit(enemy, newRow, newCol);
+                }
+            }
+        }
+
+        function checkWinCondition() {
+            // רק יחידות חיות נספרות
+            const playerAlive = units.some(u => u.team === 'player' && u.isAlive);
+            const enemyAlive = units.some(u => u.team === 'enemy' && u.isAlive);
+
+            if (!playerAlive) {
+                handleLoss(); // טיפול בהפסד
+                return true;
+            }
+            if (!enemyAlive) {
+                postVictoryState(); // NEW: טיפול בניצחון ושדרוג
+                return true;
+            }
+            return false;
+        }
+
+        // NEW: פונקציה לטיפול במעבר למצב שדרוג
+        async function postVictoryState() {
+            gameState = 'upgradePhase';
+            clearHighlights();
+            selectedUnit = null;
+            
+            const goldEarned = 1000 + (currentTurn * 100);
+            gold += goldEarned;
+            
+            // NEW: שמירת נתוני הרמה/XP רק של היחידות החיות והקיימות
+            units.filter(u => u.team === 'player').forEach(u => {
+                unitProgress[u.type].level = u.level;
+                unitProgress[u.type].xp = u.xp;
+                unitProgress[u.type].nextLevelXp = u.xpToNextLevel;
+            });
+            
+            // הוספת עלילה ספציפית לכל ניצחון
+            let battleStory = '';
+            if (currentBattleIndex === 1) {
+                battleStory = "הדיפתם את גל האורקים הראשון! אך מרחוק, זיהינו קשתים שודדים שמתקרבים דרך העמקים הצדדיים. התכונן לתגבורת מהירה יותר, המפקד. ";
+            } else if (currentBattleIndex === 2) {
+                 battleStory = "האזור נקי לעת עתה. ניצחון קשה נגד תגבורת האויב. עליך להתחזק במהירות, המאבק רק החל. ";
+            } else {
+                 battleStory = "ניצחון נוסף! אויבי הממלכה ממשיכים להפסיד קרב אחר קרב.";
+            }
+
+            STATUS_MESSAGE.innerHTML = `<span style="color:#ffc107;">ניצחון בקרב ${currentBattleIndex}!</span> ${battleStory} זכית ב-${goldEarned} זהב. שדרג את יחידותיך בחנות לפני הקרב הבא.`;
+            
+            currentBattleIndex++; // קידום מספר הקרב
+            await saveGold(); // שמירת הכל
+            updateUI();
+
+            RESTART_BTN.disabled = false;
+            END_TURN_BTN.disabled = false; // כפתור הופך ל"התחל קרב הבא"
+            TURN_DISPLAY.textContent = `תור: - (שדרוג)`;
+        }
+
+        // RENAMED: פונקציה לטיפול בהפסד
+        function handleLoss() {
+            gameState = 'gameOver';
+            clearHighlights();
+            selectedUnit = null;
+            updateActionButtons();
+            
+            STATUS_MESSAGE.innerHTML = `<span style="color:#f44336;">הפסד!</span> כל היחידות הושמדו.`;
+            
+            saveGold();
+            updateUI(); // יעדכן את הזהב (אם במקרה נצבר)
+
+            RESTART_BTN.disabled = false;
+            END_TURN_BTN.disabled = true;
+            TURN_DISPLAY.textContent = `תור: - (הסתיים)`;
+        }
+
+        // ------------------------------------
+        // טיפול בקליקים ופעולות (כעת מבוסס אריחים)
+        // ------------------------------------
+
+        function handleTileClick(r, c) {
+            if (gameState !== 'playerTurn') return;
+            
+            const clickedUnit = getUnitAt(r, c);
+            const tile = board[r][c];
+            
+            // 1. ניסיון לבצע פעולה (תזוזה או התקפה)
+            if (selectedUnit) {
+                const isMoveAttempt = tile.classList.contains('highlight-move');
+                const isAttackAttempt = tile.classList.contains('highlight-attack');
+
+                if (isMoveAttempt && !selectedUnit.hasMoved) {
+                    // ביצוע תזוזה
+                    moveUnit(selectedUnit, r, c);
+                    selectedUnit.hasMoved = true;
+                    clearHighlights();
+                    // הצג את אפשרויות התקיפה הנותרות לאחר התזוזה
+                    showAvailableActions();
+                    updateSelectedUnitInfo(selectedUnit);
+                    renderBoard();
+                    return;
+
+                } else if (isAttackAttempt && !selectedUnit.hasAttacked) {
+                    // ביצוע התקפה
+                    if (clickedUnit && clickedUnit.team === 'enemy') {
+                        
+                        // ביצוע האנימציה והלוגיקה בתוך async wrapper כדי לאפשר await
+                        (async () => {
+                            const isDead = await performAttackAction(selectedUnit, clickedUnit);
+                            
+                            // Check if game ended or unit was unselected during animation
+                            if (gameState === 'gameOver' || gameState === 'upgradePhase' || !selectedUnit) return; 
+                            
+                            // NEW: עדכון XP לאחר קרב
+                            if (isDead) {
+                                // XP ניתן בתוך פונקציית animateAttack
+                                // רק צריך לעדכן את תצוגת היחידה הנבחרת
+                                updateSelectedUnitInfo(selectedUnit);
+                            }
+
+                            selectedUnit.hasAttacked = true;
+                            clearHighlights();
+                            // נשאר על היחידה הנבחרת כדי לראות סטטוס
+                            board[selectedUnit.row][selectedUnit.col].classList.add('selected');
+                            updateSelectedUnitInfo(selectedUnit);
+                            renderBoard();
+                        })(); // Immediately execute
+                        return;
+                    }
+                }
+            }
+
+            // 2. ניסיון לבחור יחידה חדשה או לבטל בחירה
+            clearHighlights(); // נקה הכל לפני בחירה חדשה
+            
+            if (clickedUnit && clickedUnit.team === 'player') {
+                if (selectedUnit === clickedUnit) {
+                    // ביטול בחירה
+                    selectedUnit = null;
+                    SELECTED_UNIT_INFO.innerHTML = "בחר יחידה מהלוח...";
+                } else {
+                    // בחירת יחידה חדשה
+                    selectedUnit = clickedUnit;
+                    tile.classList.add('selected');
+                    updateSelectedUnitInfo(selectedUnit);
+                    showAvailableActions(); // הצג פעולות זמינות מיידית
+                }
+            } else {
+                selectedUnit = null; // קליק על אריח ריק או אויב ללא פעולה
+                SELECTED_UNIT_INFO.innerHTML = "בחר יחידה מהלוח...";
+            }
+            
+            updateActionButtons();
+        }
+        
+        // --- פונקציות עזר לפעולות ---
+
+        function updateActionButtons() {
+            // FIXED: בדיקה שאלמנטי הכפתורים קיימים לפני הגישה
+            if (MOVE_BTN) {
+                // הלחצנים כעת מציגים רק את הסטטוס הפעולה של היחידה הנבחרת
+                MOVE_BTN.disabled = selectedUnit ? selectedUnit.hasMoved : true;
+                ATTACK_BTN.disabled = selectedUnit ? selectedUnit.hasAttacked : true;
+
+                // עדכון הכפתורים החזותיים כדי שיהיו אינדיקציה טובה יותר
+                MOVE_BTN.style.backgroundColor = selectedUnit && !selectedUnit.hasMoved ? '#ffc107' : '#795548';
+                ATTACK_BTN.style.backgroundColor = selectedUnit && !selectedUnit.hasAttacked ? '#ffc107' : '#795548';
+            }
+
+            // אם היחידה סיימה את שתי הפעולות, הלחצנים לא נגישים והיא נשארת נבחרת
+        }
+
+        function updateSelectedUnitInfo(unit) {
+             // NEW: הוספת בונוס שדרוג ו-XP/רמה לתצוגה
+             const itemUpgradesForType = itemUpgrades[unit.type] || { hp: 0, atk: 0, def: 0, move: 0, range: 0 };
+             // בונוס כולל (רמה + חפץ)
+             const totalHp = unit.maxHp;
+             const totalAtk = unit.atk;
+             const totalDef = unit.def;
+             const totalMove = unit.moveRange;
+             const totalRange = unit.attackRange;
+             
+             // בונוס חפץ מוצג בסוגריים
+             const hpBonus = itemUpgradesForType.hp > 0 ? ` (+${itemUpgradesForType.hp})` : '';
+             const atkBonus = itemUpgradesForType.atk > 0 ? ` (+${itemUpgradesForType.atk})` : '';
+             const moveBonus = itemUpgradesForType.move > 0 ? ` (+${itemUpgradesForType.move})` : '';
+             const rangeBonus = itemUpgradesForType.range > 0 ? ` (+${itemUpgradesForType.range})` : '';
+             
+             let progressInfo = '';
+             if (unit.team === 'player') {
+                 const percent = (unit.xp / unit.xpToNextLevel) * 100;
+                 progressInfo = `
+                    <p>רמה: ${unit.level}</p>
+                    <p>XP: ${unit.xp}/${unit.xpToNextLevel} (${Math.floor(percent)}%)</p>
+                 `;
+             }
+             
+             SELECTED_UNIT_INFO.innerHTML = `
+                <p><strong>${unit.name}</strong> (${unit.team === 'player' ? 'שלך' : 'אויב'})</p>
+                ${progressInfo}
+                <p>חיים: ${Math.floor(unit.hp)}/${totalHp} ${hpBonus}</p>
+                <p>התקפה: ${totalAtk} ${atkBonus} | הגנה: ${totalDef}</p>
+                <p>טווח תנועה: ${totalMove} ${moveBonus} | טווח תקיפה: ${totalRange} ${rangeBonus}</p>
+                <p style="color:${unit.hasMoved ? '#f44336' : '#4CAF50'}">הוזז: ${unit.hasMoved ? 'כן' : 'לא'}</p>
+                <p style="color:${unit.hasAttacked ? '#f44336' : '#4CAF50'}">תקף: ${unit.hasAttacked ? 'כן' : 'לא'}</p>
+            `;
+        }
+        
+        // הפונקציה החדשה שמציגה טווח תנועה והתקפה אוטומטית
+        function showAvailableActions() {
+            if (!selectedUnit) return;
+            clearHighlights(); // ודא שכל הדגשות קודמות נמחקו
+            
+            for (let r = 0; r < BOARD_SIZE; r++) {
+                for (let c = 0; c < BOARD_SIZE; c++) {
+                    const tile = board[r][c];
+                    const targetUnit = getUnitAt(r, c);
+                    
+                    // הדגשת תזוזה
+                    if (!selectedUnit.hasMoved && isValidMove(selectedUnit.row, selectedUnit.col, r, c, selectedUnit)) {
+                        tile.classList.add('highlight-move');
+                    }
+                    
+                    // הדגשת התקפה
+                    if (!selectedUnit.hasAttacked && 
+                        targetUnit && 
+                        targetUnit.team !== selectedUnit.team && 
+                        isAttackable(selectedUnit.row, selectedUnit.col, r, c, selectedUnit.attackRange)) {
+                            tile.classList.add('highlight-attack');
+                    }
+                }
+            }
+            // שמור על היחידה הנבחרת מסומנת
+            board[selectedUnit.row][selectedUnit.col].classList.add('selected');
+        }
+
+
+        function moveUnit(unit, newR, newC) {
+            // הסרת יחידה מהאריח הישן
+            board[unit.row][unit.col].innerHTML = '';
+            
+            // עדכון המיקום
+            unit.row = newR;
+            unit.col = newC;
+            
+            // ציור מחדש במיקום החדש
+            unit.draw(board[newR][newC]);
+            
+            // הדגשה חזותית של תנועה
+            board[newR][newC].style.transform = 'scale(1.1)';
+            setTimeout(() => {
+                board[newR][newC].style.transform = 'scale(1)';
+            }, 150);
+        }
+
+        
+        // --- פונקציות בדיקת טווח ---
+
+        // פונקציה משודרגת - מקבלת את היחידה הנבחרת כדי לקבל את טווח התנועה
+        function isValidMove(startR, startC, endR, endC, unit = selectedUnit) {
+            if (getUnitAt(endR, endC)) {
+                return false; // אריח תפוס
+            }
+            
+            // בדיקה שרק היחידה עצמה יכולה לבדוק את טווח התנועה שלה
+            if (!unit) return false;
+
+            const dist = Math.abs(startR - endR) + Math.abs(startC - endC);
+            return dist > 0 && dist <= unit.moveRange;
+        }
+
+        function isAttackable(startR, startC, endR, endC, range) {
+            const dist = Math.abs(startR - endR) + Math.abs(startC - endC);
+            return dist > 0 && dist <= range;
+        }
+        
+        // ------------------------------------
+        // לוגיקת חנות וציוד
+        // ------------------------------------
+        
+        async function buyItem(unitType, cost, updates, itemName, requiredLevel = 1) {
+            if (gameState !== 'upgradePhase') {
+                STATUS_MESSAGE.textContent = "ניתן לקנות חפצים רק אחרי ניצחון בקרב.";
+                return;
+            }
+            if (gold < cost) {
+                STATUS_MESSAGE.textContent = `אין מספיק זהב! נדרש $${cost}. יש לך $${gold}.`;
+                return;
+            }
+            
+            // NEW: בדיקת דרישת רמה
+            const currentLevel = unitProgress[unitType].level;
+            if (currentLevel < requiredLevel) {
+                 STATUS_MESSAGE.textContent = `דרושה רמה ${requiredLevel} כדי לקנות את ${itemName}! הרמה הנוכחית היא ${currentLevel}.`;
+                 return;
+            }
+
+
+            // לוגיקת החלפת ציוד: מאפס את הבונוסים הישנים ומחיל את החדשים
+            
+            // איפוס הבונוסים הפיזיים הקודמים (HP/DEF לשריון)
+            if (updates.hp !== undefined || updates.def !== undefined) {
+                 itemUpgrades[unitType].hp = 0;
+                 itemUpgrades[unitType].def = 0;
+            }
+            // איפוס בונוסי נשק (ATK/RANGE)
+            if (updates.atk !== undefined || updates.range !== undefined) {
+                 itemUpgrades[unitType].atk = 0;
+                 itemUpgrades[unitType].range = 0;
+            }
+            // איפוס בונוסי תנועה (MOVE)
+            if (updates.move !== undefined) {
+                 itemUpgrades[unitType].move = 0;
+            }
+
+            // החלת הבונוסים החדשים
+            gold -= cost;
+            Object.keys(updates).forEach(stat => {
+                 itemUpgrades[unitType][stat] += updates[stat];
+            });
+            
+            await saveGold();
+            
+            STATUS_MESSAGE.innerHTML = `<span style="color:#ffc107;">קנייה מוצלחת!</span> נרכש: ${itemName}.`;
+            updateUI();
+        }
+
+
+        // ------------------------------------
+        // לוגיקת Firebase ושמירת זהב
+        // ------------------------------------
+        
+        async function setupFirebase() {
+            try {
+                const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+                const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+
+                if (!firebaseConfig || !firebaseConfig.apiKey) {
+                    STATUS_MESSAGE.textContent = 'שגיאת Firebase: חסר קונפיגורציה.';
+                    console.error("Firebase config is missing or invalid.");
+                    return;
+                }
+
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                if (typeof __initial_auth_token !== 'undefined') {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                userId = auth.currentUser?.uid || 'anonymous-user';
+
+                await loadGold();
+                
+                STATUS_MESSAGE.textContent = "טען בהצלחה. לחץ 'התחל קרב חדש'.";
+                isReady = true;
+                RESTART_BTN.disabled = false;
+                
+                initGame(); // התחל את המשחק לאחר טעינת הנתונים
+                
+            } catch (error) {
+                console.error("Firebase setup failed:", error);
+                STATUS_MESSAGE.textContent = `שגיאת חיבור: ${error.message.substring(0, 30)}...`;
+            }
+        }
+
+        async function loadGold() {
+            if (!db || !userId) return;
+
+            const docRef = doc(db, 'artifacts', typeof __app_id !== 'undefined' ? __app_id : 'default-app-id', 'users', userId, 'progress', 'goldData');
+            try {
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    gold = data.gold || 0;
+                    goldHighScore = data.highScore || 0;
+                    // FIXED: ודא שהקרב ההתחלתי הוא 1 אם אין נתונים
+                    currentBattleIndex = data.currentBattleIndex || 1; 
+                    // NEW: טעינת שדרוגי ציוד
+                    itemUpgrades = data.itemUpgrades || { knight: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, archer: { hp: 0, atk: 0, def: 0, move: 0, range: 0 } };
+                    // NEW: טעינת נתוני רמה/XP
+                    unitProgress = data.unitProgress || { knight: { level: 1, xp: 0, nextLevelXp: 1000 }, archer: { level: 1, xp: 0, nextLevelXp: 1000 } };
+                } else {
+                    // שמור נתוני ברירת מחדל אם אין
+                    await saveGold(); 
+                }
+            } catch (e) {
+                console.error("Error loading document:", e);
+            }
+        }
+
+        async function saveGold() {
+            if (!db || !userId) return;
+            
+            if (gold > goldHighScore) {
+                goldHighScore = gold;
+            }
+
+            const docRef = doc(db, 'artifacts', typeof __app_id !== 'undefined' ? __app_id : 'default-app-id', 'users', userId, 'progress', 'goldData');
+            try {
+                await setDoc(docRef, {
+                    gold: Math.floor(gold),
+                    highScore: Math.floor(goldHighScore),
+                    currentBattleIndex: currentBattleIndex, // NEW: שמירת אינדקס הקרב
+                    itemUpgrades: itemUpgrades, // NEW: שמירת שדרוגי ציוד
+                    unitProgress: unitProgress  // NEW: שמירת XP/רמה
+                }, { merge: true });
+            } catch (e) {
+                console.error("Error saving document:", e);
+            }
+        }
+
+        // ------------------------------------
+        // האזנה לאירועים
+        // ------------------------------------
+        
+        // פונקציית האתחול הראשית
+        window.onload = () => {
+            renderBoard(); // ציור הלוח הריק
+            setupFirebase();
+            RESTART_BTN.onclick = () => {
+                 if (isReady) {
+                     // NEW: איפוס מלא כולל התקדמות
+                     currentBattleIndex = 1; 
+                     itemUpgrades = { knight: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, archer: { hp: 0, atk: 0, def: 0, move: 0, range: 0 } };
+                     unitProgress = { knight: { level: 1, xp: 0, nextLevelXp: 1000 }, archer: { level: 1, xp: 0, nextLevelXp: 1000 } };
+                     gold = 0;
+                     saveGold();
+                     initGame();
+                 }
+            };
+
+            // NEW: לוגיקת קליק של כפתור הסיפור
+            if (TOGGLE_STORY_BTN) {
+                TOGGLE_STORY_BTN.onclick = () => {
+                    if (STORY_PANEL.style.display === 'none' || STORY_PANEL.style.display === '') {
+                        STORY_PANEL.style.display = 'block';
+                        TOGGLE_STORY_BTN.textContent = "סגור סיפור ומדריך";
+                    } else {
+                        STORY_PANEL.style.display = 'none';
+                        TOGGLE_STORY_BTN.textContent = "סיפור ומדריך";
+                    }
+                };
+            }
+
+
+            // NEW: הגדרת קליקים של חנות חפצים - דרישת רמה מיושמת כאן
+            
+            const buyKnightIronSwordBtn = document.getElementById('buy-knight-iron-sword');
+            const buyKnightSteelSwordBtn = document.getElementById('buy-knight-steel-sword');
+            const buyKnightSteelArmorBtn = document.getElementById('buy-knight-steel-armor');
+            const buyArcherIronBowBtn = document.getElementById('buy-archer-iron-bow');
+            const buyArcherSteelBowBtn = document.getElementById('buy-archer-steel-bow');
+            const buyArcherMoveBtn = document.getElementById('buy-archer-move');
+
+            if (buyKnightIronSwordBtn) {
+                 // אביר: חרב ברזל (רמה 1)
+                 buyKnightIronSwordBtn.onclick = () => buyItem('knight', 1500, { atk: 10 }, 'חרב ברזל', 1);
+            }
+            if (buyKnightSteelSwordBtn) {
+                 // אביר: חרב פלדה (רמה 3) - NEW
+                 buyKnightSteelSwordBtn.onclick = () => buyItem('knight', 2500, { atk: 20, range: 1 }, 'חרב פלדה', 3);
+            }
+            if (buyKnightSteelArmorBtn) {
+                 // אביר: שריון פלדה (רמה 3)
+                 buyKnightSteelArmorBtn.onclick = () => buyItem('knight', 2000, { hp: 50, def: 5 }, 'שריון פלדה', 3);
+            }
+            if (buyArcherIronBowBtn) {
+                 // קשת: קשת ברזל (רמה 1)
+                 buyArcherIronBowBtn.onclick = () => buyItem('archer', 1800, { atk: 15 }, 'קשת ברזל', 1);
+            }
+            if (buyArcherSteelBowBtn) {
+                 // קשת: קשת פלדה (רמה 3)
+                 buyArcherSteelBowBtn.onclick = () => buyItem('archer', 2500, { atk: 20, range: 1 }, 'קשת פלדה', 3);
+            }
+            if (buyArcherMoveBtn) {
+                 // קשת: מגפי עור (רמה 1)
+                 buyArcherMoveBtn.onclick = () => buyItem('archer', 1500, { move: 1 }, 'מגפי עור', 1);
+            }
+
+
+            // הלחצנים לא מבצעים פעולה ישירה יותר, אלא רק מציגים את הסטטוס
+            if(MOVE_BTN) MOVE_BTN.onclick = () => { if (selectedUnit) showAvailableActions(); };
+            if(ATTACK_BTN) ATTACK_BTN.onclick = () => { if (selectedUnit) showAvailableActions(); };
+            
+            // הגדרת לוגיקה לכפתור סיום תור
+            END_TURN_BTN.onclick = () => {
+                if (gameState === 'upgradePhase') {
+                    initGame(); // התחל קרב חדש עם שדרוגים חדשים
+                } else {
+                    startGameTurn();
+                }
+            };
+        };
+
+    </script>
+</body>
+</html>

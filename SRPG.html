@@ -683,6 +683,7 @@
                 const levelStats = calculateLevelBonus(type, level);
                 
                 // 2. Apply permanent Item Upgrades (stored in itemUpgrades global)
+                // Note: Enemy units do not have itemUpgrades, so this defaults to 0s
                 const itemUpgradesForType = itemUpgrades[type] || { hp: 0, atk: 0, def: 0, move: 0, range: 0 };
                 
                 // Final Stats
@@ -999,6 +1000,7 @@
             
             // קרב 1: קרב מבוא קל (3 אויבים)
             if (battleIndex === 1) {
+                // FIXED: ודא שכל יחידה מקבלת XP=0, level=1
                 enemies.push(new Unit('orc', 'enemy', 0, 2, 'מפקד אורק', 0, 1, 1.0));
                 enemies.push(new Unit('bandit', 'enemy', 1, 1, 'שודד', 0, 1, 1.0));
                 enemies.push(new Unit('bandit', 'enemy', 1, 3, 'שודד', 0, 1, 1.0));
@@ -1006,11 +1008,12 @@
             
             // קרב 2: תגבורת אורקים וקשתים חדשים (4 אויבים)
             else if (battleIndex === 2) {
-                enemies.push(new Unit('orc', 'enemy', 0, 1, 'מפקד אורק מנוסה', 0, 2, 1.0)); // חזק יותר
+                // FIXED: יחידות האויב מקבלות רמה/XP תקינים
+                enemies.push(new Unit('orc', 'enemy', 0, 1, 'מפקד אורק מנוסה', 0, 2, 1.0)); // רמה 2
                 enemies.push(new Unit('orc', 'enemy', 0, 3, 'אורק לוחם', 0, 1, 1.0)); 
-                // NEW ENEMY TYPE
-                enemies.push(new Unit('banditArcher', 'enemy', 1, 0, 'קשת שודד', 0, 1, 1.0)); // טווח 3
-                enemies.push(new Unit('banditArcher', 'enemy', 1, 4, 'קשת שודד', 0, 1, 1.0)); // טווח 3
+                // NEW ENEMY TYPE: קשת שודד (טווח 3)
+                enemies.push(new Unit('banditArcher', 'enemy', 1, 0, 'קשת שודד', 0, 1, 1.0)); 
+                enemies.push(new Unit('banditArcher', 'enemy', 1, 4, 'קשת שודד', 0, 1, 1.0)); 
             }
             
             // קרב 3+: קרב קשה יותר (5 אויבים)

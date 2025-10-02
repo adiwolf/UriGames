@@ -47,8 +47,9 @@
         }
 
         #game-container {
+            /* FIXED: משנה את הכיוון הראשי כדי שהפאנל הסטטי יהיה משמאל לפאנל הדינמי */
             display: flex;
-            flex-direction: row-reverse;
+            flex-direction: row-reverse; 
             gap: 20px;
             width: 90vw;
             max-width: 900px;
@@ -60,20 +61,28 @@
             transition: opacity 0.5s; /* Smooth fade for cutscene */
         }
 
+        /* NEW: Container for Board, Unit Stats, and Actions (Dynamic Content) */
+        #board-and-actions-panel {
+            width: 100%;
+            max-width: 400px;
+            display: flex;
+            flex-direction: column; /* Stack board, stats, and actions vertically */
+            gap: 15px;
+            margin: 0 auto;
+        }
+
         #board-container {
             /* מוגדר כ-aspect-ratio 1/1, כך שהוא נשאר יציב יחסית לגודלו */
             width: 100%;
-            max-width: 400px;
             aspect-ratio: 1 / 1; 
-            border: none; /* הסרת הגבול הראשי */
-            box-shadow: none; /* הסרת צל מהלוח הראשי */
+            border: none;
+            box-shadow: none;
             border-radius: 8px;
             display: grid;
             grid-template-columns: repeat(5, 1fr);
             grid-template-rows: repeat(5, 1fr);
-            background-color: transparent; /* שקיפות לרקע הדשא הכללי */
+            background-color: transparent;
             overflow: hidden;
-            margin: 0 auto;
             position: relative; 
         }
 
@@ -96,16 +105,16 @@
             background-color: #689f38; /* Brighter green hover */
         }
 
-        /* Unit Icon - Base Styling */
+        /* Unit Icon - Base Styling (No change) */
         .unit-icon {
             font-size: 2.5rem;
-            width: 80%; /* הגדלת שטח ה-SVG */
+            width: 80%;
             height: 80%;
-            text-shadow: none; /* הסרת הצללים של האימוג'י */
+            text-shadow: none;
             position: absolute; 
             top: 50%;
             left: 50%;
-            transform: translate(-50%, -50%); /* Center the icon */
+            transform: translate(-50%, -50%); 
             transition: transform 0.15s ease-out, font-size 0.3s ease-out; 
             z-index: 10;
         }
@@ -113,21 +122,19 @@
         .unit-icon svg {
             width: 100%;
             height: 100%;
-            /* הסרת fill/stroke מ-currentColor כדי לאפשר צבעים מפורטים בתוך ה-SVG */
             filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.5));
         }
         
-        /* Battle Overlay (New Full Screen Cutscene) */
+        /* Battle Overlay (No change) */
         #battle-overlay {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            /* שימוש באותו רקע של הדשא */
             background-color: #558B2F; 
             background-image: linear-gradient(135deg, #689f38 25%, #4caf50 50%, #558b2f 75%); 
-            display: none; /* Hidden by default */
+            display: none;
             justify-content: center;
             align-items: center;
             flex-direction: row;
@@ -141,33 +148,30 @@
             align-items: center;
             padding: 20px;
             position: relative;
-            transform: scale(1); /* Base scale */
+            transform: scale(1); 
             transition: transform 0.1s ease-out;
         }
         
-        /* הגדלת הסמליל בסצנת הקרב */
         .overlay-unit-icon {
-            width: 250px; /* גודל פיזי גדול יותר */
+            width: 250px; 
             height: 250px;
             transition: transform 0.1s ease-out;
         }
 
         .overlay-defender .overlay-unit-icon {
-            /* הופך את ה-SVG כך שיפנה לתוקף */
             transform: scaleX(-1); 
         }
         
         .overlay-unit-icon svg {
             width: 100%;
             height: 100%;
-            /* הסרת fill/stroke מ-currentColor כדי לאפשר צבעים מפורטים בתוך ה-SVG */
-            stroke-width: 1px; /* Slightly thicker stroke for zoom */
+            stroke-width: 1px;
             filter: drop-shadow(0 0 8px rgba(0, 0, 0, 0.9));
         }
 
-        /* Animations for Hit Effect */
+        /* Animations (No change) */
         @keyframes shake {
-            0% { transform: translate(10px, 0); } /* הגדלת עוצמת הרעד */
+            0% { transform: translate(10px, 0); }
             25% { transform: translate(-10px, 0); }
             50% { transform: translate(10px, 0); }
             75% { transform: translate(-10px, 0); }
@@ -189,11 +193,11 @@
         .overlay-hp-player { background-color: #4CAF50; }
         .overlay-hp-enemy { background-color: #f44336; }
         
-        /* Unit Colors (Used for background elements, not SVG fill) */
+        /* Unit Colors (No change) */
         .player-unit { color: #4CAF50; } 
         .enemy-unit { color: #f44336; } 
         
-        /* Highlight States */
+        /* Highlight States (No change) */
         .highlight-move {
             background-color: rgba(70, 160, 70, 0.8); 
             border: 2px solid #32cd32; 
@@ -218,8 +222,8 @@
             to { box-shadow: 0 0 15px rgba(255, 69, 0, 1); }
         }
 
-        /* Side Panel */
-        #info-panel {
+        /* Static Info Panel (Side Panel - renamed from #info-panel in HTML) */
+        #static-info-panel {
             width: 100%;
             max-width: 400px;
             display: flex;
@@ -227,7 +231,7 @@
             gap: 15px;
         }
         
-        /* Main Controls (End Turn & Restart) always visible at the top */
+        /* Main Controls (No change) */
         #main-controls {
             display: flex;
             gap: 10px;
@@ -235,7 +239,7 @@
             align-items: center;
             padding-bottom: 10px;
             border-bottom: 2px solid #795548;
-            flex-wrap: wrap; /* מאפשר כפתורים נוספים למטה במוביל */
+            flex-wrap: wrap; 
         }
         
         .main-control-btn {
@@ -243,7 +247,7 @@
             min-width: 120px;
         }
 
-
+        /* Game Status (No change) */
         #game-status {
             background-color: #3e2723;
             padding: 15px;
@@ -251,15 +255,21 @@
             border-left: 5px solid #ffc107; 
         }
 
+        /* Unit Stats and Actions (Now dynamic, moved under the board) */
         #unit-stats {
             background-color: #3e2723;
             padding: 15px;
             border-radius: 8px;
-            /* FIXED: גובה מינימלי קבוע כדי למנוע דחיפה של אלמנטים אחרים */
             min-height: 180px; 
             border-right: 5px solid #4CAF50; 
         }
         
+        #action-buttons {
+            display: flex; 
+            gap: 10px;
+            margin-top: -10px; /* קיזוז רווח אם צריך */
+        }
+
         #upgrade-shop {
             background-color: #5d4037; 
             padding: 15px; 
@@ -270,13 +280,13 @@
             gap: 10px;
         }
 
-        /* NEW: Story Panel Styling */
+        /* Story Panel (No change) */
         #story-panel {
             background-color: #3e2723;
             padding: 15px;
             border-radius: 8px;
             border-bottom: 5px solid #795548;
-            display: none; /* נסתר כברירת מחדל */
+            display: none; 
             max-height: 400px;
             overflow-y: auto;
         }
@@ -341,19 +351,22 @@
         /* Mobile Layout */
         @media (max-width: 900px) {
             #game-container {
-                flex-direction: column;
+                flex-direction: column; /* Stack panels vertically */
                 align-items: center;
                 gap: 15px;
+            }
+            /* הלוח והפעולות יופיעו קודם, אחריהם המידע הסטטי */
+            #board-and-actions-panel {
+                order: 1;
+            }
+            #static-info-panel {
+                order: 2;
+                max-width: 100%;
             }
             #board-container {
                 margin: 0;
             }
-            #info-panel {
-                order: 3; 
-                max-width: 100%;
-            }
             #main-controls {
-                order: -1; 
                 flex-direction: column;
             }
             .main-control-btn {
@@ -366,23 +379,41 @@
     <h1>מפקד הממלכה: קרב ימי הביניים</h1>
     <div id="game-container">
         
-        <!-- לוח המשחק -->
-        <div id="board-container">
-            <!-- אריחים ייווצרו כאן -->
+        <!-- NEW: פאנל ללוח, סטטוס יחידה וכפתורי פעולה (התוכן הדינמי) -->
+        <div id="board-and-actions-panel">
+            
+            <!-- לוח המשחק -->
+            <div id="board-container">
+                <!-- אריחים ייווצרו כאן -->
+            </div>
+
+            <!-- סטטוס יחידה נבחרת -->
+            <div id="unit-stats">
+                <h2>יחידה נבחרת</h2>
+                <p id="selected-unit-info">בחר יחידה מהלוח...</p>
+            </div>
+            
+            <!-- כפתורי פעולה -->
+            <div id="action-buttons">
+                <!-- הכפתורים האלה מוגדרים ב-JS כאינדיקטורים -->
+                <button id="move-btn" class="action-btn" disabled>תזוזה</button>
+                <button id="attack-btn" class="action-btn" disabled>התקפה</button>
+            </div>
         </div>
 
-        <!-- פאנל מידע ובקרה -->
-        <div id="info-panel">
+
+        <!-- NEW: פאנל מידע סטטי (סטטוס, חנות, סיפור) -->
+        <div id="static-info-panel">
             
-            <!-- NEW: Main Controls at the top of the info panel -->
+            <!-- Main Controls at the top of the info panel -->
             <div id="main-controls">
                 <button id="end-turn-btn" class="action-btn main-control-btn" disabled>סיום תור &gt;&gt;</button>
                 <button id="restart-btn" class="action-btn main-control-btn" disabled>התחל קרב חדש</button>
-                <!-- NEW: Story Toggle Button -->
+                <!-- Story Toggle Button -->
                 <button id="toggle-story-btn" class="action-btn main-control-btn">סיפור ומדריך</button>
             </div>
             
-            <!-- NEW: Story Panel -->
+            <!-- Story Panel -->
             <div id="story-panel">
                 <h2>סיפור רקע: מפקד הממלכה: קרב הדרור</h2>
                 <p>ממלכת הדרור, שפעם הייתה נחלת שלווה המוגנת על ידי חומות עתיקות, עומדת כעת בפני מבחן. בעקבות גילוי עורק נדיר של **זהב קסום** בהרי צפון, התעוררו ישויות רעבות ותאבות בצע.</p>
@@ -410,30 +441,25 @@
                 <p id="turn-display">תור: -</p>
             </div>
 
-            <div id="unit-stats">
-                <h2>יחידה נבחרת</h2>
-                <p id="selected-unit-info">בחר יחידה מהלוח...</p>
-            </div>
             
-            <!-- ADDED: Action Buttons div for MOVE_BTN and ATTACK_BTN -->
-            <div id="action-buttons" style="display: flex; gap: 10px;">
-                <!-- הכפתורים האלה מוגדרים ב-JS כאינדיקטורים -->
-                <button id="move-btn" class="action-btn" disabled>תזוזה</button>
-                <button id="attack-btn" class="action-btn" disabled>התקפה</button>
-            </div>
-
-            
-            <!-- NEW: Upgrade Shop (Hidden until victory) -->
+            <!-- Upgrade Shop (Hidden until victory) -->
             <div id="upgrade-shop" style="display: none;">
-                <h2>חנות שדרוגי ציוד</h2>
+                <h2>חנות שדרוגי ציוד וגיוס</h2>
                 <div id="upgrade-controls" style="display: flex; gap: 10px; flex-direction: column;">
                     
+                    <!-- NEW: גיוס יחידות -->
+                    <h3 style="color:#FFF;">גיוס יחידות חדשות (רכישה חד פעמית)</h3>
+                    <button id="recruit-spearman" class="action-btn upgrade-btn" style="background-color: #64B5F6;">גיוס רמ"ח (+$2000 | מגן, התקפת מליאה)</button>
+                    <button id="recruit-mage" class="action-btn upgrade-btn" style="background-color: #9C27B0;">גיוס מכשף (+$2200 | טווח 2, **התקפה 40**, מהירות גבוהה)</button>
+
+                    <h3 style="color:#FFF; margin-top: 10px;">שדרוגי אביר</h3>
                     <!-- אביר - שדרוג נשק ושריון -->
                     <button id="buy-knight-iron-sword" class="action-btn upgrade-btn">אביר: חרב ברזל (+$1500 | +10 התקפה)</button>
                     <!-- NEW: חרב פלדה -->
                     <button id="buy-knight-steel-sword" class="action-btn upgrade-btn">אביר: חרב פלדה (+$2500 | רמה 3+ | +20 התקפה, +1 טווח)</button>
                     <button id="buy-knight-steel-armor" class="action-btn upgrade-btn">אביר: שריון פלדה (+$2000 | רמה 3+ | +50 חיים, +5 הגנה)</button>
                     
+                    <h3 style="color:#FFF; margin-top: 10px;">שדרוגי קשת</h3>
                     <!-- קשת - שדרוג נשק וחפץ מיוחד -->
                     <button id="buy-archer-iron-bow" class="action-btn upgrade-btn">קשת: קשת ברזל (+$1800 | +15 התקפה)</button>
                     <button id="buy-archer-steel-bow" class="action-btn upgrade-btn">קשת: קשת פלדה (+$2500 | רמה 3+ | +20 התקפה, +1 טווח)</button>
@@ -492,16 +518,19 @@
         // NEW: עוקב אחרי באיזה קרב השחקן נמצא (1, 2, 3...)
         let currentBattleIndex = 1; 
         
-        // NEW: שמירת שדרוגי ציוד קבועים (Items)
-        // שומר פריטים שנקנו: { knight: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, archer: { ... } }
+        // NEW: שמירת שדרוגי ציוד קבועים (Items) - כולל יחידות מגויסות חדשות
         let itemUpgrades = {
             knight: { hp: 0, atk: 0, def: 0, move: 0, range: 0 },
-            archer: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }
+            archer: { hp: 0, atk: 0, def: 0, move: 0, range: 0 },
+            spearman: { hp: 0, atk: 0, def: 0, move: 0, range: 0 },
+            mage: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }    // UPDATED: 'mage'
         };
-        // NEW: שמירת נתוני רמה/XP
+        // NEW: שמירת נתוני רמה/XP - כולל סטטוס גיוס
         let unitProgress = {
             knight: { level: 1, xp: 0, nextLevelXp: 1000 },
-            archer: { level: 1, xp: 0, nextLevelXp: 1000 }
+            archer: { level: 1, xp: 0, nextLevelXp: 1000 },
+            spearman: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false },
+            mage: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false } // UPDATED: 'mage'
         };
 
 
@@ -518,11 +547,21 @@
         // NEW: פונקציה לחישוב בונוס סטטוס לפי רמה
         function calculateLevelBonus(unitType, level) {
             // סטטיסטיקות בסיס (Level 1)
-            let baseHp = (unitType === 'knight' ? 120 : 80);
-            let baseAtk = (unitType === 'knight' ? 30 : 20);
-            let baseDef = (unitType === 'knight' ? 10 : 5);
-            let baseMove = (unitType === 'knight' ? 2 : 3);
-            let baseRange = (unitType === 'knight' ? 1 : 3);
+            let baseHp, baseAtk, baseDef, baseMove, baseRange;
+            
+            switch (unitType) {
+                case 'knight':
+                    baseHp = 120; baseAtk = 30; baseDef = 10; baseMove = 2; baseRange = 1; break;
+                case 'archer':
+                    baseHp = 80; baseAtk = 20; baseDef = 5; baseMove = 3; baseRange = 3; break;
+                case 'spearman': // NEW UNIT
+                    baseHp = 100; baseAtk = 25; baseDef = 8; baseMove = 2; baseRange = 1; break;
+                case 'mage': // UPDATED UNIT (Was 'scout')
+                    baseHp = 60; baseAtk = 40; baseDef = 0; baseMove = 4; baseRange = 2; break; // Long Range, High ATK, Low HP/DEF
+                // Enemy units can fall through here with default stats
+                default:
+                    baseHp = 80; baseAtk = 20; baseDef = 5; baseMove = 2; baseRange = 1; break;
+            }
             
             // פקטור צמיחה (לכל רמה נוספת מעבר ל-1)
             const levelFactor = level - 1;
@@ -551,6 +590,9 @@
             const BLACK_GARB = '#1a1a1a'; 
             const MAROON_ACCENT = '#5C3333'; 
             const BRONZE_LIGHT = '#D4A017'; // Lighter Bronze for highlights
+            const SPEAR_TIP = '#E0E0E0'; // Light silver/steel for spear head
+            const MAGE_ROBE = '#9C27B0'; // Purple for Mage robe
+            const MAGE_ACCENT = '#FFEB3B'; // Gold/Yellow for Mage trim
             
             // Viewbox set to 10x10 for a low-resolution pixel feel
             
@@ -579,6 +621,47 @@
                             <rect x="6.5" y="5" width="2" height="1" fill="${DARK_STEEL}"/> <!-- Guard -->
                             <!-- Shield (Silver) -->
                             <rect x="2" y="4" width="1" height="4" fill="${SILVER}"/>
+                        </svg>`;
+                case 'spearman':
+                    // **SPEARMAN (Updated): Shield, Blue Tunic, Vertical Spear**
+                    return `
+                        <svg viewBox="0 0 10 10" xmlns="http://www.w3.org/2000/svg">
+                            <!-- Body/Tunic (Medium Blue) -->
+                            <rect x="3" y="4" width="4" height="6" fill="#42A5F5"/>
+                            <!-- Helmet/Head (Silver) -->
+                            <rect x="3" y="1.5" width="4" height="3" fill="${SILVER}"/>
+                            <!-- Visor/Face -->
+                            <rect x="4" y="3.5" width="2" height="1" fill="${SKIN}"/> 
+                            
+                            <!-- Shield (Bronze/Brown for contrast with Knight's silver) -->
+                            <rect x="1" y="4" width="2" height="4" fill="${BRONZE_LIGHT}"/>
+                            
+                            <!-- Spear Shaft (Vertical wood) -->
+                            <rect x="6.5" y="0.5" width="0.5" height="8" fill="${WOOD}"/>
+                            <!-- Spear Tip (Silver) -->
+                            <rect x="6" y="0.5" width="1.5" height="1" fill="${SPEAR_TIP}"/> 
+                        </svg>`;
+                case 'mage':
+                    // **MAGE (Updated): Purple Robe, Gold Trim, Simple Staff**
+                    return `
+                        <svg viewBox="0 0 10 10" xmlns="http://www.w3.org/2000/svg">
+                            <!-- Body/Robe (Purple) -->
+                            <rect x="3.5" y="3.5" width="3" height="6.5" fill="${MAGE_ROBE}"/>
+                            <!-- Hood/Head (Purple) -->
+                            <rect x="3" y="1.5" width="4" height="2" fill="${MAGE_ROBE}"/>
+                            <!-- Face peek (Skin) -->
+                            <rect x="4.5" y="2.5" width="1" height="1" fill="${SKIN}"/>
+                            
+                            <!-- Gold Trim/Accent -->
+                            <rect x="3.5" y="3.5" width="3" height="0.5" fill="${MAGE_ACCENT}"/>
+                            
+                            <!-- Staff (Held high) -->
+                            <rect x="7" y="1" width="0.5" height="8" fill="${WOOD}"/>
+                            <!-- Staff Tip/Orb (Yellow) -->
+                            <circle cx="7.25" cy="1" r="0.75" fill="${MAGE_ACCENT}"/>
+                            
+                            <!-- Exposed Hand (Skin) -->
+                            <rect x="6" y="4" width="1" height="1" fill="${SKIN}"/>
                         </svg>`;
                 case 'archer':
                     // **ARCHER (PLAYER): Longbow (Horizontal Ellipse), drawn string, light garb**
@@ -686,7 +769,7 @@
                 const levelStats = calculateLevelBonus(type, level);
                 
                 // 2. Apply permanent Item Upgrades (stored in itemUpgrades global)
-                // Ensure we only try to apply item upgrades to units that actually have them (knight/archer)
+                // Ensure we only try to apply item upgrades to units that actually have them (knight/archer/spearman/mage)
                 let itemUpgradesForType = { hp: 0, atk: 0, def: 0, move: 0, range: 0 };
                 if (itemUpgrades[type]) {
                     itemUpgradesForType = itemUpgrades[type];
@@ -841,24 +924,54 @@
             const costIronBow = 1800;
             const costSteelBow = 2500;
             const costMove = 1500;
+            const costSpearman = 2000;
+            const costMage = 2200; // UPDATED COST FOR MAGE
 
             const knightLevel = unitProgress.knight.level;
             const archerLevel = unitProgress.archer.level;
 
+            // Item Upgrade Buttons
             const buyKnightIronSwordBtn = document.getElementById('buy-knight-iron-sword');
             const buyKnightSteelSwordBtn = document.getElementById('buy-knight-steel-sword');
             const buyKnightSteelArmorBtn = document.getElementById('buy-knight-steel-armor');
             const buyArcherIronBowBtn = document.getElementById('buy-archer-iron-bow');
             const buyArcherSteelBowBtn = document.getElementById('buy-archer-steel-bow');
             const buyArcherMoveBtn = document.getElementById('buy-archer-move');
+            
+            // Unit Recruit Buttons
+            const recruitSpearmanBtn = document.getElementById('recruit-spearman');
+            const recruitMageBtn = document.getElementById('recruit-mage'); // UPDATED ID
 
             // עדכון כפתורי הקנייה: בדיקת זהב ורמה
-            if (buyKnightIronSwordBtn) buyKnightIronSwordBtn.disabled = gold < costIronSword;
-            if (buyKnightSteelSwordBtn) buyKnightSteelSwordBtn.disabled = gold < costSteelSword || knightLevel < 3;
-            if (buyKnightSteelArmorBtn) buyKnightSteelArmorBtn.disabled = gold < costSteelArmor || knightLevel < 3;
-            if (buyArcherIronBowBtn) buyArcherIronBowBtn.disabled = gold < costIronBow;
-            if (buyArcherSteelBowBtn) buyArcherSteelBowBtn.disabled = gold < costSteelBow || archerLevel < 3;
-            if (buyArcherMoveBtn) buyArcherMoveBtn.disabled = gold < costMove;
+            if (buyKnightIronSwordBtn) buyKnightIronSwordBtn.disabled = gold < costIronSword || itemUpgrades.knight.atk >= 10;
+            if (buyKnightSteelSwordBtn) buyKnightSteelSwordBtn.disabled = gold < costSteelSword || knightLevel < 3 || itemUpgrades.knight.atk >= 20;
+            if (buyKnightSteelArmorBtn) buyKnightSteelArmorBtn.disabled = gold < costSteelArmor || knightLevel < 3 || itemUpgrades.knight.def >= 5;
+            if (buyArcherIronBowBtn) buyArcherIronBowBtn.disabled = gold < costIronBow || itemUpgrades.archer.atk >= 15;
+            if (buyArcherSteelBowBtn) buyArcherSteelBowBtn.disabled = gold < costSteelBow || archerLevel < 3 || itemUpgrades.archer.atk >= 20;
+            
+            // עדכון כפתור מגפי עור: שינוי טקסט אם כבר בבעלות
+            if (buyArcherMoveBtn) {
+                const isBootsActive = itemUpgrades.archer.move > 0;
+                // ניתן לבטל גם אם אין זהב
+                buyArcherMoveBtn.disabled = gold < costMove && !isBootsActive; 
+                buyArcherMoveBtn.textContent = isBootsActive 
+                    ? `קשת: מגפי עור (פעיל - לחץ לביטול!)`
+                    : `קשת: מגפי עור (+$${costMove} | +1 טווח תנועה)`;
+            }
+
+            // NEW: עדכון כפתורי גיוס
+            if (recruitSpearmanBtn) {
+                recruitSpearmanBtn.disabled = gold < costSpearman || unitProgress.spearman.recruited;
+                if (unitProgress.spearman.recruited) {
+                    recruitSpearmanBtn.textContent = "רמ\"ח גויס (ברשותך)";
+                }
+            }
+            if (recruitMageBtn) { // UPDATED ID
+                recruitMageBtn.disabled = gold < costMage || unitProgress.mage.recruited; // UPDATED type
+                if (unitProgress.mage.recruited) { // UPDATED type
+                    recruitMageBtn.textContent = "מכשף גויס (ברשותך)";
+                }
+            }
 
             // עדכון תצוגת חנות
             UPGRADE_SHOP.style.display = (gameState === 'upgradePhase') ? 'flex' : 'none';
@@ -1022,21 +1135,33 @@
                 enemies.push(new Unit('banditArcher', 'enemy', 1, 4, 'קשת שודד', 0, 1, 1.0)); 
             }
             
-            // קרב 3+: קרב קשה יותר (5 אויבים)
+            // NEW: קרב 3: התקפה מתואמת עם לוחמים מנוסים יותר (5 אויבים)
+            else if (battleIndex === 3) {
+                 enemies.push(new Unit('orc', 'enemy', 0, 2, 'מפקד מלחמת דם', 0, 3, 1.0)); // רמה 3
+                 enemies.push(new Unit('banditArcher', 'enemy', 1, 0, 'קשת שודד (אגף)', 0, 2, 1.0)); // רמה 2
+                 enemies.push(new Unit('banditArcher', 'enemy', 1, 4, 'קשת שודד (אגף)', 0, 2, 1.0)); // רמה 2
+                 enemies.push(new Unit('bandit', 'enemy', 2, 1, 'שודד ותיק', 0, 2, 1.0)); // רמה 2
+                 enemies.push(new Unit('orc', 'enemy', 2, 3, 'אורק לוחם', 0, 2, 1.0)); // רמה 2
+            }
+            
+            // קרב 4+: קרב קשה יותר ומתגבר
             else {
-                 enemies.push(new Unit('orc', 'enemy', 0, 2, `מפקד ${battleIndex}`, 0, Math.min(5, battleIndex), 1.0)); 
-                 enemies.push(new Unit('bandit', 'enemy', 1, 1, 'שודד', 0, 1, 1.0));
-                 enemies.push(new Unit('bandit', 'enemy', 1, 3, 'שודד', 0, 1, 1.0));
-                 enemies.push(new Unit('banditArcher', 'enemy', 0, 4, 'קשת מאגף', 0, 2, 1.0));
-                 enemies.push(new Unit('orc', 'enemy', 1, 2, 'אורק משוריין', 0, 2, 1.0));
+                 const baseLevel = battleIndex - 2; // מתחיל מ-2 בקרב 4
+                 enemies.push(new Unit('orc', 'enemy', 0, 2, `גנרל ${battleIndex}`, 0, Math.min(6, baseLevel + 1), 1.0)); 
+                 enemies.push(new Unit('bandit', 'enemy', 1, 1, 'שודד', 0, baseLevel, 1.0));
+                 enemies.push(new Unit('bandit', 'enemy', 1, 3, 'שודד', 0, baseLevel, 1.0));
+                 enemies.push(new Unit('banditArcher', 'enemy', 0, 4, 'קשת מאגף', 0, baseLevel, 1.0));
+                 enemies.push(new Unit('orc', 'enemy', 1, 2, 'אורק משוריין', 0, baseLevel + 1, 1.0));
             }
             
             // ודא שלכל יחידות האויב מוגדר טווח התקפה הגיוני
             enemies.forEach(e => {
-                if (e.type === 'orc' || e.type === 'bandit') {
+                if (e.type === 'orc' || e.type === 'bandit' || e.type === 'spearman') { // spearman is melee
                     e.attackRange = 1; // יחידות מליאה
-                } else if (e.type === 'banditArcher') {
-                    e.attackRange = 3; // קשתים
+                } else if (e.type === 'banditArcher' || e.type === 'archer') { // archer is range
+                    e.attackRange = 3; 
+                } else if (e.type === 'mage') { // mage has long range
+                    e.attackRange = 2; // UPDATED RANGE
                 }
             });
             
@@ -1054,6 +1179,17 @@
                 new Unit('knight', 'player', 4, 1, 'אביר', knightProgress.xp, knightProgress.level, 1.0),
                 new Unit('archer', 'player', 4, 3, 'קשת', archerProgress.xp, archerProgress.level, 1.0),
             ];
+
+            // NEW: הוספת יחידות מגויסות
+            if (unitProgress.spearman.recruited) {
+                const sp = unitProgress.spearman;
+                playerUnits.push(new Unit('spearman', 'player', 3, 0, 'רמ"ח', sp.xp, sp.level, 1.0));
+            }
+            // UPDATED: recruit mage if recruited
+            if (unitProgress.mage.recruited) {
+                const mg = unitProgress.mage;
+                playerUnits.push(new Unit('mage', 'player', 3, 4, 'מכשף', mg.xp, mg.level, 1.0));
+            }
             
             // יצירת אויבים לפי מספר הקרב
             const enemyUnits = spawnEnemiesForBattle(currentBattleIndex);
@@ -1226,6 +1362,8 @@
                 battleStory = "הדיפתם את גל האורקים הראשון! אך מרחוק, זיהינו קשתים שודדים שמתקרבים דרך העמקים הצדדיים. התכונן לתגבורת מהירה יותר, המפקד. ";
             } else if (currentBattleIndex === 2) {
                  battleStory = "האזור נקי לעת עתה. ניצחון קשה נגד תגבורת האויב. עליך להתחזק במהירות, המאבק רק החל. ";
+            } else if (currentBattleIndex === 3) {
+                 battleStory = "התקיפה המתואמת של גל האויבים השלישי נכשלה בזכות הלוחמים החדשים והנשקים המשופרים שלכם. נראה שהמלחמה רק החלה להתחמם.";
             } else {
                  battleStory = "ניצחון נוסף! אויבי הממלכה ממשיכים להפסיד קרב אחר קרב.";
             }
@@ -1374,20 +1512,20 @@
              if (unit.team === 'player') {
                  const percent = (unit.xp / unit.xpToNextLevel) * 100;
                  progressInfo = `
-                    <p>רמה: ${unit.level}</p>
-                    <p>XP: ${unit.xp}/${unit.xpToNextLevel} (${Math.floor(percent)}%)</p>
-                 `;
+                     <p>רמה: ${unit.level}</p>
+                     <p>XP: ${unit.xp}/${unit.xpToNextLevel} (${Math.floor(percent)}%)</p>
+                   `;
              }
              
              SELECTED_UNIT_INFO.innerHTML = `
-                <p><strong>${unit.name}</strong> (${unit.team === 'player' ? 'שלך' : 'אויב'})</p>
-                ${progressInfo}
-                <p>חיים: ${Math.floor(unit.hp)}/${totalHp} ${hpBonus}</p>
-                <p>התקפה: ${totalAtk} ${atkBonus} | הגנה: ${totalDef}</p>
-                <p>טווח תנועה: ${totalMove} ${moveBonus} | טווח תקיפה: ${totalRange} ${rangeBonus}</p>
-                <p style="color:${unit.hasMoved ? '#f44336' : '#4CAF50'}">הוזז: ${unit.hasMoved ? 'כן' : 'לא'}</p>
-                <p style="color:${unit.hasAttacked ? '#f44336' : '#4CAF50'}">תקף: ${unit.hasAttacked ? 'כן' : 'לא'}</p>
-            `;
+                 <p><strong>${unit.name}</strong> (${unit.team === 'player' ? 'שלך' : 'אויב'})</p>
+                 ${progressInfo}
+                 <p>חיים: ${Math.floor(unit.hp)}/${totalHp} ${hpBonus}</p>
+                 <p>התקפה: ${totalAtk} ${atkBonus} | הגנה: ${totalDef}</p>
+                 <p>טווח תנועה: ${totalMove} ${moveBonus} | טווח תקיפה: ${totalRange} ${rangeBonus}</p>
+                 <p style="color:${unit.hasMoved ? '#f44336' : '#4CAF50'}">הוזז: ${unit.hasMoved ? 'כן' : 'לא'}</p>
+                 <p style="color:${unit.hasAttacked ? '#f44336' : '#4CAF50'}">תקף: ${unit.hasAttacked ? 'כן' : 'לא'}</p>
+             `;
         }
         
         // הפונקציה החדשה שמציגה טווח תנועה והתקפה אוטומטית
@@ -1410,7 +1548,7 @@
                         targetUnit && 
                         targetUnit.team !== selectedUnit.team && 
                         isAttackable(selectedUnit.row, selectedUnit.col, r, c, selectedUnit.attackRange)) {
-                            tile.classList.add('highlight-attack');
+                             tile.classList.add('highlight-attack');
                     }
                 }
             }
@@ -1462,42 +1600,104 @@
         // לוגיקת חנות וציוד
         // ------------------------------------
         
+        async function recruitUnit(unitType, cost, itemName) {
+            if (gameState !== 'upgradePhase') {
+                STATUS_MESSAGE.textContent = "ניתן לגייס יחידות רק אחרי ניצחון בקרב.";
+                return;
+            }
+            // UPDATED: Check for 'mage' or 'spearman' status
+            if (unitProgress[unitType].recruited) {
+                STATUS_MESSAGE.textContent = `היחידה ${itemName} כבר גויסה ונמצאת ברשותך!`;
+                return;
+            }
+            if (gold < cost) {
+                STATUS_MESSAGE.textContent = `אין מספיק זהב לגיוס! נדרש $${cost}. יש לך $${gold}.`;
+                return;
+            }
+
+            gold -= cost;
+            unitProgress[unitType].recruited = true;
+            
+            await saveGold();
+            
+            STATUS_MESSAGE.innerHTML = `<span style="color:#64B5F6;">גיוס מוצלח!</span> היחידה: ${itemName} הצטרפה לכוחותיך. היא תופיע בקרב הבא.`;
+            updateUI();
+        }
+
         async function buyItem(unitType, cost, updates, itemName, requiredLevel = 1) {
             if (gameState !== 'upgradePhase') {
                 STATUS_MESSAGE.textContent = "ניתן לקנות חפצים רק אחרי ניצחון בקרב.";
                 return;
             }
+            
+            // NEW: ודא שניתן לקנות ציוד רק ליחידות קיימות/מגויסות
+            // UPDATED: Added 'mage' to the check
+            if (!unitProgress[unitType] || (unitType !== 'knight' && unitType !== 'archer' && unitType !== 'spearman' && unitType !== 'mage' && !unitProgress[unitType].recruited)) {
+                 STATUS_MESSAGE.textContent = `לא ניתן לקנות ציוד. גייס את יחידת ${unitType} תחילה!`;
+                 return;
+            }
+
+            // 1. **Toggle Logic for Leather Boots (MOVE only item)**
+            if (itemName === 'מגפי עור' && updates.move !== undefined && updates.atk === undefined && updates.hp === undefined) {
+                
+                // הבונוס המנוטרל הוא בדיוק גובה הבונוס שניתן
+                const isBootsActive = itemUpgrades[unitType].move === updates.move;
+                
+                if (isBootsActive) {
+                    // אם כבר בבעלותם -> בטל את ההשפעה (Toggle Off)
+                    itemUpgrades[unitType].move = 0; // הסרת הבונוס
+                    STATUS_MESSAGE.innerHTML = `<span style="color:#f44336;">בוטלה ההשפעה!</span> ${itemName} הוסרו מ${unitType === 'knight' ? 'האביר' : 'הקשת'}.`;
+                    await saveGold();
+                    updateUI();
+                    return; // יציאה ללא גביית מחיר
+                } 
+                // אם אינו פעיל, המשך לבדיקת הזהב והרכישה
+            }
+
+            // בדיקת דרישות רכישה (זהב ורמה)
             if (gold < cost) {
                 STATUS_MESSAGE.textContent = `אין מספיק זהב! נדרש $${cost}. יש לך $${gold}.`;
                 return;
             }
             
-            // NEW: בדיקת דרישת רמה
             const currentLevel = unitProgress[unitType].level;
             if (currentLevel < requiredLevel) {
                  STATUS_MESSAGE.textContent = `דרושה רמה ${requiredLevel} כדי לקנות את ${itemName}! הרמה הנוכחית היא ${currentLevel}.`;
                  return;
             }
 
+            // 2. **Stronger Weapon Only Check (ATK/RANGE)**
+            if (updates.atk !== undefined || updates.range !== undefined) {
+                const currentAtkBonus = itemUpgrades[unitType].atk;
+                const newAtk = updates.atk || 0; 
+                
+                // ודא שהנשק החדש חזק יותר
+                if (newAtk < currentAtkBonus) {
+                    STATUS_MESSAGE.textContent = `לא שודרג! ${itemName} (+${newAtk} התקפה) אינו חזק מהנשק הפעיל (+${currentAtkBonus} התקפה).`;
+                    return;
+                }
+                // ודא שלא קונים נשק זהה (למעט אם אין נשק, ואז currentAtkBonus=0)
+                if (newAtk === currentAtkBonus && currentAtkBonus !== 0) {
+                     STATUS_MESSAGE.textContent = `כבר ברשותך נשק בעל בונוס זהה (+${currentAtkBonus} התקפה).`;
+                     return;
+                }
+            }
+
 
             // לוגיקת החלפת ציוד: מאפס את הבונוסים הישנים ומחיל את החדשים
             
-            // איפוס הבונוסים הפיזיים הקודמים (HP/DEF לשריון)
+            // איפוס בונוסי שריון (HP/DEF) - קניית שריון חדש מבטלת ישן
             if (updates.hp !== undefined || updates.def !== undefined) {
                  itemUpgrades[unitType].hp = 0;
                  itemUpgrades[unitType].def = 0;
             }
-            // איפוס בונוסי נשק (ATK/RANGE)
+            // איפוס בונוסי נשק (ATK/RANGE) - קניית נשק חדש מבטלת ישן
             if (updates.atk !== undefined || updates.range !== undefined) {
                  itemUpgrades[unitType].atk = 0;
                  itemUpgrades[unitType].range = 0;
             }
-            // איפוס בונוסי תנועה (MOVE)
-            if (updates.move !== undefined) {
-                 itemUpgrades[unitType].move = 0;
-            }
-
-            // החלת הבונוסים החדשים
+            
+            // גביית מחיר והחלת הבונוסים החדשים
             gold -= cost;
             Object.keys(updates).forEach(stat => {
                  itemUpgrades[unitType][stat] += updates[stat];
@@ -1578,10 +1778,24 @@
                     goldHighScore = data.highScore || 0;
                     // FIXED: ודא שהקרב ההתחלתי הוא 1 אם אין נתונים
                     currentBattleIndex = data.currentBattleIndex || 1; 
-                    // NEW: טעינת שדרוגי ציוד
-                    itemUpgrades = data.itemUpgrades || { knight: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, archer: { hp: 0, atk: 0, def: 0, move: 0, range: 0 } };
-                    // NEW: טעינת נתוני רמה/XP
-                    unitProgress = data.unitProgress || { knight: { level: 1, xp: 0, nextLevelXp: 1000 }, archer: { level: 1, xp: 0, nextLevelXp: 1000 } };
+                    
+                    // NEW: טעינת שדרוגי ציוד ונתוני גיוס
+                    const defaultItemUpgrades = { knight: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, archer: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, spearman: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, mage: { hp: 0, atk: 0, def: 0, move: 0, range: 0 } };
+                    itemUpgrades = { ...defaultItemUpgrades, ...data.itemUpgrades };
+                    
+                    // UPDATED: Ensure default includes 'mage'
+                    const defaultUnitProgress = { knight: { level: 1, xp: 0, nextLevelXp: 1000 }, archer: { level: 1, xp: 0, nextLevelXp: 1000 }, spearman: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false }, mage: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false } };
+                    unitProgress = { ...defaultUnitProgress, ...data.unitProgress };
+
+                    // FIX: אם היחידה הישנה 'scout' קיימת, מעביר אותה ל-'mage'
+                    if (data.unitProgress && data.unitProgress.scout && data.unitProgress.scout.recruited) {
+                         unitProgress.mage.recruited = true;
+                         unitProgress.mage.level = data.unitProgress.scout.level;
+                         unitProgress.mage.xp = data.unitProgress.scout.xp;
+                         itemUpgrades.mage = data.itemUpgrades.scout || itemUpgrades.mage;
+                         delete unitProgress.scout;
+                         delete itemUpgrades.scout;
+                    }
                 } else {
                     // שמור נתוני ברירת מחדל אם אין
                     await saveGold(); 
@@ -1599,14 +1813,28 @@
                 goldHighScore = gold;
             }
 
+            // NEW: נרמול הנתונים לפני שמירה (כדי למנוע שמירת 'scout' בטעות)
+            const savedItemUpgrades = {
+                knight: itemUpgrades.knight,
+                archer: itemUpgrades.archer,
+                spearman: itemUpgrades.spearman,
+                mage: itemUpgrades.mage // רק Mage
+            };
+            const savedUnitProgress = {
+                knight: unitProgress.knight,
+                archer: unitProgress.archer,
+                spearman: unitProgress.spearman,
+                mage: unitProgress.mage // רק Mage
+            };
+
             const docRef = doc(db, 'artifacts', typeof __app_id !== 'undefined' ? __app_id : 'default-app-id', 'users', userId, 'progress', 'goldData');
             try {
                 await setDoc(docRef, {
                     gold: Math.floor(gold),
                     highScore: Math.floor(goldHighScore),
                     currentBattleIndex: currentBattleIndex, // NEW: שמירת אינדקס הקרב
-                    itemUpgrades: itemUpgrades, // NEW: שמירת שדרוגי ציוד
-                    unitProgress: unitProgress  // NEW: שמירת XP/רמה
+                    itemUpgrades: savedItemUpgrades, // NEW: שמירת שדרוגי ציוד
+                    unitProgress: savedUnitProgress // NEW: שמירת XP/רמה
                 }, { merge: true });
             } catch (e) {
                 console.error("Error saving document:", e);
@@ -1625,8 +1853,9 @@
                  if (isReady) {
                      // NEW: איפוס מלא כולל התקדמות
                      currentBattleIndex = 1; 
-                     itemUpgrades = { knight: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, archer: { hp: 0, atk: 0, def: 0, move: 0, range: 0 } };
-                     unitProgress = { knight: { level: 1, xp: 0, nextLevelXp: 1000 }, archer: { level: 1, xp: 0, nextLevelXp: 1000 } };
+                     // איפוס מלא של כל הנתונים כולל הגיוס
+                     itemUpgrades = { knight: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, archer: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, spearman: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, mage: { hp: 0, atk: 0, def: 0, move: 0, range: 0 } };
+                     unitProgress = { knight: { level: 1, xp: 0, nextLevelXp: 1000 }, archer: { level: 1, xp: 0, nextLevelXp: 1000 }, spearman: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false }, mage: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false } };
                      gold = 0;
                      // שמירה רק אם יש db
                      if(db) saveGold();
@@ -1654,36 +1883,51 @@
 
             // NEW: הגדרת קליקים של חנות חפצים - דרישת רמה מיושמת כאן
             
+            // Items
             const buyKnightIronSwordBtn = document.getElementById('buy-knight-iron-sword');
             const buyKnightSteelSwordBtn = document.getElementById('buy-knight-steel-sword');
             const buyKnightSteelArmorBtn = document.getElementById('buy-knight-steel-armor');
             const buyArcherIronBowBtn = document.getElementById('buy-archer-iron-bow');
             const buyArcherSteelBowBtn = document.getElementById('buy-archer-steel-bow');
             const buyArcherMoveBtn = document.getElementById('buy-archer-move');
+            
+            // Recruits
+            const recruitSpearmanBtn = document.getElementById('recruit-spearman');
+            const recruitMageBtn = document.getElementById('recruit-mage');
+
 
             if (buyKnightIronSwordBtn) {
-                 // אביר: חרב ברזל (רמה 1)
+                 // אביר: חרב ברזל (רמה 1, +10 התקפה)
                  buyKnightIronSwordBtn.onclick = () => buyItem('knight', 1500, { atk: 10 }, 'חרב ברזל', 1);
             }
             if (buyKnightSteelSwordBtn) {
-                 // אביר: חרב פלדה (רמה 3) - NEW
+                 // אביר: חרב פלדה (רמה 3, +20 התקפה, +1 טווח)
                  buyKnightSteelSwordBtn.onclick = () => buyItem('knight', 2500, { atk: 20, range: 1 }, 'חרב פלדה', 3);
             }
             if (buyKnightSteelArmorBtn) {
-                 // אביר: שריון פלדה (רמה 3)
+                 // אביר: שריון פלדה (רמה 3, +50 חיים, +5 הגנה) - שריון חדש מחליף ישן
                  buyKnightSteelArmorBtn.onclick = () => buyItem('knight', 2000, { hp: 50, def: 5 }, 'שריון פלדה', 3);
             }
             if (buyArcherIronBowBtn) {
-                 // קשת: קשת ברזל (רמה 1)
+                 // קשת: קשת ברזל (רמה 1, +15 התקפה)
                  buyArcherIronBowBtn.onclick = () => buyItem('archer', 1800, { atk: 15 }, 'קשת ברזל', 1);
             }
             if (buyArcherSteelBowBtn) {
-                 // קשת: קשת פלדה (רמה 3)
+                 // קשת: קשת פלדה (רמה 3, +20 התקפה, +1 טווח)
                  buyArcherSteelBowBtn.onclick = () => buyItem('archer', 2500, { atk: 20, range: 1 }, 'קשת פלדה', 3);
             }
             if (buyArcherMoveBtn) {
-                 // קשת: מגפי עור (רמה 1)
+                 // קשת: מגפי עור (רמה 1, +1 תנועה) - פריט Toggle
                  buyArcherMoveBtn.onclick = () => buyItem('archer', 1500, { move: 1 }, 'מגפי עור', 1);
+            }
+
+            // NEW: גיוס יחידות
+            if (recruitSpearmanBtn) {
+                recruitSpearmanBtn.onclick = () => recruitUnit('spearman', 2000, 'רמ"ח');
+            }
+            // UPDATED: Recruit Mage
+            if (recruitMageBtn) {
+                recruitMageBtn.onclick = () => recruitUnit('mage', 2200, 'מכשף');
             }
 
 

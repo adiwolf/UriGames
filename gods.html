@@ -211,6 +211,17 @@
                 type: "canvas_game",
                 gameName: "hephaestus_build",
                 target: 3 // מספר המכשולים שהרובוט צריך לעבור
+            },
+            // --- קווסט 9: ארס - דו-קרב הזעם (חדש) ---
+            {
+                id: 9,
+                name: "ארס: דו-קרב הזעם",
+                god: "ארס",
+                icon: "⚔️🛡️",
+                description: "ארס כועס עליך על שעזרת לדיוניסוס! הוא מזמין אותך לדו-קרב בשדה הקרב. עליך להביס את ארס באמצעות ירי חצים אנרגטיים, תוך התחמקות מהתקפות החרב שלו. נצח בדו-קרב כדי לסיים את הבלגן האולימפי!",
+                type: "canvas_game",
+                gameName: "ares_duel",
+                target: 1 // ניצחון אחד
             }
         ];
 
@@ -218,7 +229,7 @@
 
         // פונקציה להסרת מאזיני העכבר/מגע
         function removeMouseListeners() {
-            if (!canvas || !mouseHandlersAdded) return;
+            if (!canvas || !mouseHandlersAdded) return; 
             // הוסר: canvas.removeEventListener('mousedown', handleMouseDownHephaestus);
             // הוסר: canvas.removeEventListener('mousemove', handleMouseMoveHephaestus);
             // הוסר: canvas.removeEventListener('mouseup', handleMouseUpHephaestus);
@@ -251,10 +262,13 @@
             `;
         }
         
-        // פונקציה גלובלית לאיפוס קווסט הפיסטוס
-        function resetHephaestusBuild() {
+        // פונקציה גלובלית לאיפוס קווסט הפיסטוס (משמש בכפתור RESET בתוך הקווסט)
+        function resetHephaestusQuest() {
+            // זהה ל-resetCurrentQuest אבל שם יותר ברור
+             gameState.currentQuest = 8;
              renderQuest();
         }
+        
 
         // --- לוגיקת משחק מרכזית ---
 
@@ -299,7 +313,7 @@
         }
 
         function handleQuestResult(isCorrect, message, points = 100) {
-            // עצירת לולאת המשחק הספציפית
+            // עצירת לולאת משחק ספציפית
             if (gameLoopId) {
                 cancelAnimationFrame(gameLoopId);
                 gameLoopId = null;
@@ -310,6 +324,7 @@
             removeMouseListeners();
             
             let resultHtml;
+            // אם זה כישלון, כפתור 'נסה שוב' מפנה ל-resetCurrentQuest
             if (isCorrect) {
                 gameState.score += points;
                 resultHtml = `
@@ -325,7 +340,7 @@
                         <p class="font-bold">❌ כישלון...</p>
                         <p>${message}</p>
                     </div>
-                    ${gameState.currentQuest === 8 ? createActionButton("נסה שוב (בנייה מחדש)", "resetHephaestusBuild()") : createActionButton("נסה שוב", "resetCurrentQuest()")}
+                    ${createActionButton("נסה שוב", "resetCurrentQuest()")}
                 `;
             }
             // עדכון אזור התוצאה
@@ -385,11 +400,11 @@
             // עדכון הוראות שליטה בהתאם לקווסט הפיסטוס
             const controlInstructions = quest.gameName === 'hephaestus_build' ? 
                 'השתמשו במקשי החיצים (← ↑ → ↓) כדי לנווט. לחצו **רווח** כדי לאסוף/לשחרר חלק רובוט.' : 
-                'השתמש במקשי החיצים (← ↑ → ↓) כדי לשלוט בדמות. קליק על המקשים למטה עבור מובייל. (מקש רווח לקווסט של אפרודיטה).';
+                'השתמש במקשי החיצים (← ↑ → ↓) כדי לשלוט בדמות. קליק על המקשים למטה עבור מובייל. (מקש רווח לקווסט של אפרודיטה/ארס).';
             
             // כפתור איפוס לקווסט הפיסטוס
             const hephaestusResetButton = quest.gameName === 'hephaestus_build' ? 
-                `<button onclick="resetHephaestusBuild()" class="action-btn bg-red-500 hover:bg-red-600 focus:ring-red-300 w-full md:w-auto text-base mt-2">איפוס (RESET)</button>` : '';
+                `<button onclick="resetHephaestusQuest()" class="action-btn bg-red-500 hover:bg-red-600 focus:ring-red-300 w-full md:w-auto text-base mt-2">איפוס (RESET)</button>` : '';
 
             return `
                 <div class="flex flex-col items-center space-y-4">
@@ -512,6 +527,11 @@
                     document.addEventListener('keydown', handleKeyDown);
                     document.addEventListener('keyup', handleKeyUp);
                     break;
+                case 'ares_duel': // קווסט 9 החדש
+                    initAresDuel();
+                    document.addEventListener('keydown', handleKeyDown);
+                    document.addEventListener('keyup', handleKeyUp);
+                    break;
             }
             
             // ציור ראשוני של המסך לפני ההתחלה, רק אם פונקציית ציור קיימת
@@ -546,6 +566,10 @@
             if(e.key === ' ' && gameState.currentQuest === 8) {
                 // ניתוק הלחיצה יטופל בתוך ה-updateHephaestusBuild אם צריך
                 return; 
+            }
+            // עבור קווסט ארס, צריך לאפשר ירי חוזר
+            if(e.key === ' ' && gameState.currentQuest === 9) {
+                return;
             }
 
             keys[e.key] = false;
@@ -950,6 +974,7 @@
                 maxHits: 3, 
                 lastSpawn: 0,
                 spawnRate: 1000, 
+                lastTick: Date.now(), // הוספת lastTick לחישוב elapsed
                 update: updateHermesAvoidance,
                 draw: drawHermesAvoidance,
             };
@@ -959,11 +984,11 @@
             const quest = quests[gameState.currentQuest - 1];
             const player = canvasState.player;
             const now = Date.now();
-            const elapsed = (now - canvasState.lastTick) / 1000; // חזרה ל-elapsed מבוסס זמן
+            const elapsed = (now - canvasState.lastTick) / 1000;
             canvasState.lastTick = now;
 
             // תנועת שחקן
-            const speed = player.speed * elapsed * 60 / 16.66; // נורמליזציה של המהירות 9
+            const moveStep = player.speed * elapsed * 60 * 0.1; // מבוסס על מהירות 9
             
             if (keys['ArrowLeft'] && player.x > 0) player.x -= player.speed;
             if (keys['ArrowRight'] && player.x < canvas.width - player.w) player.x += player.speed;
@@ -1018,15 +1043,19 @@
                     
                     let collision = false;
                     
+                    // בדיקה מול 3 מקטעי לייזר:
+                    
                     // 1. Segment 1 (Left): 0 to gap1Start
                     if (player.x < wall.gap1Start) {
                         collision = true;
                     }
+                    
                     // 2. Segment 2 (Middle): gap1End to gap2Start
-                    // התנגשות מתרחשת אם: השחקן מתחיל לפני סוף הפער הראשון AND השחקן נגמר אחרי תחילת הפער השני
+                    // התנגשות מתרחשת אם הדמות נכנסת לאזור האמצעי
                     if (player.x + player.w > wall.gap1End && player.x < wall.gap2Start) {
                        collision = true;
                     }
+                    
                     // 3. Segment 3 (Right): gap2End to canvas.width
                     if (player.x + player.w > wall.gap2End) {
                         collision = true;
@@ -1086,6 +1115,16 @@
                 ctx.fillRect(wall.gap2End, wall.y, canvas.width - wall.gap2End, wall.h);
                 
                 ctx.shadowBlur = 0;
+                
+                // --- ציור המכשולים הגלויים (למעלה) ---
+                ctx.fillStyle = 'white';
+                ctx.font = '10px Inter';
+                ctx.textAlign = 'left';
+                // ציור קצוות הפערים
+                ctx.fillText(`פער (${wall.gap1End.toFixed(0)})`, wall.gap1Start, wall.y - 5);
+                ctx.fillText(`פער (${wall.gap2End.toFixed(0)})`, wall.gap2Start, wall.y - 5);
+                
+
             });
 
             // ציור שחקן (דמות)
@@ -1123,6 +1162,7 @@
 
             // יצירת 8 לבבות ו-7 פרחים (סה"כ 15)
             const targets = { heart: 8, flower: 7 };
+            // FIX: הוספת ה-type לכל פריט בעת יצירתו
             for(let type in targets) {
                 for(let i = 0; i < targets[type]; i++) {
                     canvasState.items.push({
@@ -1130,7 +1170,7 @@
                         y: Math.random() * (canvas.height - 30) + 15, 
                         w: 15,
                         h: 15,
-                        type: type,
+                        type: type, // *** הוספת סוג הפריט ***
                         r: 7.5
                     });
                 }
@@ -1171,6 +1211,7 @@
             for (let i = canvasState.items.length - 1; i >= 0; i--) {
                 const item = canvasState.items[i];
                 if (checkCollision(player, {x: item.x - item.r, y: item.y - item.r, w: item.w, h: item.h})) {
+                    // FIX: כעת ה-item.type קיים וניתן לבדוק אותו
                     if (item.type === canvasState.collectingType) {
                         // איסוף מוצלח
                         canvasState.collectedCount[item.type]++;
@@ -1182,8 +1223,7 @@
                             return;
                         }
                     } else {
-                        // פגיעה בפריט הלא נכון
-                        // אולי קנס קטן? כרגע אין קנס מעבר לאיבוד זמן
+                        // פגיעה בפריט הלא נכון - אין קנס, פשוט לא אוספים
                     }
                 }
             }
@@ -1223,7 +1263,7 @@
                     ctx.closePath();
                     ctx.fill();
 
-                } else {
+                } else { // ITEM_TYPE.FLOWER
                     // ציור פרח (Flower - עיגול + עלי כותרת פשוטים)
                     ctx.fillStyle = '#818cf8';
                     ctx.shadowColor = '#818cf8';
@@ -1673,13 +1713,28 @@
 
         // 3. הגדרת מכשולים במסלול (עם דרישות גלויות)
         const OBSTACLES = [
-            // הדרישות הוגדרו כך: צירוף 3 מהירים (5*3=15) ואחד מאוזן (3) ייתן 18, עובר. 4 מאוזנים ייתנו 12, נכשל.
-            { type: 'SPEED_CHALLENGE', name: "מכשול 1: מנהרת מהירות (דרישה: 14)", requiredStat: 'speed', threshold: 14, failMessage: "הרובוט שלך היה איטי מדי במנהרת המהירות! (נדרש >14)" },
-            // הדרישות הוגדרו כך: צירוף 4 מאוזנים (3*4=12) עובר בקושי. צירוף עם חלק כוח (5) יעבור בבטחה.
-            { type: 'FORCE_CHALLENGE', name: "מכשול 2: קיר הריסות כבד (דרישה: 12)", requiredStat: 'weight', threshold: 12, failMessage: "הרובוט לא היה חזק מספיק כדי לשבור את קיר ההריסות! (נדרש >12)" },
-            // הדרישות הוגדרו כך: רק צירוף 4 מאוזנים (5*4=20) יכול לעבור. כל חלק 'מהיר' יפיל את הציון (2*X) ויגרום לכישלון.
-            { type: 'PRECISION_CHALLENGE', name: "מכשול 3: גשר כבלים דק (דרישה: 20)", requiredStat: 'balance', threshold: 20, failMessage: "הרובוט איבד יציבות על גשר הכבלים ונפל! (נדרש >20)" },
+            // --- דרישות חדשות ---
+            // מהירות: הורד ל-11.5
+            { type: 'SPEED_CHALLENGE', name: "מכשול 1: מנהרת מהירות", requiredStat: 'speed', threshold: 11.5, failMessage: "הרובוט שלך היה איטי מדי במנהרת המהירות!" },
+            // כוח: הורד ל-9.5
+            { type: 'FORCE_CHALLENGE', name: "מכשול 2: קיר הריסות כבד", requiredStat: 'weight', threshold: 9.5, failMessage: "הרובוט לא היה חזק מספיק כדי לשבור את קיר ההריסות!" },
+            // איזון: הורד ל-12
+            { type: 'PRECISION_CHALLENGE', name: "מכשול 3: גשר כבלים דק", requiredStat: 'balance', threshold: 12, failMessage: "הרובוט איבד יציבות על גשר הכבלים ונפל!" },
         ];
+        
+        // 4. הגדרת רובוטים מתחרים
+        // רובוט 1 (מהירות/מרוץ) - ינצח את רוב מכשולי המהירות, ייכשל באיזון
+        const RIVAL_RACE = {
+            name: "רובוט מרוץ (אדום)", emoji: '🏎️', color: '#b91c1c', 
+            stats: { speed: 18, weight: 6, balance: 8 }, // 3 מהירים, 1 מאוזן
+            progress: 0, passed: 0, isFinished: false, isWinner: false, robotY: 100 // מיקום במסלול
+        };
+        // רובוט 2 (כוח/הריסות) - ינצח את מכשולי הכוח, ייכשל במהירות
+        const RIVAL_POWER = {
+            name: "רובוט כוח (כחול)", emoji: '🧱', color: '#1d4ed8', 
+            stats: { speed: 8, weight: 18, balance: 8 }, // 3 כוח, 1 מאוזן
+            progress: 0, passed: 0, isFinished: false, isWinner: false, robotY: 200 // מיקום במסלול
+        };
 
 
         function initHephaestusBuild() {
@@ -1702,7 +1757,7 @@
             }
 
             canvasState = {
-                isRunning: false, // יוגדר ל-true כדי לאפשר תנועה
+                isRunning: false, 
                 phase: 'BUILD', // 'BUILD' | 'TEST'
                 
                 lastTick: Date.now(),
@@ -1711,17 +1766,20 @@
                 partsPool: currentParts,
                 buildSlots: BUILD_SLOTS,
                 
-                // --- שינוי: מעבר משליטת עכבר לשליטת מקשים ---
                 player: { x: 50, y: canvas.height / 2, w: 30, h: 30, color: '#f59e0b', speed: 4 }, // דמות הגיבור
                 heldPart: null, // החלק שהשחקן מחזיק
                 
                 // TEST PHASE
-                robot: null, 
+                playerRobot: null, // הרובוט של השחקן
+                rivals: [
+                    JSON.parse(JSON.stringify(RIVAL_RACE)), 
+                    JSON.parse(JSON.stringify(RIVAL_POWER))
+                ],
                 obstacles: OBSTACLES, 
                 obstaclesPassed: 0,
                 robotProgress: 0, 
                 robotX: 0, 
-                robotY: canvas.height / 2 - 20, // ממורכז ליד הרצפה
+                robotY: canvas.height / 2 - 20, 
                 robotW: 40, 
                 robotH: 40,
                 robotSpeed: 2, 
@@ -1744,9 +1802,11 @@
             // הסתרת כפתור הבדיקה עד להשלמת ההרכבה
             const btn = document.getElementById('start-game-btn');
             if (btn) btn.style.display = 'none';
+            // וודא שכפתור האיפוס מוצג
+            const resetButton = document.querySelector('button[onclick="resetHephaestusQuest()"]');
+            if (resetButton) resetButton.style.display = 'block';
+
         }
-        
-        // --- לוגיקת איסוף/שחרור באמצעות מקשים ---
         
         // --- פונקציה גלובלית לבדיקת השלמה והתחלת מירוץ ---
         function checkBuildCompletion() {
@@ -1757,7 +1817,7 @@
             const allSlotsFilled = Object.values(canvasState.buildSlots).every(slot => slot.assignedPart !== null);
             
             if (allSlotsFilled) {
-                // 2. חשב את נתוני הרובוט הסופיים
+                // 2. חשב את נתוני הרובוט הסופיים של השחקן
                 const stats = { speed: 0, weight: 0, balance: 0, totalScore: 0 };
                 Object.values(canvasState.buildSlots).forEach(slot => {
                     stats.speed += slot.assignedPart.stats.speed;
@@ -1765,22 +1825,24 @@
                     stats.balance += slot.assignedPart.stats.balance;
                 });
 
-                // ציון איזון משוקלל: (מהירות + משקל + איזון) * (קבוע, לצורך הגדלה ויזואלית)
-                stats.totalScore = stats.balance * 4; 
+                // הגדרת הרובוט של השחקן (ממצב ה-BUILD)
+                canvasState.playerRobot = {
+                    name: "הרובוט שלך", emoji: '🤖', color: '#059669', 
+                    stats: stats,
+                    progress: 0, passed: 0, isFinished: false, isWinner: false, 
+                    robotY: 300 // מיקום במסלול
+                };
 
                 // 3. הגדר את מצב הרובוט לטסט
-                canvasState.robot = stats;
                 canvasState.phase = 'TEST';
-                canvasState.robotX = 0;
-                canvasState.robotY = canvas.height / 2 - canvasState.robotH / 2;
+                canvasState.testRunning = false; 
                 canvasState.obstaclesPassed = 0;
-                canvasState.testRunning = false; // עדיין לא רץ
                 
-                // הגדר מהירות רובוט (יחסית למהירות המצטברת)
-                // במבחן ה-TEST, נשתמש בציון המהירות המצטבר (stats.speed).
-                // נשתמש בקבוע קטן כדי שהמהירות לא תהיה גבוהה מדי על המסך.
-                canvasState.robotSpeed = 1 + (stats.speed / 10); 
-
+                // איפוס מיקומי רובוטים מתחרים
+                canvasState.rivals.forEach(r => {
+                    r.progress = 0; r.passed = 0; r.isFinished = false; r.isWinner = false;
+                });
+                
                 // 4. הצג כפתור והוראות
                 if (btn) {
                     btn.textContent = "התחל מירוץ רובוט!";
@@ -1792,15 +1854,16 @@
                             canvasState.isRunning = true;
                             gameLoopId = requestAnimationFrame(gameLoop);
                         }
-                        btn.style.display = 'none';
-                        info.textContent = `הרובוט במירוץ!`;
+                        btn.style.display = 'none'; // הסתר כפתור
                         // הסתרת כפתור האיפוס ברגע שהמירוץ מתחיל
-                        const resetButton = document.querySelector('button[onclick="resetHephaestusBuild()"]');
+                        const resetButton = document.querySelector('button[onclick="resetHephaestusQuest()"]');
                         if (resetButton) resetButton.style.display = 'none';
 
                     };
                     btn.style.display = 'block';
                 }
+
+                // עדכון מידע עם סטטיסטיקות
                 if (info) info.innerHTML = `הרכבה הושלמה! הרובוט מוכן למבחן. <br> **מהירות: ${stats.speed} | כוח: ${stats.weight} | איזון: ${stats.balance}**`;
                 
                 // עצור את תנועת הגיבור (שלב BUILD)
@@ -1819,7 +1882,6 @@
         
         function handleBuildInput() {
             const player = canvasState.player;
-            const now = Date.now();
             
             // בדיקה אם נלחץ מקש רווח (Space)
             if (keys[' ']) {
@@ -1897,12 +1959,29 @@
             }
         }
 
+        // פונקציית עזר לבדיקת מכשול עבור רובוט (שחקן או יריב)
+        function checkRobotObstacle(robot, currentObstacleIndex) {
+             const obstacle = canvasState.obstacles[currentObstacleIndex];
+             // שימוש בציון האיזון המקורי ככפול 4
+             const scoreToCheck = obstacle.requiredStat === 'balance' ? robot.stats.balance * 4 : robot.stats[obstacle.requiredStat];
+
+             if (scoreToCheck < obstacle.threshold) {
+                 return { passed: false, message: `${robot.name} נכשל ב${obstacle.name}. (נדרש ${obstacle.threshold}, קיבל ${scoreToCheck.toFixed(1)})` };
+             } else {
+                 // רק מעביר את המכשול (עדכון passed נעשה בלולאה)
+                 return { passed: true, message: null };
+             }
+        }
+
 
         function updateHephaestusBuild(timestamp) {
             const now = Date.now();
             const elapsed = (now - canvasState.lastTick) / 1000;
             canvasState.lastTick = now;
             const player = canvasState.player;
+            // הרובוט שלך הוא תמיד הראשון ברשימה
+            const allRobots = [canvasState.playerRobot, ...canvasState.rivals];
+
 
             if (canvasState.phase === 'BUILD') {
                 // 1. תנועת שחקן
@@ -1921,59 +2000,145 @@
                 // 3. לוגיקת איסוף/שחרור
                 handleBuildInput();
 
-                // 4. ציור מחדש
-                // הציור מתבצע בסוף לולאת המשחק הכללית, אין צורך לקרוא לו כאן
-
             } else if (canvasState.phase === 'TEST' && canvasState.testRunning) {
                 
-                // 1. תנועת הרובוט
-                // מכפילים ב-60 כדי לפצות על תנועה מבוססת FPS
-                canvasState.robotX += canvasState.robotSpeed * elapsed * 60; 
-
-                // 2. בדיקת סיום מכשול (לוגיקה זהה לשמירה על טוויסט המסלול)
-                const currentObstacleIndex = canvasState.obstaclesPassed;
+                let winnerFound = false;
+                let firstFinisher = null;
                 
-                // רובוט עבר את המסלול
-                if (canvasState.obstaclesPassed >= canvasState.obstacles.length) {
+                // --- עדכון כל הרובוטים ---
+                for (const robot of allRobots) {
+                    if (robot && !robot.isFinished) {
+                        
+                        // 1. תנועת הרובוט
+                        // קבוע מהירות: 1.0 לכולם, כדי שהסטטיסטיקה תחליט מי מהיר יותר
+                        const speedFactor = 1.0; 
+                        const baseSpeed = robot.stats.speed / 100; 
+                        robot.progress += baseSpeed * elapsed * 60 * speedFactor; 
+
+                        // 2. בדיקת מכשול נוכחי
+                        const currentObstacleIndex = robot.passed;
+                        
+                        if (currentObstacleIndex < canvasState.obstacles.length) {
+                             const obstacle = canvasState.obstacles[currentObstacleIndex];
+                             const obstacleX = 100 + currentObstacleIndex * 100; // מיקום המכשול
+
+                             // בדיקת הגעה למכשול (טווח קטן לפני המכשול)
+                             if (robot.progress + canvasState.robotW >= obstacleX && robot.progress < obstacleX + 10) {
+                                 
+                                 const result = checkRobotObstacle(robot, currentObstacleIndex);
+                                 
+                                 if (result.passed) {
+                                     // עבר! קדם למכשול הבא
+                                     robot.passed++;
+                                 } else {
+                                     // נכשל!
+                                     robot.isFinished = true;
+                                     robot.color = '#78350f'; // צבע חום לרובוט שנכשל
+                                     
+                                     // אם הרובוט של השחקן נכשל, עצור את המשחק
+                                     if (robot === canvasState.playerRobot) {
+                                        canvasState.testRunning = false;
+                                        canvasState.isRunning = false;
+                                        // שינוי: מעבר מיידי חזרה ל-BUILD
+                                        handleQuestResult(false, result.message); 
+                                        return; 
+                                     }
+                                 }
+                             }
+                        } else if (robot.progress > canvas.width) {
+                            // 3. הרובוט סיים את המסלול
+                            robot.isFinished = true;
+                            if (!firstFinisher) {
+                                firstFinisher = robot; // שמור את הרובוט הראשון שסיים
+                            }
+                            winnerFound = true; // סימן שיש מי שסיים
+                        }
+                    }
+                }
+                
+                // --- בדיקת מנצח סופית (רק אם מישהו סיים) ---
+                if (winnerFound) {
+                    // הכרזת מנצח על פי מי שסיים ראשון (firstFinisher)
+                    if (firstFinisher) {
+                        firstFinisher.isWinner = true;
+                        
+                        if (firstFinisher === canvasState.playerRobot) {
+                            handleQuestResult(true, `ניצחון! הרובוט שלך הוא המנצח האולימפי!`, 900);
+                        } else {
+                            handleQuestResult(false, `הרובוט שלך הפסיד! המנצח הוא ${firstFinisher.name}. נסה לבנות רובוט טוב יותר.`);
+                        }
+                    }
+                    
                     canvasState.testRunning = false;
                     canvasState.isRunning = false;
-                    handleQuestResult(true, `הרובוט עבר בהצלחה את כל 3 המכשולים! הפיסטוס קיבל את המקום הראשון. ניקוד: 900`, 900);
-                    return;
                 }
-                
-                // בדיקת הגעה למכשול הנוכחי
-                const obstacle = canvasState.obstacles[currentObstacleIndex];
-                const obstacleX = 100 + currentObstacleIndex * 100; 
-
-                // בדיקת פגיעה במכשול
-                if (canvasState.robotX + canvasState.robotW >= obstacleX && canvasState.robotX < obstacleX + 5) {
-                    
-                    const requiredStatValue = canvasState.robot[obstacle.requiredStat];
-
-                    // חישוב הציון הנבדק
-                    let scoreToCheck;
-                    if (obstacle.requiredStat === 'balance') {
-                         scoreToCheck = canvasState.robot.totalScore; 
-                    } else {
-                         // הציון המצטבר הוא סכום המאפיינים (5+3+5+3 = 16). 
-                         // הדרישה היא 14, לכן נשתמש בסכום המאפיינים ישירות.
-                         scoreToCheck = requiredStatValue;
-                    }
-                    
-                    // בדיקת עמידה בסף המכשול
-                    if (scoreToCheck < obstacle.threshold) {
-                        canvasState.testRunning = false;
-                        canvasState.isRunning = false;
-                        handleQuestResult(false, `${obstacle.failMessage} (נדרש ציון ${obstacle.requiredStat} של ${obstacle.threshold}, קיבלת ${scoreToCheck.toFixed(1)}). נסה למצוא את הצירוף המאוזן.`);
-                        return;
-                    } else {
-                        canvasState.obstaclesPassed++;
-                    }
-                }
-                
-                // עדכון ציור
-                // הציור מתבצע בסוף לולאת המשחק הכללית, אין צורך לקרוא לו כאן
             }
+        }
+
+        // פונקציה ציור של הרובוט
+        function drawRobot(robot) {
+            if (!ctx) return;
+            
+            // ציור מסלול ייחודי לכל רובוט (מעט צל כדי שייראה כמו מסילה)
+            const trackY = robot.robotY + canvasState.robotH / 2;
+            ctx.fillStyle = '#cccccc'; 
+            ctx.globalAlpha = 0.5;
+            ctx.fillRect(0, trackY - 1, canvas.width, 2);
+            ctx.globalAlpha = 1.0;
+            
+            
+            // --- ציור המכשול הדינמי ---
+            const currentObstacleIndex = robot.passed;
+            if (currentObstacleIndex < canvasState.obstacles.length) {
+                const obstacle = canvasState.obstacles[currentObstacleIndex];
+                const obstacleX = 100 + currentObstacleIndex * 100;
+                
+                // אם הרובוט נמצא בתוך טווח המכשול
+                if (robot.progress > obstacleX - 30 && robot.progress < obstacleX + 50) {
+                    
+                    ctx.globalAlpha = 0.2;
+                    if (obstacle.type === 'SPEED_CHALLENGE') {
+                        // מנהרת רוח (אדום)
+                        ctx.fillStyle = '#f87171'; 
+                    } else if (obstacle.type === 'FORCE_CHALLENGE') {
+                        // קיר הריסות (אפור/כחול)
+                         ctx.fillStyle = '#3b82f6';
+                    } else if (obstacle.type === 'PRECISION_CHALLENGE') {
+                         // רעידות (ירוק)
+                         ctx.fillStyle = '#10b981'; 
+                    }
+                     // ציור אפקט דינמי רק על המסלול שלו
+                    ctx.fillRect(obstacleX - 30, trackY - 15, 80, 30);
+                    ctx.globalAlpha = 1.0;
+                }
+            }
+
+            // ציור רובוט כריבוע (לצורך התנגשות)
+            ctx.fillStyle = robot.color;
+            ctx.fillRect(robot.progress, robot.robotY, canvasState.robotW, canvasState.robotH);
+            
+            // ציור אימוג'י בתוך הריבוע
+            ctx.font = '30px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(robot.emoji, robot.progress + canvasState.robotW / 2, robot.robotY + 30);
+            
+            // ציור שם הרובוט
+            ctx.fillStyle = '#1f2937';
+            ctx.font = '10px Inter';
+            ctx.fillText(robot.name, robot.progress + canvasState.robotW / 2, robot.robotY - 5);
+
+            // סימון סטטוס (אם נכשל)
+            if (robot.isFinished && !robot.isWinner) {
+                 ctx.fillStyle = '#b91c1c';
+                 ctx.font = '20px Arial';
+                 ctx.fillText('❌', robot.progress + canvasState.robotW / 2, robot.robotY + 20);
+            }
+             // סימון ויזואלי של מי עבר את המכשול
+             if (robot.passed > 0) {
+                 ctx.fillStyle = '#059669';
+                 ctx.font = '15px Arial';
+                 ctx.fillText(`${robot.passed} / 3`, robot.progress + canvasState.robotW / 2, robot.robotY + 48);
+             }
         }
 
         function drawHephaestusBuild() {
@@ -2076,17 +2241,17 @@
 
             } 
             
-            // שלב TEST (אחרי לחיצת כפתור או לפני לחיצת כפתור - סטטי)
+            // שלב TEST (מירוץ מול יריבים)
             else if (canvasState.phase === 'TEST') {
                 // --- ציור שלב המירוץ ---
                 ctx.textAlign = 'center';
                 
-                // 1. ציור קו הבסיס (הרצפה)
+                // 1. ציור קו הבסיס (הרצפה) - נמתח לרוחב המסך
                 ctx.strokeStyle = '#1f2937';
                 ctx.lineWidth = 2;
                 ctx.beginPath();
-                ctx.moveTo(0, canvasState.robotY + canvasState.robotH);
-                ctx.lineTo(canvas.width, canvasState.robotY + canvasState.robotH);
+                ctx.moveTo(0, canvas.height - 40);
+                ctx.lineTo(canvas.width, canvas.height - 40);
                 ctx.stroke();
 
                 // 2. ציור מכשולים
@@ -2094,15 +2259,16 @@
                 canvasState.obstacles.forEach((obstacle, index) => {
                     const obstacleX = 100 + index * 100;
                     
-                    // צבע אפור לפני ההגעה, צהוב בזמן המכשול, ירוק אחרי מעבר
-                    let lineColor = '#9ca3af'; // אפור
-                    if (index === canvasState.obstaclesPassed) {
+                    // צבע אפור לפני ההגעה, אדום בזמן המכשול
+                    let lineColor = '#9ca3af'; 
+                    // נבדוק את מצב הרובוט של השחקן לצורך הדגשת המכשול הנוכחי
+                    if (canvasState.playerRobot && index === canvasState.playerRobot.passed) {
                         lineColor = '#b91c1c'; // אדום: כעת המבחן
                         ctx.fillStyle = '#fef3c7'; // צהוב בהיר
                         // ציור מלבן המכשול כמעבר ויזואלי
-                        ctx.fillRect(obstacleX, canvasState.robotY + canvasState.robotH - 20, 5, 20);
+                        ctx.fillRect(obstacleX, 0, 5, canvas.height); // קו מכשול אנכי
                         
-                    } else if (index < canvasState.obstaclesPassed) {
+                    } else if (canvasState.playerRobot && index < canvasState.playerRobot.passed) {
                         lineColor = '#059669'; // ירוק אחרי מעבר
                     }
                     
@@ -2111,52 +2277,274 @@
                     // ציור סימן המכשול (קו)
                     ctx.beginPath();
                     ctx.moveTo(obstacleX, 0);
-                    ctx.lineTo(obstacleX, canvas.height);
+                    ctx.lineTo(obstacleX, canvas.height - 40);
                     ctx.stroke();
                     
                     // כיתוב
                     ctx.fillStyle = '#1f2937';
                     ctx.font = '12px Inter';
                     // הצגת דרישת הסף בכיתוב המכשול
-                    ctx.fillText(`${obstacle.name} (${obstacle.threshold})`, obstacleX, 20);
+                    ctx.fillText(`${obstacle.name}`, obstacleX, 20);
+                    ctx.fillText(`(דרישה: ${obstacle.threshold})`, obstacleX, 35); // הצגת דרישה
 
                     // סימון הצלחה
-                    if (index < canvasState.obstaclesPassed) {
+                    if (canvasState.playerRobot && index < canvasState.obstacles.length && canvasState.playerRobot.passed > index) {
                         ctx.fillStyle = '#059669';
                         ctx.font = '20px Arial';
                         ctx.fillText('✅', obstacleX, canvas.height - 20);
                     }
                 });
 
-
-                // 3. ציור רובוט (משתמשים באימוג'י רובוט כדי להדגיש את המעבר)
-                
-                // ציור רובוט כריבוע (כדי לעזור בהתנגשות)
-                ctx.fillStyle = '#1f2937';
-                ctx.fillRect(canvasState.robotX, canvasState.robotY, canvasState.robotW, canvasState.robotH);
-                
-                // ציור אימוג'י בתוך הריבוע
-                ctx.font = '30px Arial';
-                ctx.fillText('🤖', canvasState.robotX + canvasState.robotW / 2, canvasState.robotY + 30);
+                // 3. ציור הרובוטים
+                // רובוט מרוץ
+                drawRobot(canvasState.rivals[0]);
+                // רובוט כוח
+                drawRobot(canvasState.rivals[1]);
+                // הרובוט של השחקן (תמיד אחרון כדי להיות ב-TOP)
+                if (canvasState.playerRobot) drawRobot(canvasState.playerRobot);
                 
                 // 4. עדכון מידע
-                if (info) {
-                    const currentObstacle = canvasState.obstacles[canvasState.obstaclesPassed];
-                    const obstacleName = canvasState.obstaclesPassed < quest.target ? 
-                        currentObstacle.name : 
-                        "הרובוט במסלול לסיום...";
+                if (info && canvasState.playerRobot) {
+                    const playerStats = canvasState.playerRobot.stats;
                     
                     info.innerHTML = `
                         <div class="text-xs text-gray-700">
-                             מהירות: ${canvasState.robot.speed} | משקל: ${canvasState.robot.weight} | איזון: ${canvasState.robot.balance}
+                             🤖 שלך: מהירות: ${playerStats.speed} | כוח: ${playerStats.weight} | **איזון: ${playerStats.balance}**
                         </div>
                         <div class="text-lg font-bold mt-1">
-                            שלב: <span class="text-blue-600">${canvasState.obstaclesPassed + 1} / ${quest.target} (${obstacleName})</span>
+                            שלב נוכחי: <span class="text-blue-600">${canvasState.playerRobot.passed + 1} / ${quest.target}</span>
                         </div>
                     `;
                 }
             }
         }
+
+        // --- פונקציית עזר לציור פסי בריאות ---
+        function drawHealthBar(x, y, width, height, current, max, color) {
+            if (!ctx) return;
+            const percent = current / max;
+            
+            // רקע אפור
+            ctx.fillStyle = '#666666';
+            ctx.fillRect(x, y, width, height);
+            
+            // פס בריאות
+            ctx.fillStyle = color;
+            ctx.fillRect(x, y, width * percent, height);
+            
+            // מסגרת
+            ctx.strokeStyle = '#333333';
+            ctx.strokeRect(x, y, width, height);
+        }
+        
+        // --- ציור דמות ארס מותאמת אישית (כמו הגיבור, אבל עם שריון) ---
+        function drawAresFigure(ares) {
+            if (!ctx) return;
+            const x = ares.x;
+            const y = ares.y;
+            const w = ares.w; // 50
+            const h = ares.h; // 50
+            const centerX = x + w / 2;
+            
+            const bodyW = 20; // רוחב גוף צר
+            const bodyH = 30; // גובה גוף
+
+            // 1. גוף (מלבן שמייצג שריון כבד) - צבע אדום כהה
+            ctx.fillStyle = ares.color; // #b91c1c (אדום של ארס)
+            // מיקום מחדש כדי שהגוף יהיה צר יותר במרכז
+            ctx.fillRect(centerX - bodyW / 2, y + h * 0.2, bodyW, bodyH); 
+
+            // 2. ראש (בסיס קסדה)
+            ctx.beginPath();
+            ctx.arc(centerX, y + 7, 7, 0, Math.PI * 2);
+            ctx.fillStyle = '#555555'; // אפור כהה/מתכת
+            ctx.fill();
+            ctx.closePath();
+            
+            // 3. מגן פנים/מצח (זהב)
+            ctx.fillStyle = '#FFD700'; 
+            ctx.beginPath();
+            ctx.moveTo(centerX - 8, y + 7);
+            ctx.lineTo(centerX + 8, y + 7);
+            ctx.lineTo(centerX, y - 5);
+            ctx.closePath();
+            ctx.fill();
+
+            // 4. ציצית/כרבולת אדומה (Crest) - גבוהה ודרמטית
+            ctx.beginPath();
+            ctx.moveTo(centerX, y - 5);
+            ctx.lineTo(centerX + 3, y - 15);
+            ctx.lineTo(centerX - 3, y - 15);
+            ctx.closePath();
+            ctx.fillStyle = '#ff0000'; // אדום זוהר
+            ctx.shadowColor = '#ff0000';
+            ctx.shadowBlur = 10;
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            
+            // 5. רגליים (קווים פשוטים)
+            ctx.strokeStyle = '#333333';
+            ctx.lineWidth = 2;
+            // מזיז את הרגליים כדי שיתאימו לגוף הצר
+            ctx.beginPath();
+            ctx.moveTo(centerX - 5, y + h - 5);
+            ctx.lineTo(centerX - 5, y + h);
+            ctx.moveTo(centerX + 5, y + h - 5);
+            ctx.lineTo(centerX + 5, y + h);
+            ctx.stroke();
+        }
+
+        // --- קווסט 9: ארס - דו-קרב הזעם ---
+        function initAresDuel() {
+            const quest = quests[8]; // Quest ID 9 (index 8)
+            canvasState = {
+                isRunning: false,
+                player: { x: canvas.width / 2 - 15, y: canvas.height - 40, w: 30, h: 30, color: '#f59e0b', speed: 4.5, maxHP: 100, currentHP: 100 }, 
+                // שינוי: ארס מתחיל במיקום ספציפי
+                ares: { x: canvas.width / 2 - 25, y: 50, w: 50, h: 50, color: '#b91c1c', maxHP: 150, currentHP: 150, speed: 1.5, lastShot: 0, shootRate: 1500 }, 
+                playerProjectiles: [],
+                aresProjectiles: [],
+                lastPlayerShot: 0,
+                playerShootCooldown: 300, // 300ms cooldown for player shooting (Spacebar)
+                update: updateAresDuel,
+                draw: drawAresDuel,
+            };
+        }
+
+        function updateAresDuel(timestamp) {
+            const player = canvasState.player;
+            const ares = canvasState.ares;
+
+            // 1. תנועת שחקן (Arrows)
+            if (keys['ArrowLeft'] && player.x > 0) player.x -= player.speed;
+            if (keys['ArrowRight'] && player.x < canvas.width - player.w) player.x += player.speed;
+            if (keys['ArrowUp'] && player.y > 0) player.y -= player.speed;
+            if (keys['ArrowDown'] && player.y < canvas.height - player.h) player.y += player.speed;
+
+            // 2. ירי שחקן (Spacebar)
+            if (keys[' '] && timestamp - canvasState.lastPlayerShot > canvasState.playerShootCooldown) {
+                // יצירת קליע של השחקן
+                canvasState.playerProjectiles.push({
+                    x: player.x + player.w / 2 - 2, 
+                    y: player.y,
+                    w: 4, h: 10, speed: 7, damage: 10, color: '#FFD700', type: 'arrow'
+                });
+                canvasState.lastPlayerShot = timestamp;
+                // אין איפוס רווח כאן, כפתור הרווח מטופל ב-handleKeyUp
+            }
+            
+            // 3. תנועה ומתקפה של ארס
+            // תנועה: תנועה אופקית פשוטה
+            ares.x += ares.speed;
+            if (ares.x > canvas.width - ares.w || ares.x < 0) {
+                ares.speed *= -1;
+            }
+
+            // ירי ארס (מזמן)
+            if (timestamp - ares.lastShot > ares.shootRate) {
+                // יצירת קליע של ארס (חנית מכוונת)
+                const dx = (player.x + player.w / 2) - (ares.x + ares.w / 2);
+                const dy = (player.y + player.h / 2) - (ares.y + ares.h / 2);
+                const angle = Math.atan2(dy, dx);
+                
+                canvasState.aresProjectiles.push({
+                    x: ares.x + ares.w / 2 - 5, 
+                    y: ares.y + ares.h,
+                    w: 10, h: 10, speed: 4, damage: 20, color: '#b91c1c',
+                    speedX: Math.cos(angle) * 4,
+                    speedY: Math.sin(angle) * 4
+                });
+                ares.lastShot = timestamp;
+                // הגברת קצב ירי
+                ares.shootRate = Math.max(800, ares.shootRate - 2);
+            }
+
+
+            // 4. עדכון קליעי שחקן ובדיקת התנגשות מול ארס
+            for (let i = canvasState.playerProjectiles.length - 1; i >= 0; i--) {
+                const proj = canvasState.playerProjectiles[i];
+                proj.y -= proj.speed;
+
+                if (checkCollision(proj, ares)) {
+                    ares.currentHP = Math.max(0, ares.currentHP - proj.damage);
+                    canvasState.playerProjectiles.splice(i, 1);
+                } else if (proj.y < -10) {
+                    canvasState.playerProjectiles.splice(i, 1);
+                }
+            }
+
+            // 5. עדכון קליעי ארס ובדיקת התנגשות מול שחקן
+            for (let i = canvasState.aresProjectiles.length - 1; i >= 0; i--) {
+                const proj = canvasState.aresProjectiles[i];
+                proj.x += proj.speedX;
+                proj.y += proj.speedY;
+
+                if (checkCollision(proj, player)) {
+                    player.currentHP = Math.max(0, player.currentHP - proj.damage);
+                    canvasState.aresProjectiles.splice(i, 1);
+                } else if (proj.y < -10 || proj.y > canvas.height + 10 || proj.x < -10 || proj.x > canvas.width + 10) {
+                    canvasState.aresProjectiles.splice(i, 1);
+                }
+            }
+            
+            // 6. בדיקת תנאי ניצחון/הפסד
+            if (ares.currentHP <= 0) {
+                canvasState.isRunning = false;
+                handleQuestResult(true, `הבסת את ארס בדו-קרב! הזעם שלו נרגע והבלגן האולימפי הסתיים.`, 1200);
+            } else if (player.currentHP <= 0) {
+                canvasState.isRunning = false;
+                handleQuestResult(false, `ארס הביס אותך בדו-קרב. נסה שוב לחמש את עצמך!`);
+            }
+        }
+
+        function drawAresDuel() {
+            if (!ctx) return;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const player = canvasState.player;
+            const ares = canvasState.ares;
+
+            // 1. ציור קליעי ארס (חניתות אנרגיה)
+            canvasState.aresProjectiles.forEach(proj => {
+                 ctx.fillStyle = proj.color; // אדום
+                 ctx.shadowColor = proj.color;
+                 ctx.shadowBlur = 10;
+                 ctx.fillRect(proj.x, proj.y, proj.w, proj.h);
+                 
+                 // ציור חץ או קצה חנית
+                 ctx.fillStyle = '#FFD700';
+                 ctx.fillRect(proj.x + proj.w / 2 - 2, proj.y, 4, 15);
+
+                 ctx.shadowBlur = 0;
+            });
+
+            // 2. ציור קליעי שחקן (אנרגיה)
+            canvasState.playerProjectiles.forEach(proj => {
+                 ctx.fillStyle = proj.color; // צהוב
+                 ctx.shadowColor = proj.color;
+                 ctx.shadowBlur = 8;
+                 ctx.fillRect(proj.x, proj.y, proj.w, proj.h);
+                 ctx.shadowBlur = 0;
+            });
+
+            // 3. ציור ארס (אויב)
+            drawAresFigure(ares);
+
+            // 4. ציור שחקן (דמות)
+            drawPlayerFigure(player);
+
+            // 5. ציור פסי בריאות
+            // פס בריאות ארס
+            drawHealthBar(ares.x - 10, ares.y - 15, ares.w + 20, 8, ares.currentHP, ares.maxHP, '#ff0000');
+            // פס בריאות שחקן
+            drawHealthBar(player.x - 10, player.y + player.h + 5, player.w + 20, 8, player.currentHP, player.maxHP, '#00ff00');
+            
+            // 6. עדכון מידע
+            const info = document.getElementById('game-info');
+            if (canvasState.isRunning && info) {
+                info.innerHTML = `HP שלך: <span style="color: green">${player.currentHP}</span> / ${player.maxHP} | HP של ארס: <span style="color: red">${ares.currentHP}</span> / ${ares.maxHP}`;
+            }
+        }
+
 
         // טעינת המשחק עם פתיחת הדף + טיפול בשגיאות
         window.onload = function() {

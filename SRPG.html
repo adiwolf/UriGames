@@ -125,6 +125,33 @@
             filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.5));
         }
         
+        /* NEW: Small HP Bar for units on the board */
+        .hp-bar {
+            position: absolute;
+            bottom: 5px; /* מיקום בתחתית האריח */
+            width: 80%; /* רוחב הפס */
+            height: 6px;
+            background-color: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 3px;
+            z-index: 10; /* מעל האריח, מתחת לאייקון (האייקון כבר ב-z-index 10) */
+            overflow: hidden;
+        }
+        .hp-fill {
+            height: 100%;
+            transition: width 0.3s;
+            border-radius: 2px;
+        }
+
+        /* UPDATED: Player HP is dark green */
+        .hp-player { 
+            background-color: #388E3C; /* Darker Green for better contrast/theme */
+        }
+        /* UPDATED: Change enemy HP color to a strong red */
+        .hp-enemy {
+            background-color: #D32F2F; /* Strong red for enemy contrast */
+        }
+
         /* Battle Overlay (No change) */
         #battle-overlay {
             position: fixed;
@@ -372,16 +399,8 @@
             }
             /* Action buttons under the map still flow inline/wrap */
             #action-buttons {
-                 margin-top: 5px;
+                margin-top: 5px;
             }
-        }
-        /* UPDATED: Change player HP color to a darker green */
-        .hp-player { 
-            background-color: #388E3C; /* Darker Green for better contrast/theme */
-        }
-        /* UPDATED: Change enemy HP color to a strong red */
-        .hp-enemy {
-            background-color: #D32F2F; /* Strong red for enemy contrast */
         }
     </style>
 </head>
@@ -836,7 +855,7 @@
                 return leveledUp;
             }
 
-            // תצוגת HP כאלמנט HTML
+            // תצוגת HP כאלמנט HTML (מופעלת תמיד)
             renderHpBar(tile) {
                 let hpBar = tile.querySelector('.hp-bar');
                 if (!hpBar) {
@@ -866,6 +885,7 @@
                 // שימוש ב-SVG במקום אימוג'י
                 iconSpan.innerHTML = getUnitSVG(this.type);
                 tile.appendChild(iconSpan);
+                // FIXED: קריאה ל-renderHpBar כאן כדי שהפס יהיה גלוי תמיד
                 this.renderHpBar(tile);
             }
             
@@ -1019,10 +1039,10 @@
             // For defender, we flip the icon in CSS
             const slotClass = isAttacker ? 'overlay-attacker' : 'overlay-defender';
             
-            slot.className = `overlay-unit-slot ${slotClass}`;
-
             // HP Percentage
             const hpPercent = (unit.hp / unit.maxHp) * 100;
+
+            slot.className = `overlay-unit-slot ${slotClass}`;
 
             slot.innerHTML = `
                 <h3 style="margin-bottom: 5px;">${unit.name}</h3>
@@ -1063,7 +1083,7 @@
             attackerElements.icon.style.transition = `transform ${ATTACK_LUNGE_TIME}ms ease-out`;
             
             // זינוק של התוקף לעבר המגן
-            attackerElements.icon.style.transform = `translateX(${lungeDistance}px)`; 
+            attackerElements.icon.style.transform = `translateX(${attacker.team === 'player' ? lungeDistance : -lungeDistance}px)`; 
             
             await sleep(ATTACK_LUNGE_TIME); 
 
@@ -1157,13 +1177,14 @@
                 enemies.push(new Unit('banditArcher', 'enemy', 1, 4, 'קשת שודד', 0, 1, 1.0)); 
             }
             
-            // NEW: קרב 3: התקפה מתואמת עם לוחמים מנוסים יותר (5 אויבים)
+            // UPDATED: קרב 3: התקפה מתואמת עם יותר אויבים מנוסים (6 אויבים)
             else if (battleIndex === 3) {
-                 enemies.push(new Unit('orc', 'enemy', 0, 2, 'מפקד מלחמת דם', 0, 3, 1.0)); // רמה 3
-                 enemies.push(new Unit('banditArcher', 'enemy', 1, 0, 'קשת שודד (אגף)', 0, 2, 1.0)); // רמה 2
-                 enemies.push(new Unit('banditArcher', 'enemy', 1, 4, 'קשת שודד (אגף)', 0, 2, 1.0)); // רמה 2
-                 enemies.push(new Unit('bandit', 'enemy', 2, 1, 'שודד ותיק', 0, 2, 1.0)); // רמה 2
-                 enemies.push(new Unit('orc', 'enemy', 2, 3, 'אורק לוחם', 0, 2, 1.0)); // רמה 2
+                 enemies.push(new Unit('orc', 'enemy', 0, 2, 'מפקד מלחמת דם', 0, 3, 1.0)); 	// רמה 3, מרכז קדמי
+                 enemies.push(new Unit('bandit', 'enemy', 0, 4, 'שודד מובחר', 0, 3, 1.0)); 	 // רמה 3, אגף קדמי ימני
+                 enemies.push(new Unit('banditArcher', 'enemy', 1, 0, 'קשת שודד (אגף)', 0, 2, 1.0)); // רמה 2, אגף שמאל רחוק
+                 enemies.push(new Unit('banditArcher', 'enemy', 1, 3, 'קשת שודד (אגף)', 0, 2, 1.0)); // רמה 2, אגף ימין רחוק
+                 enemies.push(new Unit('orc', 'enemy', 2, 1, 'אורק משוריין', 0, 2, 1.0)); 	 // רמה 2, מרכז שמאל
+                 enemies.push(new Unit('bandit', 'enemy', 2, 4, 'שודד ותיק', 0, 2, 1.0)); 	 // רמה 2, אגף ימני אחורי
             }
             
             // קרב 4+: קרב קשה יותר ומתגבר
@@ -1568,7 +1589,7 @@
                  progressInfo = `
                      <p>רמה: ${unit.level}</p>
                      <p>XP: ${unit.xp}/${unit.xpToNextLevel} (${Math.floor(percent)}%)</p>
-                   `;
+                    `;
              }
              
              SELECTED_UNIT_INFO.innerHTML = `
@@ -1843,12 +1864,12 @@
 
                     // FIX: אם היחידה הישנה 'scout' קיימת, מעביר אותה ל-'mage'
                     if (data.unitProgress && data.unitProgress.scout && data.unitProgress.scout.recruited) {
-                         unitProgress.mage.recruited = true;
-                         unitProgress.mage.level = data.unitProgress.scout.level;
-                         unitProgress.mage.xp = data.unitProgress.scout.xp;
-                         itemUpgrades.mage = data.itemUpgrades.scout || itemUpgrades.mage;
-                         delete unitProgress.scout;
-                         delete itemUpgrades.scout;
+                          unitProgress.mage.recruited = true;
+                          unitProgress.mage.level = data.unitProgress.scout.level;
+                          unitProgress.mage.xp = data.unitProgress.scout.xp;
+                          itemUpgrades.mage = data.itemUpgrades.scout || itemUpgrades.mage;
+                          delete unitProgress.scout;
+                          delete itemUpgrades.scout;
                     }
                 } else {
                     // שמור נתוני ברירת מחדל אם אין
@@ -1878,7 +1899,7 @@
                 knight: unitProgress.knight,
                 archer: unitProgress.archer,
                 spearman: unitProgress.spearman,
-                mage: unitUpgrades.mage // רק Mage
+                mage: unitProgress.mage // רק Mage
             };
 
             const docRef = doc(db, 'artifacts', typeof __app_id !== 'undefined' ? __app_id : 'default-app-id', 'users', userId, 'progress', 'goldData');

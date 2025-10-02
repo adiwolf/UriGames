@@ -675,6 +675,7 @@
                 this.name = name;
                 
                 // NEW: XP and Level tracking (only for player units)
+                // If it's an enemy unit (type is not 'knight' or 'archer'), these default to 0/1, which is fine.
                 this.level = level;
                 this.xp = xp;
                 this.xpToNextLevel = level * 1000;
@@ -683,8 +684,11 @@
                 const levelStats = calculateLevelBonus(type, level);
                 
                 // 2. Apply permanent Item Upgrades (stored in itemUpgrades global)
-                // Note: Enemy units do not have itemUpgrades, so this defaults to 0s
-                const itemUpgradesForType = itemUpgrades[type] || { hp: 0, atk: 0, def: 0, move: 0, range: 0 };
+                // Ensure we only try to apply item upgrades to units that actually have them (knight/archer)
+                let itemUpgradesForType = { hp: 0, atk: 0, def: 0, move: 0, range: 0 };
+                if (itemUpgrades[type]) {
+                    itemUpgradesForType = itemUpgrades[type];
+                }
                 
                 // Final Stats
                 this.maxHp = levelStats.totalHp + itemUpgradesForType.hp; 
@@ -859,7 +863,7 @@
 
              // עדכון כפתור סיום תור
             if (gameState === 'upgradePhase') {
-                END_TURN_BTN.textContent = `התחל קרב הבא (${currentBattleIndex + 1})`;
+                END_TURN_BTN.textContent = `התחל קרב הבא (${currentBattleIndex})`;
                 END_TURN_BTN.disabled = false;
             } else if (gameState !== 'gameOver') {
                  END_TURN_BTN.textContent = "סיום תור >>";
@@ -1044,6 +1048,7 @@
             
             // יצירת יחידות השחקן עם סטטיסטיקות מעודכנות ו-HP מלא
             const playerUnits = [
+                // initialHpRatio = 1.0 מבטיח ריפוי מלא
                 new Unit('knight', 'player', 4, 1, 'אביר', knightProgress.xp, knightProgress.level, 1.0),
                 new Unit('archer', 'player', 4, 3, 'קשת', archerProgress.xp, archerProgress.level, 1.0),
             ];
@@ -1060,11 +1065,11 @@
             renderBoard(); // עכשיו מוצגות היחידות
             
             STATUS_MESSAGE.textContent = `מתחילים קרב ${currentBattleIndex}! בחר יחידה והתחל.`;
-            RESTART_BTN.disabled = true;
+            RESTART_BTN.disabled = false;
             END_TURN_BTN.disabled = false;
             END_TURN_BTN.textContent = "התחל תור (1)";
             
-            updateUI(); // NEW: עדכון UI לאחר אתחול
+            updateUI(); // **FIXED**: עדכון UI בסוף האתחול
             startGameTurn();
         }
         

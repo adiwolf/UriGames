@@ -190,8 +190,10 @@
             height: 100%;
             transition: width 0.3s;
         }
-        .overlay-hp-player { background-color: #4CAF50; }
-        .overlay-hp-enemy { background-color: #f44336; }
+        /* UPDATED: Player HP is dark green */
+        .overlay-hp-player { background-color: #388E3C; } 
+        /* UPDATED: Enemy HP is bright red */
+        .overlay-hp-enemy { background-color: #D32F2F; }
         
         /* Unit Colors (No change) */
         .player-unit { color: #4CAF50; } 
@@ -372,6 +374,14 @@
             #action-buttons {
                  margin-top: 5px;
             }
+        }
+        /* UPDATED: Change player HP color to a darker green */
+        .hp-player { 
+            background-color: #388E3C; /* Darker Green for better contrast/theme */
+        }
+        /* UPDATED: Change enemy HP color to a strong red */
+        .hp-enemy {
+            background-color: #D32F2F; /* Strong red for enemy contrast */
         }
     </style>
 </head>
@@ -838,7 +848,8 @@
                 let hpFill = hpBar.querySelector('.hp-fill');
                 if (!hpFill) {
                     hpFill = document.createElement('div');
-                    hpFill.className = `hp-fill ${this.team === 'player' ? 'hp-player' : 'hp-enemy'}`;
+                    // FIXED: מחלקה של פס החיים
+                    hpFill.className = `hp-fill ${this.team === 'player' ? 'hp-player' : 'hp-enemy'}`; 
                     hpBar.appendChild(hpFill);
                 }
                 
@@ -861,10 +872,18 @@
             // לקיחת נזק
             takeDamage(damage) {
                 const effectiveDamage = Math.max(1, damage - this.def);
+                // FIXED: מוודאים שהאריח קיים ב-board
+                const tile = (this.row >= 0 && this.row < BOARD_SIZE && this.col >= 0 && this.col < BOARD_SIZE) ? board[this.row][this.col] : null;
+
                 this.hp = Math.max(0, this.hp - effectiveDamage);
+                
+                // NEW: עדכון פס החיים המיידי על הלוח
+                if (tile) {
+                    this.renderHpBar(tile);
+                }
+
                 if (this.hp === 0) {
                     // NEW: יחידה מתה נעלמת מהלוח באופן מיידי
-                    const tile = board[this.row] ? board[this.row][this.col] : null;
                     if(tile) tile.innerHTML = '';
                     
                     return true; // היחידה מתה
@@ -1049,6 +1068,7 @@
             await sleep(ATTACK_LUNGE_TIME); 
 
             // 4. יישום נזק
+            // *** שימו לב: הלוגיקה של לקיחת הנזק והפחתת HP נמצאת בתוך takeDamage() ***
             const isDead = defender.takeDamage(attacker.atk);
             
             // אנימציית רעד קלה על המגן
@@ -1088,6 +1108,7 @@
             // נעילת המשחק
             gameState = 'animating'; 
             
+            // ** FIXED: הפונקציה takeDamage דואגת כעת לעדכן את הפס חיים על הלוח **
             const isDead = await animateAttack(attacker, defender);
 
             // 5. לוגיקה לאחר האנימציה
@@ -1099,7 +1120,7 @@
                  STATUS_MESSAGE.textContent = `${attacker.name} תקף את ${defender.name}. נותרו לו ${Math.floor(defender.hp)} חיים.`;
             }
             
-            // עדכון הלוח לאחר הקרב (כדי שפס החיים יתעדכן)
+            // עדכון הלוח לאחר הקרב (כדי לוודא שהיחידה המתה נעלמת והפסים מתעדכנים סופית)
             renderBoard();
 
             // שחרור נעילת המשחק (אם המשחק לא הסתיים)
@@ -1857,7 +1878,7 @@
                 knight: unitProgress.knight,
                 archer: unitProgress.archer,
                 spearman: unitProgress.spearman,
-                mage: unitProgress.mage // רק Mage
+                mage: unitUpgrades.mage // רק Mage
             };
 
             const docRef = doc(db, 'artifacts', typeof __app_id !== 'undefined' ? __app_id : 'default-app-id', 'users', userId, 'progress', 'goldData');

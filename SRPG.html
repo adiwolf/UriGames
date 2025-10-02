@@ -334,7 +334,7 @@
             gap: 10px;
         }
 
-        /* Story Panel (No change) */
+        /* Story Panel (Now dynamic content) */
         #story-panel {
             background-color: #3e2723;
             padding: 15px;
@@ -443,24 +443,9 @@
                 <button id="toggle-story-btn" class="action-btn main-control-btn">סיפור ומדריך</button>
             </div>
             
-            <!-- Story Panel -->
+            <!-- Story Panel - התוכן נוצר כעת על ידי JavaScript -->
             <div id="story-panel">
-                <h2>סיפור רקע: מפקד הממלכה: קרב הדרור</h2>
-                <p>ממלכת הדרור, שפעם הייתה נחלת שלווה המוגנת על ידי חומות עתיקות, עומדת כעת בפני מבחן. בעקבות גילוי עורק נדיר של **זהב קסום** בהרי צפון, התעוררו ישויות רעבות ותאבות בצע.</p>
-
-                <p>אתה, המפקד הצעיר של חיל המצב, נותרת עם שניים בלבד מהלוחמים הנאמנים ביותר:</p>
-                <ul>
-                    <li>**האביר:** מגן אמיץ, עם שריון בסיסי וחרב חלודה. הוא קו ההגנה הראשון.</li>
-                    <li>**הקשת:** צייד מיומן, עם קשת עץ פשוטה ועין חדה. היא התקווה לטווח ארוך.</li>
-                </ul>
-                <h3>החוקים וההתקדמות</h3>
-                <p>כל קרב על לוח זה הוא מארב. תצטרכו להשתמש בחוכמה ובטקטיקה כדי להביס את גלי האויבים (אורקים ושודדים) שנוהרים לעבר המפקדה שלכם.</p>
-                <ul>
-                    <li>**צבירת XP ודרגות:** כל אויב מושמד מעניק **נקודות ניסיון (XP)**. עלייה בדרגה משפרת את הסטטיסטיקות הבסיסיות של הגיבור (חיים, התקפה, הגנה).</li>
-                    <li>**זהב ושדרוג:** זהב נצבר מכל ניצחון. השתמש בו ב**חנות הציוד** כדי לרכוש נשקים ושריונות משופרים (חרבות וקשתות ברזל, שריונות פלדה).</li>
-                    <li>**ציוד מותנה:** פריטי ה**פלדה** דורשים מהיחידה להיות **בדרגה 3 ומעלה** כדי שתוכל להשתמש בהם.</li>
-                    <li>**ריפוי מלא:** בין קרב לקרב, הגיבורים שלך מטופלים היטב ו**החיים שלהם מתמלאים במלואם**.</li>
-                </ul>
+                <!-- Story content will be dynamically inserted here -->
             </div>
 
 
@@ -553,20 +538,94 @@
             knight: { hp: 0, atk: 0, def: 0, move: 0, range: 0 },
             archer: { hp: 0, atk: 0, def: 0, move: 0, range: 0 },
             spearman: { hp: 0, atk: 0, def: 0, move: 0, range: 0 },
-            mage: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }    // UPDATED: 'mage'
+            mage: { hp: 0, atk: 0, def: 0, move: 0, range: 0 } 
         };
         // NEW: שמירת נתוני רמה/XP - כולל סטטוס גיוס
         let unitProgress = {
             knight: { level: 1, xp: 0, nextLevelXp: 1000 },
             archer: { level: 1, xp: 0, nextLevelXp: 1000 },
             spearman: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false },
-            mage: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false } // UPDATED: 'mage'
+            mage: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false }
         };
 
 
         // מצבי פעולה - כבר לא משתמשים בו בצורה מפורשת עבור ה-UI
         let currentAction = null; 
         
+        // ------------------------------------
+        // קטעי סיפור ולור - נחשפים לאט לאט
+        // ------------------------------------
+        const loreSegments = {
+            // Stage 1: Before Battle 1 (The Initial Plight)
+            1: {
+                title: "ההתחלה: קרב הדרור הראשון",
+                lore: `<p>ממלכת הדרור, שפעם הייתה נחלת שלווה המוגנת על ידי חומות עתיקות, עומדת כעת בפני מבחן. בעקבות גילוי עורק נדיר של <strong>זהב קסום</strong> בהרי צפון, התעוררו ישויות רעבות ותאבות בצע.</p>
+                       <p>אתה, המפקד הצעיר של חיל המצב, נותרת עם שניים בלבד מהלוחמים הנאמנים ביותר: <strong>האביר</strong> ו<strong>הקשת</strong>. זה הקרב הראשון שלכם על הגנת הבסיס. זהו רק משמר קדמי של שודדים, אך היכולות שלהם עלולות להפתיע.</p>`,
+                guide: `<h3>מדריך: חוקי בסיס</h3>
+                        <ul>
+                            <li>כל יחידה שחקן יכולה לבצע <strong>תזוזה אחת</strong> ו<strong>התקפה אחת</strong> בתור.</li>
+                            <li><strong>טווח תנועה:</strong> מספר האריחים המקסימלי למהלך (במצטבר).</li>
+                            <li><strong>טווח התקפה:</strong> מרחק המטרה מהיחידה.</li>
+                            <li><strong>מצב שדרוג:</strong> לאחר ניצחון בקרב, ה-HP מתמלא במלואו, ואתה עובר לחנות (Upgrade Shop) לרכישת ציוד, גיוס או שדרוג רמות.</li>
+                        </ul>`
+            },
+            // Stage 2: After Battle 1 (New Threat Revealed - Ranged Units)
+            2: {
+                title: "האויב לומד: איום הקשתים",
+                lore: `<p>הדיפתם את גל האורקים הראשון! אך מרחוק, זיהינו קשתים שודדים שמתקרבים דרך העמקים הצדדיים. האויב לומד את הטקטיקה שלך ומנסה לשבור את קו החזית שלך עם יחידות לטווח רחוק.</p>
+                       <p><strong>טיפ גיוס:</strong> יש שמועות על <strong>לוחם מגן (Spearman)</strong> שאולי תוכל לגייס. הוא מגן חזק שיכול לשמש כחומה נגד יחידות מליאה, אך דורש עבודה טקטית בגלל טווח התנועה המוגבל שלו.</p>`,
+                guide: `<h3>חוקי בסיס</h3>
+                        <ul>
+                            <li><strong>התקפה:</strong> הנזק מחושב כך: (התקפת תוקף) - (הגנת מגן) = נזק מינימלי של 1.</li>
+                            <li><strong>עליית רמה (XP):</strong> השמדת אויב מעניקה XP. עלייה ברמה מגדילה אוטומטית את ה-HP, ההתקפה וההגנה הבסיסיים.</li>
+                            <li><strong>התקדמות ברמות:</strong> רמות גבוהות יותר (מדרגה 3) פותחות גישה לציוד **פלדה** חזק בחנות!</li>
+                        </ul>`
+            },
+            // Stage 3: After Battle 2 (The Growing Horde - Magic Threat)
+            3: {
+                title: "חומות הברזל: כוח חדש?",
+                lore: `<p>ניצחון קשה נגד תגבורת האויב. המפקדים המנוסים יותר של האורקים מגיעים לשטח, והם נעים בצורה מתוכננת יותר. ההגנות שלך חזקות, אבל כוח אש חזק יותר ידרש בקרוב. </p>
+                       <p><strong>טיפ גיוס:</strong> בדרכים נתקלנו ב<strong>מכשף נודד (Mage)</strong> בעל כוח אש מדהים, אך הוא שביר כמו קליפת ביצה. הוא יקר לגיוס, אבל הנזק שלו עשוי להפוך את הקרב הבא לפשוט יותר.</p>`,
+                guide: `<h3>חוקי בסיס: טקטיקה מתקדמת</h3>
+                        <ul>
+                            <li><strong>התקפת מטווח:</strong> קשתות ומכשפים יכולים לתקוף יחידות ממרחק. <strong>אביר</strong> יכול לשמש כהגנה על יחידות שבריריות יותר.</li>
+                            <li><strong>מיקום:</strong> השתמשו בלוח בצורה חכמה. יחידות קשת נמצאות בטוחות יותר בשורה האחורית (4) בזמן שהאבירים מחפים עליהן בשורה הקדמית.</li>
+                        </ul>`
+            },
+            // Stage 4: After Battle 3 (The Long War)
+            4: {
+                title: "המערכה המתארכת: כוחות העומק",
+                lore: `<p>ניצחתם את גל התקיפה הגדול ביותר עד כה, אבל נראה שהאויב אינו נגמר. אם ברשותך כוחות נוספים (לוחם מגן או מכשף), למד לשלב את יכולות ההגנה וההתקפה המיוחדות שלהם. כל קרב עולה בדרגת הקושי, והרמה הממוצעת של האויבים תמשיך לעלות. המשך לאגור זהב, המפקד!</p>`,
+                guide: `<h3>חוקי בסיס: תזכורת</h3>
+                        <ul>
+                            <li><strong>שמירה:</strong> כל ההתקדמות (זהב, רמות, גיוסים) נשמרת אוטומטית ב-Firestore.</li>
+                            <li><strong>מטרה:</strong> השמד את כל יחידות האויב כדי להתקדם לחנות השדרוג ולקרב הבא.</li>
+                        </ul>`
+            }
+        };
+
+        function generateStoryContent() {
+            // הצגת כל הסיפורים שנחשפו עד כה
+            // אם currentBattleIndex הוא 3, זה אומר שניצחנו את קרב 2 והצגנו את סיפור 2, אז נציג את כל הסיפורים מ-1 עד 3.
+            const battlesWon = Math.max(0, currentBattleIndex - 1);
+            const segmentsToShow = battlesWon + 1;
+            
+            let fullHtml = '<h2>סיפור רקע ומדריך: מפקד הממלכה</h2>';
+            
+            for (let i = 1; i <= segmentsToShow; i++) {
+                const segment = loreSegments[i] || loreSegments[4]; // השתמש בסיפור 4 כברירת מחדל להמשך
+                
+                fullHtml += `<div style="margin-bottom: 20px; border-bottom: 1px solid #795548; padding-bottom: 10px;">
+                                <h3>${i}. ${segment.title}</h3>
+                                ${segment.lore}
+                                ${i === segmentsToShow ? segment.guide : ''} <!-- הצג מדריך רק עבור הסיפור האחרון שנפתח -->
+                            </div>`;
+            }
+            
+            STORY_PANEL.innerHTML = fullHtml;
+        }
+
+
         // ------------------------------------
         // פונקציות עזר (Utility)
         // ------------------------------------
@@ -620,7 +679,6 @@
             const BLACK_GARB = '#1a1a1a'; 
             const MAROON_ACCENT = '#5C3333'; 
             const BRONZE_LIGHT = '#D4A017'; // Lighter Bronze for highlights
-            const SPEAR_TIP = '#E0E0E0'; // Light silver/steel for spear head
             const MAGE_ROBE = '#9C27B0'; // Purple for Mage robe
             const MAGE_ACCENT = '#FFEB3B'; // Gold/Yellow for Mage trim
             
@@ -980,7 +1038,7 @@
             
             // Unit Recruit Buttons
             const recruitSpearmanBtn = document.getElementById('recruit-spearman');
-            const recruitMageBtn = document.getElementById('recruit-mage'); // UPDATED ID
+            const recruitMageBtn = document.getElementById('recruit-mage'); 
 
             // עדכון כפתורי הקנייה: בדיקת זהב ורמה
             if (buyKnightIronSwordBtn) buyKnightIronSwordBtn.disabled = gold < costIronSword || itemUpgrades.knight.atk >= 10;
@@ -1006,9 +1064,9 @@
                     recruitSpearmanBtn.textContent = "לוחם מגן גויס (ברשותך)";
                 }
             }
-            if (recruitMageBtn) { // UPDATED ID
-                recruitMageBtn.disabled = gold < costMage || unitProgress.mage.recruited; // UPDATED type
-                if (unitProgress.mage.recruited) { // UPDATED type
+            if (recruitMageBtn) { 
+                recruitMageBtn.disabled = gold < costMage || unitProgress.mage.recruited; 
+                if (unitProgress.mage.recruited) { 
                     recruitMageBtn.textContent = "מכשף גויס (ברשותך)";
                 }
             }
@@ -1021,7 +1079,7 @@
                 END_TURN_BTN.textContent = `התחל קרב הבא (${currentBattleIndex})`;
                 END_TURN_BTN.disabled = false;
             } else if (gameState !== 'gameOver') {
-                 END_TURN_BTN.textContent = "סיום תור >>";
+                END_TURN_BTN.textContent = "סיום תור >>";
             }
             
             // עדכון כותרת הסטטוס (קרב נוכחי)
@@ -1190,7 +1248,7 @@
             // קרב 4+: קרב קשה יותר ומתגבר
             else {
                  const baseLevel = battleIndex - 2; // מתחיל מ-2 בקרב 4
-                 enemies.push(new Unit('orc', 'enemy', 0, 2, `גנרל ${battleIndex}`, 0, Math.min(6, baseLevel + 1), 1.0)); 
+                 enemies.push(new Unit('orc', 'enemy', 0, 2, `גנרל קרב ${battleIndex}`, 0, Math.min(6, baseLevel + 1), 1.0)); 
                  enemies.push(new Unit('bandit', 'enemy', 1, 1, 'שודד', 0, baseLevel, 1.0));
                  enemies.push(new Unit('bandit', 'enemy', 1, 3, 'שודד', 0, baseLevel, 1.0));
                  enemies.push(new Unit('banditArcher', 'enemy', 0, 4, 'קשת מאגף', 0, baseLevel, 1.0));
@@ -1226,12 +1284,12 @@
             // NEW: הוספת יחידות מגויסות
             if (unitProgress.spearman.recruited) {
                 const sp = unitProgress.spearman;
-                playerUnits.push(new Unit('spearman', 'player', 3, 0, 'לוחם מגן', sp.xp, sp.level, 1.0));
+                playerUnits.push(new Unit('spearman', 'player', 4, 0, 'לוחם מגן', sp.xp, sp.level, 1.0));
             }
             // UPDATED: recruit mage if recruited
             if (unitProgress.mage.recruited) {
                 const mg = unitProgress.mage;
-                playerUnits.push(new Unit('mage', 'player', 3, 4, 'מכשף', mg.xp, mg.level, 1.0));
+                playerUnits.push(new Unit('mage', 'player', 4, 4, 'מכשף', mg.xp, mg.level, 1.0));
             }
             
             // יצירת אויבים לפי מספר הקרב
@@ -1250,7 +1308,8 @@
             END_TURN_BTN.disabled = false;
             END_TURN_BTN.textContent = "התחל תור (1)";
             
-            updateUI(); // **FIXED**: עדכון UI בסוף האתחול
+            generateStoryContent(); // **NEW: עדכון הסיפור לפני הקרב**
+            updateUI(); 
             startGameTurn();
         }
         
@@ -1395,10 +1454,6 @@
             }
         }
 
-        function moveEnemyTowardsClosestPlayer(enemy) {
-             // הפונקציה הישנה הזו הוסרה והוחלפה ב-findBestEnemyMove
-        }
-
         function checkWinCondition() {
             // רק יחידות חיות נספרות
             const playerAlive = units.some(u => u.team === 'player' && u.isAlive);
@@ -1431,22 +1486,24 @@
                 unitProgress[u.type].nextLevelXp = u.xpToNextLevel;
             });
             
+            currentBattleIndex++; // **קידום מספר הקרב לפני שמירת הנתונים ועדכון הסיפור**
+            
             // הוספת עלילה ספציפית לכל ניצחון
             let battleStory = '';
-            if (currentBattleIndex === 1) {
+            if (currentBattleIndex === 2) { // ניצחון בקרב 1
                 battleStory = "הדיפתם את גל האורקים הראשון! אך מרחוק, זיהינו קשתים שודדים שמתקרבים דרך העמקים הצדדיים. התכונן לתגבורת מהירה יותר, המפקד. ";
-            } else if (currentBattleIndex === 2) {
+            } else if (currentBattleIndex === 3) { // ניצחון בקרב 2
                  battleStory = "האזור נקי לעת עתה. ניצחון קשה נגד תגבורת האויב. עליך להתחזק במהירות, המאבק רק החל. ";
-            } else if (currentBattleIndex === 3) {
+            } else if (currentBattleIndex === 4) { // ניצחון בקרב 3
                  battleStory = "התקיפה המתואמת של גל האויבים השלישי נכשלה בזכות הלוחמים החדשים והנשקים המשופרים שלכם. נראה שהמלחמה רק החלה להתחמם.";
             } else {
                  battleStory = "ניצחון נוסף! אויבי הממלכה ממשיכים להפסיד קרב אחר קרב.";
             }
 
-            STATUS_MESSAGE.innerHTML = `<span style="color:#ffc107;">ניצחון בקרב ${currentBattleIndex}!</span> ${battleStory} זכית ב-${goldEarned} זהב. שדרג את יחידותיך בחנות לפני הקרב הבא.`;
+            STATUS_MESSAGE.innerHTML = `<span style="color:#ffc107;">ניצחון בקרב ${currentBattleIndex - 1}!</span> ${battleStory} זכית ב-${goldEarned} זהב. שדרג את יחידותיך בחנות לפני הקרב הבא.`;
             
-            currentBattleIndex++; // קידום מספר הקרב
             await saveGold(); // שמירת הכל
+            generateStoryContent(); // **NEW: עדכון הסיפור כדי להציג את הפרק החדש**
             updateUI();
 
             RESTART_BTN.disabled = false;
@@ -1587,8 +1644,8 @@
              if (unit.team === 'player') {
                  const percent = (unit.xp / unit.xpToNextLevel) * 100;
                  progressInfo = `
-                     <p>רמה: ${unit.level}</p>
-                     <p>XP: ${unit.xp}/${unit.xpToNextLevel} (${Math.floor(percent)}%)</p>
+                      <p>רמה: ${unit.level}</p>
+                      <p>XP: ${unit.xp}/${unit.xpToNextLevel} (${Math.floor(percent)}%)</p>
                     `;
              }
              
@@ -1707,8 +1764,17 @@
             
             // NEW: ודא שניתן לקנות ציוד רק ליחידות קיימות/מגויסות
             // UPDATED: Added 'mage' to the check
-            if (!unitProgress[unitType] || (unitType !== 'knight' && unitType !== 'archer' && unitType !== 'spearman' && unitType !== 'mage' && !unitProgress[unitType].recruited)) {
-                 STATUS_MESSAGE.textContent = `לא ניתן לקנות ציוד. גייס את יחידת ${unitType} תחילה!`;
+            if (!unitProgress[unitType] || (unitType !== 'knight' && unitType !== 'archer' && !unitProgress[unitType].recruited)) {
+                 if (unitType === 'spearman' && !unitProgress.spearman.recruited) {
+                     STATUS_MESSAGE.textContent = `לא ניתן לקנות ציוד. גייס את לוחם המגן תחילה!`;
+                 } else if (unitType === 'mage' && !unitProgress.mage.recruited) {
+                      STATUS_MESSAGE.textContent = `לא ניתן לקנות ציוד. גייס את המכשף תחילה!`;
+                 } else {
+                      // ליתר ביטחון, אם זה knight או archer שלא מוגדרים
+                      if (!unitProgress[unitType]) {
+                           STATUS_MESSAGE.textContent = `שגיאה: יחידת ${unitType} אינה קיימת.`;
+                      }
+                 }
                  return;
             }
 
@@ -1805,12 +1871,13 @@
 
                 if (!firebaseConfig || !firebaseConfig.apiKey) {
                     // אם הקונפיגורציה חסרה, מציגים את השגיאה
-                    STATUS_MESSAGE.textContent = 'שגיאת Firebase: חסר קונפיגורציה.';
+                    STATUS_MESSAGE.textContent = 'שגיאת Firebase: חסר קונפיגורציה. משחק ללא שמירה.';
                     console.error("Firebase config is missing or invalid. Running without persistence.");
                     
                     // NEW: מאפשרים משחק ללא שמירה אם הקונפיגורציה חסרה
                     isReady = true;
                     RESTART_BTN.disabled = false;
+                    generateStoryContent(); // **NEW: טעינת סיפור התחלתי**
                     STATUS_MESSAGE.textContent = "טעינת נתונים הסתיימה. לחץ 'התחל קרב חדש' כדי להתחיל."; 
                     return; 
                 }
@@ -1833,6 +1900,7 @@
                 STATUS_MESSAGE.textContent = "טעינת נתונים הסתיימה. לחץ 'התחל קרב חדש' כדי להתחיל."; 
                 isReady = true;
                 RESTART_BTN.disabled = false;
+                generateStoryContent(); // **NEW: טעינת הסיפור בהתאם להתקדמות שנשמרה**
                 
             } catch (error) {
                 console.error("Firebase setup failed:", error);
@@ -1864,12 +1932,12 @@
 
                     // FIX: אם היחידה הישנה 'scout' קיימת, מעביר אותה ל-'mage'
                     if (data.unitProgress && data.unitProgress.scout && data.unitProgress.scout.recruited) {
-                          unitProgress.mage.recruited = true;
-                          unitProgress.mage.level = data.unitProgress.scout.level;
-                          unitProgress.mage.xp = data.unitProgress.scout.xp;
-                          itemUpgrades.mage = data.itemUpgrades.scout || itemUpgrades.mage;
-                          delete unitProgress.scout;
-                          delete itemUpgrades.scout;
+                         unitProgress.mage.recruited = true;
+                         unitProgress.mage.level = data.unitProgress.scout.level;
+                         unitProgress.mage.xp = data.unitProgress.scout.xp;
+                         itemUpgrades.mage = data.itemUpgrades.scout || itemUpgrades.mage;
+                         delete unitProgress.scout;
+                         delete itemUpgrades.scout;
                     }
                 } else {
                     // שמור נתוני ברירת מחדל אם אין
@@ -1893,13 +1961,13 @@
                 knight: itemUpgrades.knight,
                 archer: itemUpgrades.archer,
                 spearman: itemUpgrades.spearman,
-                mage: itemUpgrades.mage // רק Mage
+                mage: itemUpgrades.mage 
             };
             const savedUnitProgress = {
                 knight: unitProgress.knight,
                 archer: unitProgress.archer,
                 spearman: unitProgress.spearman,
-                mage: unitProgress.mage // רק Mage
+                mage: unitProgress.mage 
             };
 
             const docRef = doc(db, 'artifacts', typeof __app_id !== 'undefined' ? __app_id : 'default-app-id', 'users', userId, 'progress', 'goldData');
@@ -1926,19 +1994,19 @@
             setupFirebase();
             RESTART_BTN.onclick = () => {
                  if (isReady) {
-                     // NEW: איפוס מלא כולל התקדמות
-                     currentBattleIndex = 1; 
-                     // איפוס מלא של כל הנתונים כולל הגיוס
-                     itemUpgrades = { knight: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, archer: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, spearman: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, mage: { hp: 0, atk: 0, def: 0, move: 0, range: 0 } };
-                     unitProgress = { knight: { level: 1, xp: 0, nextLevelXp: 1000 }, archer: { level: 1, xp: 0, nextLevelXp: 1000 }, spearman: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false }, mage: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false } };
-                     gold = 0;
-                     // שמירה רק אם יש db
-                     if(db) saveGold();
-                     initGame();
+                      // NEW: איפוס מלא כולל התקדמות
+                      currentBattleIndex = 1; 
+                      // איפוס מלא של כל הנתונים כולל הגיוס
+                      itemUpgrades = { knight: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, archer: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, spearman: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, mage: { hp: 0, atk: 0, def: 0, move: 0, range: 0 } };
+                      unitProgress = { knight: { level: 1, xp: 0, nextLevelXp: 1000 }, archer: { level: 1, xp: 0, nextLevelXp: 1000 }, spearman: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false }, mage: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false } };
+                      gold = 0;
+                      // שמירה רק אם יש db
+                      if(db) saveGold();
+                      initGame();
                  } else {
-                     // אם Firebase לא מוכן, נסה להפעיל את ה-setup שוב, אבל הכפתור אמור להיות כבוי
-                     STATUS_MESSAGE.textContent = "טוען נתונים. המתן רגע...";
-                     setupFirebase();
+                      // אם Firebase לא מוכן, נסה להפעיל את ה-setup שוב, אבל הכפתור אמור להיות כבוי
+                      STATUS_MESSAGE.textContent = "טוען נתונים. המתן רגע...";
+                      setupFirebase();
                  }
             };
 

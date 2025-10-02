@@ -231,7 +231,7 @@
             gap: 15px;
         }
         
-        /* Main Controls (No change) */
+        /* Main Controls (Only Restart & Story) */
         #main-controls {
             display: flex;
             gap: 10px;
@@ -240,12 +240,35 @@
             padding-bottom: 10px;
             border-bottom: 2px solid #795548;
             flex-wrap: wrap; 
+            flex-direction: column; /* Force stack in the side panel for prominence */
         }
         
         .main-control-btn {
             flex-grow: 1;
             min-width: 120px;
+            width: 100%; /* Default to full width in stack */
+            margin-bottom: 5px;
         }
+        
+        /* NEW: Styling for END_TURN_BTN to be prominent at the top of the side panel */
+        #end-turn-btn {
+            order: -1; /* Place it at the top of the flex container */
+            background-color: #f44336; 
+            color: white;
+        }
+        #end-turn-btn:hover:not(:disabled) { background-color: #ff7043; }
+
+        #restart-btn {
+            background-color: #ff9800 !important;
+            flex-grow: 1;
+        }
+        
+        #toggle-story-btn {
+            background-color: #5d4037;
+            color: white;
+            flex-grow: 1;
+        }
+        #toggle-story-btn:hover { background-color: #795548; }
 
         /* Game Status (No change) */
         #game-status {
@@ -264,10 +287,12 @@
             border-right: 5px solid #4CAF50; 
         }
         
+        /* UPDATED: Action buttons container */
         #action-buttons {
             display: flex; 
             gap: 10px;
-            margin-top: -10px; /* קיזוז רווח אם צריך */
+            margin-top: -10px;
+            flex-wrap: wrap; 
         }
 
         #upgrade-shop {
@@ -312,41 +337,6 @@
         .action-btn:hover:not(:disabled) { background-color: #ffeb3b; }
         .action-btn:disabled { background-color: #795548; cursor: not-allowed; } 
         
-        #end-turn-btn {
-            background-color: #f44336; 
-            color: white;
-            flex-grow: 2; 
-        }
-        #end-turn-btn:hover:not(:disabled) { background-color: #ff7043; }
-        
-        #restart-btn {
-            background-color: #ff9800 !important;
-        }
-        
-        #toggle-story-btn {
-            background-color: #5d4037;
-            color: white;
-            flex-grow: 1;
-            margin-top: 5px; 
-        }
-        #toggle-story-btn:hover { background-color: #795548; }
-
-        .hp-bar {
-            height: 5px;
-            width: 100%;
-            background-color: #795548;
-            border-radius: 3px;
-            position: absolute;
-            bottom: 3px;
-            left: 0;
-            overflow: hidden;
-        }
-        .hp-fill {
-            height: 100%;
-            transition: width 0.3s;
-        }
-        .hp-player { background-color: #4CAF50; }
-        .hp-enemy { background-color: #f44336; }
         
         /* Mobile Layout */
         @media (max-width: 900px) {
@@ -366,11 +356,21 @@
             #board-container {
                 margin: 0;
             }
+            
+            /* On mobile, stack all 3 main controls */
             #main-controls {
-                flex-direction: column;
+                flex-direction: column; 
             }
             .main-control-btn {
-                width: 100%;
+                width: 100%; 
+            }
+            #end-turn-btn {
+                order: -1; 
+                margin-bottom: 5px;
+            }
+            /* Action buttons under the map still flow inline/wrap */
+            #action-buttons {
+                 margin-top: 5px;
             }
         }
     </style>
@@ -393,9 +393,9 @@
                 <p id="selected-unit-info">בחר יחידה מהלוח...</p>
             </div>
             
-            <!-- כפתורי פעולה -->
+            <!-- כפתורי פעולה (ללא סיום תור) -->
             <div id="action-buttons">
-                <!-- הכפתורים האלה מוגדרים ב-JS כאינדיקטורים -->
+                <!-- יחידות פעולה -->
                 <button id="move-btn" class="action-btn" disabled>תזוזה</button>
                 <button id="attack-btn" class="action-btn" disabled>התקפה</button>
             </div>
@@ -405,8 +405,9 @@
         <!-- NEW: פאנל מידע סטטי (סטטוס, חנות, סיפור) -->
         <div id="static-info-panel">
             
-            <!-- Main Controls at the top of the info panel -->
+            <!-- Main Controls (כולל כעת סיום תור) -->
             <div id="main-controls">
+                <!-- END_TURN_BTN is placed here and styled with order:-1 to be first -->
                 <button id="end-turn-btn" class="action-btn main-control-btn" disabled>סיום תור &gt;&gt;</button>
                 <button id="restart-btn" class="action-btn main-control-btn" disabled>התחל קרב חדש</button>
                 <!-- Story Toggle Button -->
@@ -449,7 +450,7 @@
                     
                     <!-- NEW: גיוס יחידות -->
                     <h3 style="color:#FFF;">גיוס יחידות חדשות (רכישה חד פעמית)</h3>
-                    <button id="recruit-spearman" class="action-btn upgrade-btn" style="background-color: #64B5F6;">גיוס רמ"ח (+$2000 | מגן, התקפת מליאה)</button>
+                    <button id="recruit-spearman" class="action-btn upgrade-btn" style="background-color: #64B5F6;">גיוס לוחם מגן (+$2000 | HP גבוה, הגנה 12, תנועה 1)</button>
                     <button id="recruit-mage" class="action-btn upgrade-btn" style="background-color: #9C27B0;">גיוס מכשף (+$2200 | טווח 2, **התקפה 40**, מהירות גבוהה)</button>
 
                     <h3 style="color:#FFF; margin-top: 10px;">שדרוגי אביר</h3>
@@ -554,10 +555,10 @@
                     baseHp = 120; baseAtk = 30; baseDef = 10; baseMove = 2; baseRange = 1; break;
                 case 'archer':
                     baseHp = 80; baseAtk = 20; baseDef = 5; baseMove = 3; baseRange = 3; break;
-                case 'spearman': // NEW UNIT
-                    baseHp = 100; baseAtk = 25; baseDef = 8; baseMove = 2; baseRange = 1; break;
-                case 'mage': // UPDATED UNIT (Was 'scout')
-                    baseHp = 60; baseAtk = 40; baseDef = 0; baseMove = 4; baseRange = 2; break; // Long Range, High ATK, Low HP/DEF
+                case 'spearman': // UPDATED: SHIELD WARRIOR STATS
+                    baseHp = 140; baseAtk = 20; baseDef = 12; baseMove = 1; baseRange = 1; break; // High HP/DEF, Low Move/ATK
+                case 'mage': 
+                    baseHp = 60; baseAtk = 40; baseDef = 0; baseMove = 4; baseRange = 2; break; 
                 // Enemy units can fall through here with default stats
                 default:
                     baseHp = 80; baseAtk = 20; baseDef = 5; baseMove = 2; baseRange = 1; break;
@@ -623,23 +624,23 @@
                             <rect x="2" y="4" width="1" height="4" fill="${SILVER}"/>
                         </svg>`;
                 case 'spearman':
-                    // **SPEARMAN (Updated): Shield, Blue Tunic, Vertical Spear**
+                    // **UPDATED: SHIELD WARRIOR: Heavy Defense, Large Shield, Mace/Club**
                     return `
                         <svg viewBox="0 0 10 10" xmlns="http://www.w3.org/2000/svg">
-                            <!-- Body/Tunic (Medium Blue) -->
-                            <rect x="3" y="4" width="4" height="6" fill="#42A5F5"/>
-                            <!-- Helmet/Head (Silver) -->
-                            <rect x="3" y="1.5" width="4" height="3" fill="${SILVER}"/>
-                            <!-- Visor/Face -->
+                            <!-- Body/Armor (Silver base) -->
+                            <rect x="3" y="4" width="4" height="6" fill="${SILVER}"/>
+                            <!-- Helmet (Dark Steel) -->
+                            <rect x="3" y="1.5" width="4" height="3" fill="${DARK_STEEL}"/>
+                            <!-- Face peek (Skin) -->
                             <rect x="4" y="3.5" width="2" height="1" fill="${SKIN}"/> 
                             
-                            <!-- Shield (Bronze/Brown for contrast with Knight's silver) -->
-                            <rect x="1" y="4" width="2" height="4" fill="${BRONZE_LIGHT}"/>
-                            
-                            <!-- Spear Shaft (Vertical wood) -->
-                            <rect x="6.5" y="0.5" width="0.5" height="8" fill="${WOOD}"/>
-                            <!-- Spear Tip (Silver) -->
-                            <rect x="6" y="0.5" width="1.5" height="1" fill="${SPEAR_TIP}"/> 
+                            <!-- LARGE Shield (Dominant feature, covering front) -->
+                            <rect x="1" y="3.5" width="2.5" height="5" fill="#4CAF50"/> <!-- Green Shield -->
+                            <rect x="1.5" y="5.5" width="1.5" height="1" fill="${BRONZE_LIGHT}"/> <!-- Central Boss -->
+
+                            <!-- Melee Weapon (Mace/Club on side) -->
+                            <rect x="7" y="5" width="1" height="4" fill="${WOOD}"/>
+                            <circle cx="7.5" cy="4.5" r="0.5" fill="${DARK_STEEL}"/> <!-- Mace Head -->
                         </svg>`;
                 case 'mage':
                     // **MAGE (Updated): Purple Robe, Gold Trim, Simple Staff**
@@ -963,7 +964,7 @@
             if (recruitSpearmanBtn) {
                 recruitSpearmanBtn.disabled = gold < costSpearman || unitProgress.spearman.recruited;
                 if (unitProgress.spearman.recruited) {
-                    recruitSpearmanBtn.textContent = "רמ\"ח גויס (ברשותך)";
+                    recruitSpearmanBtn.textContent = "לוחם מגן גויס (ברשותך)";
                 }
             }
             if (recruitMageBtn) { // UPDATED ID
@@ -1183,7 +1184,7 @@
             // NEW: הוספת יחידות מגויסות
             if (unitProgress.spearman.recruited) {
                 const sp = unitProgress.spearman;
-                playerUnits.push(new Unit('spearman', 'player', 3, 0, 'רמ"ח', sp.xp, sp.level, 1.0));
+                playerUnits.push(new Unit('spearman', 'player', 3, 0, 'לוחם מגן', sp.xp, sp.level, 1.0));
             }
             // UPDATED: recruit mage if recruited
             if (unitProgress.mage.recruited) {
@@ -1257,26 +1258,93 @@
             setTimeout(processEnemyTurn, 1000); 
         }
         
+        // NEW: פונקציה לבחירת המהלך האופטימלי ביותר עבור האויב
+        function findBestEnemyMove(enemy, target) {
+            let bestR = enemy.row;
+            let bestC = enemy.col;
+            let minDistance = Infinity;
+
+            for (let r = 0; r < BOARD_SIZE; r++) {
+                for (let c = 0; c < BOARD_SIZE; c++) {
+                    // 1. בדוק אם המיקום החדש תפוס
+                    const unitAtTarget = getUnitAt(r, c);
+                    if (unitAtTarget && unitAtTarget !== enemy) continue;
+
+                    // 2. בדוק אם המיקום החדש הוא בטווח תנועה
+                    const moveDist = Math.abs(enemy.row - r) + Math.abs(enemy.col - c);
+                    if (moveDist > 0 && moveDist <= enemy.moveRange) {
+
+                        // 3. חשב את המרחק מנקודה זו אל היעד
+                        const distToTarget = Math.abs(r - target.row) + Math.abs(c - target.col);
+
+                        // 4. קריטריונים לבחירה:
+                        // א. עדיפות למרחק שקרוב לטווח התקפה של האויב (distToTarget <= enemy.attackRange)
+                        // ב. מזער את המרחק ליעד באופן כללי
+                        
+                        if (distToTarget < minDistance) {
+                            minDistance = distToTarget;
+                            bestR = r;
+                            bestC = c;
+                        }
+                    }
+                }
+            }
+            
+            // אם לא נמצא מהלך טוב יותר, או אם המיקום הטוב ביותר הוא המיקום הנוכחי, נחזיר null
+            if (bestR === enemy.row && bestC === enemy.col) {
+                return null;
+            }
+
+            return { row: bestR, col: bestC };
+        }
+
+
+        // UPDATED: לוגיקת תור האויב המשלבת תזוזה והתקפה
         async function processEnemyTurn() {
-            // רק יחידות חיות יכולות לפעול
+            const playerUnits = units.filter(u => u.team === 'player' && u.isAlive);
             const enemyUnits = units.filter(u => u.team === 'enemy' && u.isAlive);
             
             for (const enemy of enemyUnits) {
-                if (gameState === 'gameOver' || gameState === 'upgradePhase') break; 
-
-                // 1. נסה לתקוף
-                const playerUnits = units.filter(u => u.team === 'player' && u.isAlive);
+                if (gameState === 'gameOver' || gameState === 'upgradePhase') break;
+                
+                // 1. נסה לתקוף מהמיקום הנוכחי
                 let target = playerUnits.find(p => isAttackable(enemy.row, enemy.col, p.row, p.col, enemy.attackRange));
 
                 if (target) {
-                    await performAttackAction(enemy, target); // ממתינים לאנימציה
-                    if (gameState === 'gameOver' || gameState === 'upgradePhase') break;
-                } else {
-                    // 2. נסה להתקרב
-                    moveEnemyTowardsClosestPlayer(enemy);
+                    await performAttackAction(enemy, target);
+                    if (checkWinCondition()) return; 
+                    continue; // האויב תקף, התור שלו נגמר
                 }
-                renderBoard(); // עדכון הלוח לאחר כל פעולה
-                await sleep(1000); // השהיה קלה בין פעולות אויב
+
+                // 2. אם אין יעד, מצא את המהלך האופטימלי כדי להתקרב
+                // א. מצא את היחידה הקרובה ביותר
+                let closestTarget = playerUnits.reduce((closest, current) => {
+                    const distCurrent = Math.abs(enemy.row - current.row) + Math.abs(enemy.col - current.col);
+                    if (distCurrent < closest.distance) {
+                        return { unit: current, distance: distCurrent };
+                    }
+                    return closest;
+                }, { unit: null, distance: Infinity });
+
+                if (closestTarget.unit) {
+                    const moveCoords = findBestEnemyMove(enemy, closestTarget.unit);
+
+                    if (moveCoords) {
+                        // ב. בצע את התנועה
+                        moveUnit(enemy, moveCoords.row, moveCoords.col);
+                        renderBoard();
+                        await sleep(500); // השהיה קלה לאחר תזוזת האויב
+
+                        // 3. בדוק שוב לתקיפה לאחר התזוזה (Move-Attack)
+                        let postMoveTarget = playerUnits.find(p => isAttackable(enemy.row, enemy.col, p.row, p.col, enemy.attackRange));
+
+                        if (postMoveTarget) {
+                            await performAttackAction(enemy, postMoveTarget);
+                            if (checkWinCondition()) return;
+                        }
+                    }
+                }
+                // האויב סיים את תורו (או עבר/או עבר ותקף)
             }
             
             // לאחר שכל האויבים סיימו
@@ -1286,42 +1354,7 @@
         }
 
         function moveEnemyTowardsClosestPlayer(enemy) {
-            const playerUnits = units.filter(u => u.team === 'player' && u.isAlive);
-            if (playerUnits.length === 0) return;
-
-            // מציאת היחידה הקרובה ביותר
-            let closestTarget = playerUnits.reduce((closest, current) => {
-                const distCurrent = Math.abs(enemy.row - current.row) + Math.abs(enemy.col - enemy.col);
-                if (distCurrent < closest.distance) {
-                    return { unit: current, distance: distCurrent };
-                }
-                return closest;
-            }, { unit: playerUnits[0], distance: Infinity });
-
-            const target = closestTarget.unit;
-            
-            // חישוב הנתיב (פשוט: צעד אחד לכיוון הכללי)
-            let newRow = enemy.row;
-            let newCol = enemy.col;
-
-            const dr = target.row - enemy.row;
-            const dc = target.col - enemy.col;
-
-            // קביעת כיוון התנועה
-            if (Math.abs(dr) > Math.abs(dc)) {
-                newRow += (dr > 0 ? 1 : -1);
-            } else if (dc !== 0) {
-                newCol += (dc > 0 ? 1 : -1);
-            } else if (dr !== 0) {
-                 newRow += (dr > 0 ? 1 : -1);
-            }
-
-            // הגבלה לטווח תנועה (צעד אחד, ללא בדיקת חסימה מורכבת)
-            if (Math.abs(newRow - enemy.row) + Math.abs(newCol - enemy.col) <= enemy.moveRange) {
-                if (isValidMove(enemy.row, enemy.col, newRow, newCol, enemy)) {
-                    moveUnit(enemy, newRow, newCol);
-                }
-            }
+             // הפונקציה הישנה הזו הוסרה והוחלפה ב-findBestEnemyMove
         }
 
         function checkWinCondition() {
@@ -1923,7 +1956,7 @@
 
             // NEW: גיוס יחידות
             if (recruitSpearmanBtn) {
-                recruitSpearmanBtn.onclick = () => recruitUnit('spearman', 2000, 'רמ"ח');
+                recruitSpearmanBtn.onclick = () => recruitUnit('spearman', 2000, 'לוחם מגן');
             }
             // UPDATED: Recruit Mage
             if (recruitMageBtn) {

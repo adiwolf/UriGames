@@ -465,6 +465,8 @@
                     <!-- NEW: גיוס יחידות -->
                     <h3 style="color:#FFF;">גיוס יחידות חדשות (רכישה חד פעמית)</h3>
                     <button id="recruit-spearman" class="action-btn upgrade-btn" style="background-color: #64B5F6;">גיוס לוחם מגן (+$2000 | HP גבוה, הגנה 12, תנועה 1)</button>
+                    <!-- NEW: Elven Ranger - Available after Battle 2 -->
+                    <button id="recruit-elfRanger" class="action-btn upgrade-btn" style="background-color: #8BC34A;">גיוס סייר אלפים (+$2100 | טווח 2, תנועה 4, נחשף בקרב 3+)</button>
                     <button id="recruit-mage" class="action-btn upgrade-btn" style="background-color: #9C27B0;">גיוס מכשף (+$2200 | טווח 2, **התקפה 40**, מהירות גבוהה)</button>
 
                     <h3 style="color:#FFF; margin-top: 10px;">שדרוגי אביר</h3>
@@ -538,14 +540,16 @@
             knight: { hp: 0, atk: 0, def: 0, move: 0, range: 0 },
             archer: { hp: 0, atk: 0, def: 0, move: 0, range: 0 },
             spearman: { hp: 0, atk: 0, def: 0, move: 0, range: 0 },
-            mage: { hp: 0, atk: 0, def: 0, move: 0, range: 0 } 
+            mage: { hp: 0, atk: 0, def: 0, move: 0, range: 0 },
+            elfRanger: { hp: 0, atk: 0, def: 0, move: 0, range: 0 } // NEW
         };
         // NEW: שמירת נתוני רמה/XP - כולל סטטוס גיוס
         let unitProgress = {
             knight: { level: 1, xp: 0, nextLevelXp: 1000 },
             archer: { level: 1, xp: 0, nextLevelXp: 1000 },
             spearman: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false },
-            mage: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false }
+            mage: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false },
+            elfRanger: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false } // NEW
         };
 
 
@@ -585,7 +589,8 @@
             3: {
                 title: "חומות הברזל: כוח חדש?",
                 lore: `<p>ניצחון קשה נגד תגבורת האויב. המפקדים המנוסים יותר של האורקים מגיעים לשטח, והם נעים בצורה מתוכננת יותר. ההגנות שלך חזקות, אבל כוח אש חזק יותר ידרש בקרוב. </p>
-                       <p><strong>טיפ גיוס:</strong> בדרכים נתקלנו ב<strong>מכשף נודד (Mage)</strong> בעל כוח אש מדהים, אך הוא שביר כמו קליפת ביצה. הוא יקר לגיוס, אבל הנזק שלו עשוי להפוך את הקרב הבא לפשוט יותר.</p>`,
+                       <p><strong>טיפ גיוס:</strong> בדרכים נתקלנו ב<strong>מכשף נודד (Mage)</strong> בעל כוח אש מדהים, אך הוא שביר כמו קליפת ביצה. הוא יקר לגיוס, אבל הנזק שלו עשוי להפוך את הקרב הבא לפשוט יותר.</p>
+                       <p><strong>גיוס חדש:</strong> שמענו על יחידת <strong>סייר אלפים</strong> המתמחה בתנועה מהירה ויכולה לסייע בהגנה על האגפים. גיוס יחידות נוספות נפתח עכשיו! </p>`,
                 guide: `<h3>חוקי בסיס: טקטיקה מתקדמת</h3>
                         <ul>
                             <li><strong>התקפת מטווח:</strong> קשתות ומכשפים יכולים לתקוף יחידות ממרחק. <strong>אביר</strong> יכול לשמש כהגנה על יחידות שבריריות יותר.</li>
@@ -649,6 +654,8 @@
                     baseHp = 60; baseAtk = 40; baseDef = 0; baseMove = 4; baseRange = 2; break; 
                 case 'goblin': // NEW ENEMY
                     baseHp = 40; baseAtk = 15; baseDef = 0; baseMove = 4; baseRange = 1; break; // Low HP, low ATK, very fast move
+                case 'elfRanger': // NEW UNIT: Elven Ranger (High Mobility, Medium Range)
+                    baseHp = 70; baseAtk = 25; baseDef = 5; baseMove = 4; baseRange = 2; break; // Fast, decent range, decent attack
                 // Enemy units can fall through here with default stats
                 default:
                     baseHp = 80; baseAtk = 20; baseDef = 5; baseMove = 2; baseRange = 1; break;
@@ -753,6 +760,32 @@
                             <!-- Exposed Hand (Skin) -->
                             <rect x="6" y="4" width="1" height="1" fill="${SKIN}"/>
                         </svg>`;
+                case 'elfRanger':
+                    // **ELVEN RANGER: Green Garb, Swift Bow (High Mobility Unit)**
+                    const ELF_GREEN = '#8BC34A'; // Light Green/Elven color
+                    const ELF_BROWN = '#795548'; // Wood color
+                    const ELF_SKIN = '#F0D4A8';
+                    const ELF_BOW = '#607D8B'; // Slate Blue/Gray bow
+                    return `
+                        <svg viewBox="0 0 10 10" xmlns="http://www.w3.org/2000/svg">
+                            <!-- Body/Garb (Elven Green) -->
+                            <rect x="4" y="4" width="2" height="6" fill="${ELF_GREEN}"/>
+                            <!-- Hood/Head (Elven Green/Brown) -->
+                            <rect x="4" y="2.5" width="2" height="2" fill="${ELF_BROWN}"/>
+                            <!-- Face peek (Skin) -->
+                            <rect x="4.5" y="3" width="1" height="1" fill="${ELF_SKIN}"/>
+                            
+                            <!-- Swift Bow (Vertical Stance) -->
+                            <rect x="2" y="1.5" width="0.5" height="7" fill="${ELF_BOW}"/>
+                            <!-- Arrow (Pulled back, held by hand) -->
+                            <line x1="2.5" y1="5.5" x2="6.5" y2="5.5" stroke="${WHITE}" stroke-width="0.3"/> 
+                            
+                            <!-- Hand (Skin) - holding the bow string/arrow -->
+                            <rect x="5.5" y="5" width="1" height="1" fill="${ELF_SKIN}"/> 
+                            
+                            <!-- Shoulder pads/Accent -->
+                            <rect x="3.5" y="4" width="3" height="0.5" fill="${ELF_BROWN}"/> 
+                        </svg>`;
                 case 'archer':
                     // **ARCHER (PLAYER): Longbow (Horizontal Ellipse), drawn string, light garb**
                     return `
@@ -775,6 +808,7 @@
                         </svg>`;
                 case 'banditArcher': // NEW ENEMY TYPE
                     // **BANDIT ARCHER (ENEMY): Dark Garb, Dark Bow**
+                    // ***FIXED: viewBox width set to 10 instead of 0***
                     return `
                         <svg viewBox="0 0 10 10" xmlns="http://www.w3.org/2000/svg">
                             <!-- Body/Garb (Black Garb) -->
@@ -859,7 +893,7 @@
         class Unit {
             // Units now receive base stats and apply item upgrades and level bonuses on creation
             constructor(type, team, row, col, name, xp, level, initialHpRatio = 1.0) {
-                this.type = type; // 'knight', 'archer', 'orc', 'bandit', 'banditArcher', 'goblin'
+                this.type = type; // 'knight', 'archer', 'orc', 'bandit', 'banditArcher', 'goblin', 'elfRanger'
                 this.team = team; // 'player', 'enemy'
                 this.row = row;
                 this.col = col;
@@ -875,7 +909,7 @@
                 const levelStats = calculateLevelBonus(type, level);
                 
                 // 2. Apply permanent Item Upgrades (stored in itemUpgrades global)
-                // Ensure we only try to apply item upgrades to units that actually have them (knight/archer/spearman/mage)
+                // Ensure we only try to apply item upgrades to units that actually have them (knight/archer/spearman/mage/elfRanger)
                 let itemUpgradesForType = { hp: 0, atk: 0, def: 0, move: 0, range: 0 };
                 if (itemUpgrades[type]) {
                     itemUpgradesForType = itemUpgrades[type];
@@ -1042,6 +1076,7 @@
             const costMove = 1500;
             const costSpearman = 2000;
             const costMage = 2200; // UPDATED COST FOR MAGE
+            const costElfRanger = 2100; // NEW COST
 
             const knightLevel = unitProgress.knight.level;
             const archerLevel = unitProgress.archer.level;
@@ -1057,6 +1092,7 @@
             // Unit Recruit Buttons
             const recruitSpearmanBtn = document.getElementById('recruit-spearman');
             const recruitMageBtn = document.getElementById('recruit-mage'); 
+            const recruitElfRangerBtn = document.getElementById('recruit-elfRanger'); // NEW BUTTON
 
             // עדכון כפתורי הקנייה: בדיקת זהב ורמה
             if (buyKnightIronSwordBtn) buyKnightIronSwordBtn.disabled = gold < costIronSword || itemUpgrades.knight.atk >= 10;
@@ -1088,6 +1124,22 @@
                     recruitMageBtn.textContent = "מכשף גויס (ברשותך)";
                 }
             }
+            // NEW: Elven Ranger - Available from Battle 3 onwards
+            if (recruitElfRangerBtn) {
+                if (currentBattleIndex < 3) {
+                    recruitElfRangerBtn.disabled = true;
+                    recruitElfRangerBtn.style.display = 'block'; // Ensure it's visible but disabled
+                    recruitElfRangerBtn.textContent = `גיוס סייר אלפים (נפתח לאחר קרב 2)`;
+                } else {
+                    recruitElfRangerBtn.disabled = gold < costElfRanger || unitProgress.elfRanger.recruited;
+                    if (unitProgress.elfRanger.recruited) {
+                        recruitElfRangerBtn.textContent = "סייר אלפים גויס (ברשותך)";
+                    } else {
+                         recruitElfRangerBtn.textContent = `גיוס סייר אלפים (+$${costElfRanger} | טווח 2, תנועה 4)`;
+                    }
+                }
+            }
+
 
             // עדכון תצוגת חנות
             UPGRADE_SHOP.style.display = (gameState === 'upgradePhase') ? 'flex' : 'none';
@@ -1279,7 +1331,7 @@
                 // ADD 'goblin' to melee units
                 if (e.type === 'orc' || e.type === 'bandit' || e.type === 'spearman' || e.type === 'goblin') { 
                     e.attackRange = 1; // יחידות מליאה
-                } else if (e.type === 'banditArcher' || e.type === 'archer') { // archer is range
+                } else if (e.type === 'banditArcher' || e.type === 'archer' || e.type === 'elfRanger') { // archer/elfRanger is range
                     e.attackRange = 3; 
                 } else if (e.type === 'mage') { // mage has long range
                     e.attackRange = 2; // UPDATED RANGE
@@ -1309,7 +1361,13 @@
             // UPDATED: recruit mage if recruited
             if (unitProgress.mage.recruited) {
                 const mg = unitProgress.mage;
-                playerUnits.push(new Unit('mage', 'player', 4, 4, 'מכשף', mg.xp, mg.level, 1.0));
+                playerUnits.push(new Unit('mage', 'player', 3, 4, 'מכשף', mg.xp, mg.level, 1.0));
+            }
+            // NEW: recruit Elven Ranger if recruited
+            if (unitProgress.elfRanger.recruited) {
+                const er = unitProgress.elfRanger;
+                // Place Elven Ranger in a suitable spot (e.g., 3, 3)
+                playerUnits.push(new Unit('elfRanger', 'player', 3, 3, 'סייר אלפים', er.xp, er.level, 1.0));
             }
             
             // יצירת אויבים לפי מספר הקרב
@@ -1767,6 +1825,12 @@
                 return;
             }
 
+            // NEW: תנאי רכישת סייר אלפים - זמין רק אחרי קרב 2
+            if (unitType === 'elfRanger' && currentBattleIndex < 3) {
+                STATUS_MESSAGE.textContent = "גיוס סייר אלפים נפתח רק אחרי קרב 2.";
+                return;
+            }
+
             gold -= cost;
             unitProgress[unitType].recruited = true;
             
@@ -1783,12 +1847,14 @@
             }
             
             // NEW: ודא שניתן לקנות ציוד רק ליחידות קיימות/מגויסות
-            // UPDATED: Added 'mage' to the check
+            // UPDATED: Added 'elfRanger' to the check
             if (!unitProgress[unitType] || (unitType !== 'knight' && unitType !== 'archer' && !unitProgress[unitType].recruited)) {
                  if (unitType === 'spearman' && !unitProgress.spearman.recruited) {
                      STATUS_MESSAGE.textContent = `לא ניתן לקנות ציוד. גייס את לוחם המגן תחילה!`;
                  } else if (unitType === 'mage' && !unitProgress.mage.recruited) {
                       STATUS_MESSAGE.textContent = `לא ניתן לקנות ציוד. גייס את המכשף תחילה!`;
+                 } else if (unitType === 'elfRanger' && !unitProgress.elfRanger.recruited) {
+                      STATUS_MESSAGE.textContent = `לא ניתן לקנות ציוד. גייס את סייר האלפים תחילה!`;
                  } else {
                       // ליתר ביטחון, אם זה knight או archer שלא מוגדרים
                       if (!unitProgress[unitType]) {
@@ -1943,11 +2009,11 @@
                     currentBattleIndex = data.currentBattleIndex || 1; 
                     
                     // NEW: טעינת שדרוגי ציוד ונתוני גיוס
-                    const defaultItemUpgrades = { knight: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, archer: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, spearman: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, mage: { hp: 0, atk: 0, def: 0, move: 0, range: 0 } };
+                    const defaultItemUpgrades = { knight: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, archer: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, spearman: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, mage: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, elfRanger: { hp: 0, atk: 0, def: 0, move: 0, range: 0 } };
                     itemUpgrades = { ...defaultItemUpgrades, ...data.itemUpgrades };
                     
-                    // UPDATED: Ensure default includes 'mage'
-                    const defaultUnitProgress = { knight: { level: 1, xp: 0, nextLevelXp: 1000 }, archer: { level: 1, xp: 0, nextLevelXp: 1000 }, spearman: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false }, mage: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false } };
+                    // UPDATED: Ensure default includes 'mage' and 'elfRanger'
+                    const defaultUnitProgress = { knight: { level: 1, xp: 0, nextLevelXp: 1000 }, archer: { level: 1, xp: 0, nextLevelXp: 1000 }, spearman: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false }, mage: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false }, elfRanger: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false } };
                     unitProgress = { ...defaultUnitProgress, ...data.unitProgress };
 
                     // FIX: אם היחידה הישנה 'scout' קיימת, מעביר אותה ל-'mage'
@@ -1981,13 +2047,15 @@
                 knight: itemUpgrades.knight,
                 archer: itemUpgrades.archer,
                 spearman: itemUpgrades.spearman,
-                mage: itemUpgrades.mage 
+                mage: itemUpgrades.mage,
+                elfRanger: itemUpgrades.elfRanger // NEW
             };
             const savedUnitProgress = {
                 knight: unitProgress.knight,
                 archer: unitProgress.archer,
                 spearman: unitProgress.spearman,
-                mage: unitProgress.mage 
+                mage: unitProgress.mage,
+                elfRanger: unitProgress.elfRanger // NEW
             };
 
             const docRef = doc(db, 'artifacts', typeof __app_id !== 'undefined' ? __app_id : 'default-app-id', 'users', userId, 'progress', 'goldData');
@@ -2017,8 +2085,8 @@
                       // NEW: איפוס מלא כולל התקדמות
                       currentBattleIndex = 1; 
                       // איפוס מלא של כל הנתונים כולל הגיוס
-                      itemUpgrades = { knight: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, archer: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, spearman: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, mage: { hp: 0, atk: 0, def: 0, move: 0, range: 0 } };
-                      unitProgress = { knight: { level: 1, xp: 0, nextLevelXp: 1000 }, archer: { level: 1, xp: 0, nextLevelXp: 1000 }, spearman: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false }, mage: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false } };
+                      itemUpgrades = { knight: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, archer: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, spearman: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, mage: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, elfRanger: { hp: 0, atk: 0, def: 0, move: 0, range: 0 } };
+                      unitProgress = { knight: { level: 1, xp: 0, nextLevelXp: 1000 }, archer: { level: 1, xp: 0, nextLevelXp: 1000 }, spearman: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false }, mage: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false }, elfRanger: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false } };
                       gold = 0;
                       // שמירה רק אם יש db
                       if(db) saveGold();
@@ -2057,6 +2125,7 @@
             // Recruits
             const recruitSpearmanBtn = document.getElementById('recruit-spearman');
             const recruitMageBtn = document.getElementById('recruit-mage');
+            const recruitElfRangerBtn = document.getElementById('recruit-elfRanger'); // NEW HANDLER
 
 
             if (buyKnightIronSwordBtn) {
@@ -2091,6 +2160,10 @@
             // UPDATED: Recruit Mage
             if (recruitMageBtn) {
                 recruitMageBtn.onclick = () => recruitUnit('mage', 2200, 'מכשף');
+            }
+            // NEW: Recruit Elven Ranger
+            if (recruitElfRangerBtn) {
+                recruitElfRangerBtn.onclick = () => recruitUnit('elfRanger', 2100, 'סייר אלפים');
             }
 
 

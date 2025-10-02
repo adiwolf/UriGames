@@ -647,6 +647,8 @@
                     baseHp = 140; baseAtk = 20; baseDef = 12; baseMove = 1; baseRange = 1; break; // High HP/DEF, Low Move/ATK
                 case 'mage': 
                     baseHp = 60; baseAtk = 40; baseDef = 0; baseMove = 4; baseRange = 2; break; 
+                case 'goblin': // NEW ENEMY
+                    baseHp = 40; baseAtk = 15; baseDef = 0; baseMove = 4; baseRange = 1; break; // Low HP, low ATK, very fast move
                 // Enemy units can fall through here with default stats
                 default:
                     baseHp = 80; baseAtk = 20; baseDef = 5; baseMove = 2; baseRange = 1; break;
@@ -811,6 +813,22 @@
                             <!-- Handle (Dark Steel) -->
                             <rect x="7.5" y="6" width="0.5" height="3" fill="${DARK_STEEL}"/>
                         </svg>`;
+                case 'goblin':
+                    // **GOBLIN: Small, light green, fast, dart/short knife (NEW)**
+                    const GOBLIN_SKIN = '#689F38'; // Light Green
+                    const GOBLIN_EYE = '#FFEB3B'; // Yellow eye
+                    const GOBLIN_WEAPON = '#A9A9A9'; // Dark silver knife/dart
+                    return `
+                        <svg viewBox="0 0 10 10" xmlns="http://www.w3.org/2000/svg">
+                            <!-- Body/Head (Light Green) -->
+                            <rect x="3.5" y="4" width="3" height="5" fill="${GOBLIN_SKIN}"/>
+                            <rect x="3" y="2.5" width="4" height="2" fill="${GOBLIN_SKIN}"/>
+                            <!-- Eyes (Yellow) -->
+                            <rect x="4.5" y="3" width="1" height="1" fill="${GOBLIN_EYE}"/>
+                            <!-- Weapon (Small Dagger/Dart) -->
+                            <rect x="6.5" y="5" width="1" height="2.5" fill="${GOBLIN_WEAPON}"/>
+                            <rect x="7.5" y="4.5" width="0.5" height="1" fill="${GOBLIN_WEAPON}"/> <!-- Blade tip -->
+                        </svg>`;
                 case 'bandit':
                     // **BANDIT: Exposing skin, dark cloak, maroon accent**
                     return `
@@ -841,7 +859,7 @@
         class Unit {
             // Units now receive base stats and apply item upgrades and level bonuses on creation
             constructor(type, team, row, col, name, xp, level, initialHpRatio = 1.0) {
-                this.type = type; // 'knight', 'archer', 'orc', 'bandit', 'banditArcher'
+                this.type = type; // 'knight', 'archer', 'orc', 'bandit', 'banditArcher', 'goblin'
                 this.team = team; // 'player', 'enemy'
                 this.row = row;
                 this.col = col;
@@ -1235,14 +1253,15 @@
                 enemies.push(new Unit('banditArcher', 'enemy', 1, 4, 'קשת שודד', 0, 1, 1.0)); 
             }
             
-            // UPDATED: קרב 3: התקפה מתואמת עם יותר אויבים מנוסים (6 אויבים)
+            // UPDATED: קרב 3: התקפה קלה יותר עם גובלינים חלשים
             else if (battleIndex === 3) {
-                 enemies.push(new Unit('orc', 'enemy', 0, 2, 'מפקד מלחמת דם', 0, 3, 1.0)); 	// רמה 3, מרכז קדמי
-                 enemies.push(new Unit('bandit', 'enemy', 0, 4, 'שודד מובחר', 0, 3, 1.0)); 	 // רמה 3, אגף קדמי ימני
-                 enemies.push(new Unit('banditArcher', 'enemy', 1, 0, 'קשת שודד (אגף)', 0, 2, 1.0)); // רמה 2, אגף שמאל רחוק
-                 enemies.push(new Unit('banditArcher', 'enemy', 1, 3, 'קשת שודד (אגף)', 0, 2, 1.0)); // רמה 2, אגף ימין רחוק
-                 enemies.push(new Unit('orc', 'enemy', 2, 1, 'אורק משוריין', 0, 2, 1.0)); 	 // רמה 2, מרכז שמאל
-                 enemies.push(new Unit('bandit', 'enemy', 2, 4, 'שודד ותיק', 0, 2, 1.0)); 	 // רמה 2, אגף ימני אחורי
+                 // **MODIFIED SCENARIO (EASIER, 6 units - lower level enemies and Goblins)**
+                 enemies.push(new Unit('orc', 'enemy', 0, 2, 'מפקד קרב', 0, 2, 1.0)); 	    // L2 Orc (was L3)
+                 enemies.push(new Unit('bandit', 'enemy', 0, 4, 'שודד מובחר', 0, 2, 1.0)); 	    // L2 Bandit (was L3)
+                 enemies.push(new Unit('banditArcher', 'enemy', 1, 0, 'קשת שודד (אגף)', 0, 1, 1.0)); // L1 Archer (was L2)
+                 enemies.push(new Unit('banditArcher', 'enemy', 1, 3, 'קשת שודד (אגף)', 0, 1, 1.0)); // L1 Archer (was L2)
+                 enemies.push(new Unit('goblin', 'enemy', 2, 1, 'גובלין צופה', 0, 1, 1.0)); 	// NEW! L1 Goblin
+                 enemies.push(new Unit('goblin', 'enemy', 2, 4, 'גובלין צופה', 0, 1, 1.0)); 	// NEW! L1 Goblin
             }
             
             // קרב 4+: קרב קשה יותר ומתגבר
@@ -1257,7 +1276,8 @@
             
             // ודא שלכל יחידות האויב מוגדר טווח התקפה הגיוני
             enemies.forEach(e => {
-                if (e.type === 'orc' || e.type === 'bandit' || e.type === 'spearman') { // spearman is melee
+                // ADD 'goblin' to melee units
+                if (e.type === 'orc' || e.type === 'bandit' || e.type === 'spearman' || e.type === 'goblin') { 
                     e.attackRange = 1; // יחידות מליאה
                 } else if (e.type === 'banditArcher' || e.type === 'archer') { // archer is range
                     e.attackRange = 3; 

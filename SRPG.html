@@ -1515,12 +1515,27 @@
         async function setupFirebase() {
             try {
                 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-                const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+                let firebaseConfig;
+                
+                // FIXED: טיפול ב-config חסר או לא תקין
+                try {
+                    const configString = typeof __firebase_config !== 'undefined' ? __firebase_config : '{}';
+                    firebaseConfig = JSON.parse(configString);
+                } catch (e) {
+                    firebaseConfig = {};
+                }
+
 
                 if (!firebaseConfig || !firebaseConfig.apiKey) {
+                    // אם הקונפיגורציה חסרה, מציגים את השגיאה
                     STATUS_MESSAGE.textContent = 'שגיאת Firebase: חסר קונפיגורציה.';
-                    console.error("Firebase config is missing or invalid.");
-                    return;
+                    console.error("Firebase config is missing or invalid. Running without persistence.");
+                    
+                    // NEW: מאפשרים משחק ללא שמירה אם הקונפיגורציה חסרה
+                    isReady = true;
+                    RESTART_BTN.disabled = false;
+                    STATUS_MESSAGE.textContent = "טעינת נתונים הסתיימה. לחץ 'התחל קרב חדש' כדי להתחיל."; 
+                    return; 
                 }
 
                 const app = initializeApp(firebaseConfig);
@@ -1542,8 +1557,6 @@
                 isReady = true;
                 RESTART_BTN.disabled = false;
                 
-                // REMOVED: initGame() call here. User must click 'Start New Battle'
-                
             } catch (error) {
                 console.error("Firebase setup failed:", error);
                 STATUS_MESSAGE.textContent = `שגיאת חיבור: ${error.message.substring(0, 30)}...`;
@@ -1551,6 +1564,7 @@
         }
 
         async function loadGold() {
+            // אם db הוא null, אנחנו במצב ללא שמירה
             if (!db || !userId) return;
 
             const docRef = doc(db, 'artifacts', typeof __app_id !== 'undefined' ? __app_id : 'default-app-id', 'users', userId, 'progress', 'goldData');
@@ -1576,6 +1590,7 @@
         }
 
         async function saveGold() {
+            // אם db הוא null, אנחנו במצב ללא שמירה
             if (!db || !userId) return;
             
             if (gold > goldHighScore) {
@@ -1611,7 +1626,8 @@
                      itemUpgrades = { knight: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, archer: { hp: 0, atk: 0, def: 0, move: 0, range: 0 } };
                      unitProgress = { knight: { level: 1, xp: 0, nextLevelXp: 1000 }, archer: { level: 1, xp: 0, nextLevelXp: 1000 } };
                      gold = 0;
-                     saveGold();
+                     // שמירה רק אם יש db
+                     if(db) saveGold();
                      initGame();
                  } else {
                      // אם Firebase לא מוכן, נסה להפעיל את ה-setup שוב, אבל הכפתור אמור להיות כבוי

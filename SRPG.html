@@ -61,6 +61,7 @@
         }
 
         #board-container {
+            /* מוגדר כ-aspect-ratio 1/1, כך שהוא נשאר יציב יחסית לגודלו */
             width: 100%;
             max-width: 400px;
             aspect-ratio: 1 / 1; 
@@ -254,7 +255,8 @@
             background-color: #3e2723;
             padding: 15px;
             border-radius: 8px;
-            min-height: 150px;
+            /* FIXED: גובה מינימלי קבוע כדי למנוע דחיפה של אלמנטים אחרים */
+            min-height: 180px; 
             border-right: 5px solid #4CAF50; 
         }
         

@@ -1537,11 +1537,12 @@
 
                 await loadGold();
                 
-                STATUS_MESSAGE.textContent = "טען בהצלחה. לחץ 'התחל קרב חדש'.";
+                // FIXED: הודעת סטטוס שמנחה את המשתמש
+                STATUS_MESSAGE.textContent = "טעינת נתונים הסתיימה. לחץ 'התחל קרב חדש' כדי להתחיל."; 
                 isReady = true;
                 RESTART_BTN.disabled = false;
                 
-                initGame(); // התחל את המשחק לאחר טעינת הנתונים
+                // REMOVED: initGame() call here. User must click 'Start New Battle'
                 
             } catch (error) {
                 console.error("Firebase setup failed:", error);
@@ -1612,6 +1613,10 @@
                      gold = 0;
                      saveGold();
                      initGame();
+                 } else {
+                     // אם Firebase לא מוכן, נסה להפעיל את ה-setup שוב, אבל הכפתור אמור להיות כבוי
+                     STATUS_MESSAGE.textContent = "טוען נתונים. המתן רגע...";
+                     setupFirebase();
                  }
             };
 

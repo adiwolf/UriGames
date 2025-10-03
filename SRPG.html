@@ -86,6 +86,40 @@
             position: relative; 
         }
 
+        /* ------------------------------------------- */
+        /* FLOATING FORECAST POPUP STYLING (NEW) */
+        /* ------------------------------------------- */
+        #forecast-popup {
+            position: absolute;
+            top: 0;
+            right: 0;
+            z-index: 100;
+            background-color: rgba(62, 39, 35, 0.95); /* Dark Brown/Maroon */
+            color: #fff;
+            padding: 8px;
+            border-radius: 6px;
+            border: 2px solid #ffc107; /* Gold border */
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+            pointer-events: none; /* Ignore mouse events */
+            display: none;
+            text-align: center;
+            font-size: 0.9rem;
+            min-width: 120px;
+            transition: opacity 0.1s;
+            transform: translate(10px, -50%); /* Move slightly away from the tile */
+        }
+        #forecast-popup h4 {
+            margin: 0;
+            font-size: 1em;
+            color: #ffeb3b;
+            border-bottom: 1px solid #795548;
+            padding-bottom: 3px;
+        }
+        #forecast-popup p {
+            margin: 3px 0;
+            line-height: 1.2;
+        }
+
         .tile {
             border: none; /* הסרת גבול האריח */
             background-color: #558B2F; /* Richer, darker base grass */
@@ -413,6 +447,8 @@
             
             <!-- לוח המשחק -->
             <div id="board-container">
+                <!-- NEW: Floating Damage Forecast Popup -->
+                <div id="forecast-popup" style="display: none;"></div>
                 <!-- אריחים ייווצרו כאן -->
             </div>
 
@@ -518,6 +554,7 @@
         // משתנים גלובליים ואלמנטי DOM
         const GAME_CONTAINER = document.getElementById('game-container');
         const BOARD_CONTAINER = document.getElementById('board-container');
+        const FORECAST_POPUP = document.getElementById('forecast-popup'); // NEW
         const STATUS_MESSAGE = document.getElementById('status-message');
         const GOLD_DISPLAY = document.getElementById('gold-display');
         const TURN_DISPLAY = document.getElementById('turn-display');
@@ -542,7 +579,9 @@
         const BOARD_SIZE = 5;
         let board = [];
         let units = [];
-        let selectedUnit = null;
+        let selectedUnit = null; // היחידה שנבחרה לצפייה (יכולה להיות אויב או שחקן)
+        let lastPlayerUnit = null; // היחידה האחרונה של השחקן שנבחרה לפעולה (נשמרת עבור תחזית)
+        let pendingTarget = null; // היעד הנוכחי להמתנה לאישור תקיפה (NEW)
         let gameState = 'loading'; // loading, ready, playerTurn, enemyTurn, gameOver, animating, upgradePhase
         let currentTurn = 0;
         let isReady = false; // דגל טעינת Firebase
@@ -1127,6 +1166,10 @@
 
         function renderBoard() {
             BOARD_CONTAINER.innerHTML = '';
+            // שמירת קופץ התחזית והצבה מחדש בראש הקונטיינר
+            const currentPopup = FORECAST_POPUP;
+            BOARD_CONTAINER.appendChild(currentPopup);
+            
             board = [];
             for (let r = 0; r < BOARD_SIZE; r++) {
                 board[r] = [];
@@ -1147,6 +1190,8 @@
                     BOARD_CONTAINER.appendChild(tile);
                 }
             }
+            // ודא שהתחזית מוסתרת
+            hideFloatingForecast();
         }
 
         function clearHighlights() {
@@ -1154,6 +1199,7 @@
                 tile.classList.remove('highlight-move', 'highlight-attack', 'selected');
             });
             currentAction = null;
+            // lastPlayerUnit = null; // Don't clear lastPlayerUnit here, only on deselect/turn end
             updateActionButtons();
         }
         
@@ -1368,7 +1414,8 @@
             await sleep(ATTACK_LUNGE_TIME); 
 
             // 2. יישום נזק
-            const isDead = defender.takeDamage(attacker.atk);
+            // Damage is recalculated here just to be safe, though Unit.takeDamage does the calculation
+            const isDead = defender.takeDamage(attacker.atk); 
             
             // אנימציית רעד קלה על המגן
             defenderElements.icon.style.animation = `shake ${SHAKE_TIME}ms`;
@@ -1425,7 +1472,7 @@
 
         // NEW HELPER FUNCTION: חישוב הנזק הצפוי הכולל (לוקח בחשבון מהירות והגנה)
         function calculateTotalExpectedDamage(attacker, defender) {
-            // אם ההגנה גדולה מההתקפה, הנזק ליחידה הוא 0 (לפי הכלל החדש)
+            // אם ההגנה גדולה או שווה להתקפה, הנזק ליחידה הוא 0 (לפי הכלל החדש)
             const damagePerHit = Math.max(0, attacker.atk - defender.def); 
             
             if (damagePerHit === 0) return 0; // לא ניתן לגרום נזק
@@ -1597,6 +1644,8 @@
             units = playerUnits.concat(enemyUnits);
             
             selectedUnit = null;
+            lastPlayerUnit = null; // Resetting last player unit
+            pendingTarget = null; // NEW: Reset pending target
             currentTurn = 0;
             gameState = 'ready';
             clearHighlights();
@@ -1616,6 +1665,9 @@
             currentTurn++;
             clearHighlights();
             selectedUnit = null;
+            lastPlayerUnit = null;
+            pendingTarget = null; // NEW: Reset pending target
+            hideFloatingForecast(); // NEW: Hide any lingering forecast
             
             // איפוס פעולות ליחידות השחקן
             units.filter(u => u.team === 'player' && u.isAlive).forEach(u => {
@@ -1846,6 +1898,8 @@
             gameState = 'upgradePhase';
             clearHighlights();
             selectedUnit = null;
+            pendingTarget = null; // NEW: Reset pending target
+            hideFloatingForecast(); // NEW: Hide any lingering forecast
             
             // UPDATED: קרב 2 נותן 1500 זהב בסיסי
             const baseGold = currentBattleIndex === 3 ? 1500 : 1000;
@@ -1889,6 +1943,8 @@
             gameState = 'gameOver';
             clearHighlights();
             selectedUnit = null;
+            pendingTarget = null; // NEW: Reset pending target
+            hideFloatingForecast(); // NEW: Hide any lingering forecast
             updateActionButtons();
             
             STATUS_MESSAGE.innerHTML = `<span style="color:#f44336;">הפסד!</span> כל היחידות הושמדו.`;
@@ -1901,6 +1957,51 @@
             TURN_DISPLAY.textContent = `תור: - (הסתיים)`;
         }
 
+        // --- NEW: Floating Forecast Logic ---
+        function showFloatingForecast(attacker, defender) {
+            if (!attacker || !defender) return hideFloatingForecast();
+
+            const damage = calculateTotalExpectedDamage(attacker, defender);
+            const attackCount = calculateAttackCount(attacker, defender);
+            const damagePerHit = Math.max(0, attacker.atk - defender.def);
+            const remainingHP = Math.max(0, defender.hp - damage);
+            const kills = remainingHP === 0 ? `<span style="color: #f44336; font-weight: 700;">(חיסול!)</span>` : '';
+            const attackType = attackCount === 1 ? 'רגילה' : (attackCount === 2 ? 'כפולה' : (attackCount === 3 ? 'משולשת' : 'מרובעת'));
+
+            const tile = board[defender.row][defender.col];
+            const tileRect = tile.getBoundingClientRect();
+            const boardRect = BOARD_CONTAINER.getBoundingClientRect();
+
+            // 1. הגדרת התוכן
+            FORECAST_POPUP.innerHTML = `
+                 <h4>תחזית: ${defender.name}</h4>
+                 <p>נזק נטו: <strong>${damagePerHit}</strong> x ${attackCount}</p>
+                 <p style="color: #ff4500;">סה"כ נזק: <strong>${damage}</strong></p>
+                 <p>HP צפוי: <strong>${remainingHP.toFixed(0)}/${defender.maxHp}</strong> ${kills}</p>
+            `;
+
+            // 2. מיקום - ממוקם מעל האריח של המגן
+            const popupWidth = FORECAST_POPUP.offsetWidth;
+            const popupHeight = FORECAST_POPUP.offsetHeight;
+
+            // חישוב מיקום יחסי ללוח (בפיקסלים)
+            FORECAST_POPUP.style.top = `${tileRect.top - boardRect.top - popupHeight - 10}px`;
+            FORECAST_POPUP.style.right = `${boardRect.width - (tileRect.right - boardRect.left)}px`;
+            
+            // 3. הצגה
+            FORECAST_POPUP.style.display = 'block';
+
+            // הגדרת היעד הממתין
+            pendingTarget = defender;
+            updateActionButtons();
+        }
+
+        function hideFloatingForecast() {
+            FORECAST_POPUP.style.display = 'none';
+            pendingTarget = null;
+            updateActionButtons();
+        }
+
         // ------------------------------------
         // טיפול בקליקים ופעולות (כעת מבוסס אריחים)
         // ------------------------------------
@@ -1910,120 +2011,134 @@
             
             const clickedUnit = getUnitAt(r, c);
             const tile = board[r][c];
-            
-            // 1. ניסיון לבצע פעולה (תזוזה או התקפה) - רק בתור שחקן
-            if (gameState === 'playerTurn' && selectedUnit && selectedUnit.team === 'player') {
-                const isMoveAttempt = tile.classList.contains('highlight-move');
-                const isAttackAttempt = tile.classList.contains('highlight-attack');
-                
-                // ביטול בחירה אם לוחצים על היחידה הנבחרת
-                if (clickedUnit === selectedUnit) {
-                    clearHighlights();
-                    selectedUnit = null;
-                    SELECTED_UNIT_INFO.innerHTML = "בחר יחידה מהלוח...";
-                    updateActionButtons();
-                    return;
-                }
 
-                if (isMoveAttempt && !selectedUnit.hasMoved) {
-                    // ביצוע תזוזה
-                    moveUnit(selectedUnit, r, c);
-                    selectedUnit.hasMoved = true;
+            // --- 1. ניסיון לבצע פעולה (התקפה/תזוזה) ---
+            if (gameState === 'playerTurn' && lastPlayerUnit) {
+                const isMoveAttempt = tile.classList.contains('highlight-move');
+                const isAttackTarget = tile.classList.contains('highlight-attack');
+
+                // ביצוע תזוזה
+                if (isMoveAttempt && !lastPlayerUnit.hasMoved) {
+                    moveUnit(lastPlayerUnit, r, c);
+                    lastPlayerUnit.hasMoved = true;
+                    selectedUnit = lastPlayerUnit; 
+                    hideFloatingForecast(); // נקה את התחזית
                     clearHighlights();
-                    // הצג את אפשרויות התקיפה הנותרות לאחר התזוזה
-                    showAvailableActions();
+                    showAvailableActions(); 
                     updateSelectedUnitInfo(selectedUnit);
                     renderBoard();
                     return;
-
-                } else if (isAttackAttempt && !selectedUnit.hasAttacked) {
-                    // ביצוע התקפה
-                    if (clickedUnit && clickedUnit.team === 'enemy') {
-                        
-                        // ביצוע האנימציה והלוגיקה בתוך async wrapper כדי לאפשר await
-                        (async () => {
-                            // FIXED: שימוש ב-performAttackAction המעודכן לריבוי התקפות
-                            await performAttackAction(selectedUnit, clickedUnit);
-                            
-                            // Check if game ended or unit was unselected during animation
-                            if (gameState === 'gameOver' || gameState === 'upgradePhase' || !selectedUnit) return; 
-                            
-                            selectedUnit.hasAttacked = true;
-                            clearHighlights();
-                            // נשאר על היחידה הנבחרת כדי לראות סטטוס
-                            board[selectedUnit.row][selectedUnit.col].classList.add('selected');
-                            updateSelectedUnitInfo(selectedUnit);
-                            renderBoard();
-                        })(); // Immediately execute
+                } 
+                
+                // NEW LOGIC: אם לחצנו על יעד תקיפה מסומן
+                if (isAttackTarget && clickedUnit && clickedUnit.team === 'enemy' && !lastPlayerUnit.hasAttacked) {
+                    
+                    // אם זה אותו יעד שכבר נבחר (Pending) - בטל את התחזית
+                    if (pendingTarget === clickedUnit) {
+                        hideFloatingForecast();
+                        // נשאר על היחידה הפעילה
+                        selectedUnit = lastPlayerUnit; 
+                        updateSelectedUnitInfo(selectedUnit);
                         return;
                     }
+                    
+                    // הצג תחזית ואשר התקפה חדשה
+                    selectedUnit = clickedUnit; // הדגשת האויב לצפייה
+                    showFloatingForecast(lastPlayerUnit, clickedUnit);
+                    updateSelectedUnitInfo(clickedUnit); // הצג את התחזית בלוח הצדדי
+                    return; // לא מבצעים התקפה - מחכים לאישור כפתור
                 }
             }
-            
-            // 2. טיפול בבחירת יחידה (או ביטול בחירה)
-            
-            // אם לחצנו על יחידה שלנו בתור שחקן
-            if (clickedUnit && clickedUnit.team === 'player' && gameState === 'playerTurn') {
-                clearHighlights();
-                if (selectedUnit !== clickedUnit) {
-                    selectedUnit = clickedUnit;
-                    tile.classList.add('selected');
-                    updateSelectedUnitInfo(selectedUnit);
-                    showAvailableActions(); // הצג פעולות זמינות מיידית
-                }
-            } 
-            // אם לחצנו על יחידת אויב (בכל שלב) - מצב צפייה
-            else if (clickedUnit && clickedUnit.team === 'enemy') {
-                clearHighlights(); 
+
+
+            // --- 2. לוגיקת בחירה / בדיקה (Inspection) ---
+            hideFloatingForecast(); // NEW: נקה תחזית תמיד
+            clearHighlights(); 
+
+            if (clickedUnit) {
                 selectedUnit = clickedUnit;
-                tile.classList.add('selected'); // NEW: הדגשת אויב בריבוע צהוב
-                updateSelectedUnitInfo(selectedUnit);
-            }
-            // אם לחצנו על אריח ריק, או אם יחידת השחקן הנוכחית לא רשאית לבצע פעולה
-            else {
-                clearHighlights();
-                selectedUnit = null; 
+                tile.classList.add('selected');
+
+                if (clickedUnit.team === 'player' && gameState === 'playerTurn') {
+                    // A. נבחרה יחידת שחקן חדשה: היא הופכת ליחידה הפעילה
+                    lastPlayerUnit = clickedUnit;
+                    showAvailableActions(); // הצג טווח תנועה/התקפה
+                } else if (clickedUnit.team === 'enemy') {
+                    // B. נבחרה יחידת אויב: רק לבדיקה.
+                    if (lastPlayerUnit && lastPlayerUnit.isAlive && gameState === 'playerTurn') {
+                        // אם יש יחידת שחקן פעילה, סמן אותה והצג את הטווח שלה לקונטקסט
+                        board[lastPlayerUnit.row][lastPlayerUnit.col].classList.add('selected');
+                        // NEW: עדיין מציג את הטווחים (אך לא נכנס למצב פנד-טארגט)
+                        showAvailableActions(); 
+                    } else {
+                        lastPlayerUnit = null; // אין יחידת שחקן פעילה
+                    }
+                } else {
+                    // C. יחידה שחקן מתה או יחידה שחקן שנבחרה מחוץ לתורה (רק בדיקה, ללא פעולה)
+                    lastPlayerUnit = null;
+                }
+
+            } else {
+                // D. קליק על אריח ריק: בטל הכל
+                selectedUnit = null;
+                lastPlayerUnit = null;
                 SELECTED_UNIT_INFO.innerHTML = "בחר יחידה מהלוח...";
             }
             
-            // אם היחידה שנבחרה היא אויב, הלחצנים מושבתים
-            if (selectedUnit && selectedUnit.team === 'enemy') {
-                MOVE_BTN.disabled = true;
-                ATTACK_BTN.disabled = true;
-                MOVE_BTN.style.backgroundColor = '#795548';
-                ATTACK_BTN.style.backgroundColor = '#795548';
-            } else {
-                updateActionButtons();
+            // עדכון הלוח הצדדי
+            if (selectedUnit) {
+                updateSelectedUnitInfo(selectedUnit);
             }
+            
+            updateActionButtons();
         }
         
         // --- פונקציות עזר לפעולות ---
 
         function updateActionButtons() {
-            // FIXED: בדיקה שאלמנטי הכפתורים קיימים לפני הגישה
-            if (MOVE_BTN) {
-                // הלחצנים כעת מציגים רק את הסטטוס הפעולה של היחידה הנבחרת
-                MOVE_BTN.disabled = selectedUnit ? selectedUnit.hasMoved : true;
-                ATTACK_BTN.disabled = selectedUnit ? selectedUnit.hasAttacked : true;
-
-                // עדכון הכפתורים החזותיים כדי שיהיו אינדיקציה טובה יותר
-                MOVE_BTN.style.backgroundColor = selectedUnit && !selectedUnit.hasMoved ? '#ffc107' : '#795548';
-                ATTACK_BTN.style.backgroundColor = selectedUnit && !selectedUnit.hasAttacked ? '#ffc107' : '#795548';
+            // אם אין יחידה פעילה של השחקן (lastPlayerUnit), הלחצנים מושבתים
+            const unit = lastPlayerUnit; 
+            const target = pendingTarget; // משתמש ב-pendingTarget לאישור
+            let isReadyToConfirm = false;
+            
+            if (unit && target && target.team === 'enemy' && !unit.hasAttacked) {
+                // בדיקה אם המטרה בטווח והנזק הצפוי הוא מעל 0
+                if (isAttackable(unit.row, unit.col, target.row, target.col, unit.attackRange) && calculateTotalExpectedDamage(unit, target) > 0) {
+                    isReadyToConfirm = true;
+                }
             }
 
-            // אם היחידה סיימה את שתי הפעולות, הלחצנים לא נגישים והיא נשארת נבחרת
+
+            if (MOVE_BTN) {
+                // כפתור תזוזה (רגיל)
+                MOVE_BTN.textContent = "תזוזה";
+                MOVE_BTN.disabled = !unit || unit.hasMoved;
+                MOVE_BTN.style.backgroundColor = unit && !unit.hasMoved ? '#ffc107' : '#795548';
+
+                // כפתור התקפה (הופך לאישור אם יש יעד שנבחר לבדיקה)
+                if (isReadyToConfirm) {
+                    ATTACK_BTN.textContent = `אשר התקפה (${target.name})`;
+                    ATTACK_BTN.disabled = false;
+                    ATTACK_BTN.style.backgroundColor = '#f44336'; // צבע אדום לאישור
+                } else {
+                    ATTACK_BTN.textContent = "התקפה";
+                    ATTACK_BTN.disabled = !unit || unit.hasAttacked;
+                    ATTACK_BTN.style.backgroundColor = unit && !unit.hasAttacked ? '#ffc107' : '#795548';
+                }
+            }
         }
 
         function updateSelectedUnitInfo(unit) {
-             // NEW: הוספת בונוס שדרוג ו-XP/רמה לתצוגה
-             const itemUpgradesForType = itemUpgrades[unit.type] || { hp: 0, atk: 0, def: 0, move: 0, range: 0 };
+             // NEW: יחידת התקפה לקביעת תחזית
+             const attacker = lastPlayerUnit && lastPlayerUnit.isAlive ? lastPlayerUnit : null;
+             
              // בונוס כולל (רמה + חפץ)
+             const itemUpgradesForType = itemUpgrades[unit.type] || { hp: 0, atk: 0, def: 0, move: 0, range: 0 };
              const totalHp = unit.maxHp;
              const totalAtk = unit.atk;
              const totalDef = unit.def;
              const totalMove = unit.moveRange;
              const totalRange = unit.attackRange;
-             // NEW: הצגת מהירות
              const totalSpeed = unit.speed;
              
              // בונוס חפץ מוצג בסוגריים
@@ -2036,7 +2151,6 @@
              let leaderInfo = '';
              if (unit.isLeader && unit.team === 'enemy') {
                 const levelFactor = unit.level;
-                // UPDATED: בונוסים מעודכנים
                 const leaderBonusHp = 7 * levelFactor; 
                 const leaderBonusAtk = 3 * levelFactor;
                 const leaderBonusDef = 3 * levelFactor;
@@ -2045,6 +2159,7 @@
              
              let progressInfo = '';
              let statusInfo = '';
+             let attackInfo = 'רגילה';
              
              if (unit.team === 'player') {
                  const percent = (unit.xp / unit.xpToNextLevel) * 100;
@@ -2058,46 +2173,41 @@
                  `;
              }
              
-             // UPDATED: הצגת סף המתקפה בהתאם למדרג
-             let attackInfo = 'רגילה';
-             
-             // אם היחידה היא תוקפת
-             if (selectedUnit) {
-                 const attacker = selectedUnit; 
-                 const targets = units.filter(u => u.team !== attacker.team && u.isAlive);
+             // חישוב יכולת התקפה כללית
+             const targets = units.filter(u => u.team !== unit.team && u.isAlive);
+             if (targets.length > 0) {
+                 const weakestTargetSpeed = targets.reduce((min, t) => Math.min(min, t.speed), Infinity);
+                 const speedDiff = unit.speed - weakestTargetSpeed;
                  
-                 // מחשב את מספר ההתקפות הפוטנציאלי המקסימלי מול היעד הכי איטי
-                 if (targets.length > 0) {
-                     const weakestTargetSpeed = targets.reduce((min, t) => Math.min(min, t.speed), Infinity);
-                     const speedDiff = attacker.speed - weakestTargetSpeed;
-                     
-                     if (speedDiff >= SPEED_THRESHOLD_QUADRUPLE) {
-                          attackInfo = 'מרובעת';
-                     } else if (speedDiff >= SPEED_THRESHOLD_TRIPLE) {
-                          attackInfo = 'משולשת';
-                     } else if (speedDiff >= SPEED_THRESHOLD_DOUBLE) {
-                          attackInfo = 'כפולה';
-                     }
+                 if (speedDiff >= SPEED_THRESHOLD_QUADRUPLE) {
+                      attackInfo = 'מרובעת';
+                 } else if (speedDiff >= SPEED_THRESHOLD_TRIPLE) {
+                      attackInfo = 'משולשת';
+                 } else if (speedDiff >= SPEED_THRESHOLD_DOUBLE) {
+                      attackInfo = 'כפולה';
                  }
              }
 
+             // NEW: הוסר ה-ForecastInfo מהפאנל הצדדי כדי לאפשר רק את הפופאפ
+             let forecastInfo = '';
              
              SELECTED_UNIT_INFO.innerHTML = `
                  <p><strong>${unit.name}</strong> (${unit.team === 'player' ? 'שלך' : 'אויב'})</p>
+                 <p>HP נוכחי: <strong>${Math.floor(unit.hp)}</strong>/${totalHp}</p>
                  ${leaderInfo}
                  ${progressInfo}
-                 <p>חיים: ${Math.floor(unit.hp)}/${totalHp} ${hpBonus}</p>
                  <p>התקפה: ${totalAtk} ${atkBonus} | הגנה: ${totalDef}</p>
                  <p><strong>טווח תנועה: ${totalMove} ${moveBonus}</strong> | טווח תקיפה: ${totalRange} ${rangeBonus}</p>
                  <p><strong>מהירות: ${totalSpeed}</strong> (יכולת תקיפה: ${attackInfo})</p>
                  ${statusInfo}
+                 ${forecastInfo}
              `;
         }
         
         // הפונקציה החדשה שמציגה טווח תנועה והתקפה אוטומטית
         function showAvailableActions() {
-            if (!selectedUnit || selectedUnit.team === 'enemy') return;
-            clearHighlights(); // ודא שכל הדגשות קודמות נמחקו
+            // UPDATED: משתמשת ב-lastPlayerUnit במקום selectedUnit
+            if (!lastPlayerUnit || lastPlayerUnit.team === 'enemy') return;
             
             for (let r = 0; r < BOARD_SIZE; r++) {
                 for (let c = 0; c < BOARD_SIZE; c++) {
@@ -2105,24 +2215,24 @@
                     const targetUnit = getUnitAt(r, c);
                     
                     // הדגשת תזוזה
-                    if (!selectedUnit.hasMoved && isValidMove(selectedUnit.row, selectedUnit.col, r, c, selectedUnit)) {
+                    if (!lastPlayerUnit.hasMoved && isValidMove(lastPlayerUnit.row, lastPlayerUnit.col, r, c, lastPlayerUnit)) {
                         tile.classList.add('highlight-move');
                     }
                     
                     // הדגשת התקפה
-                    if (!selectedUnit.hasAttacked && 
+                    if (!lastPlayerUnit.hasAttacked && 
                         targetUnit && 
-                        targetUnit.team !== selectedUnit.team && 
-                        isAttackable(selectedUnit.row, selectedUnit.col, r, c, selectedUnit.attackRange)) {
+                        targetUnit.team !== lastPlayerUnit.team && 
+                        isAttackable(lastPlayerUnit.row, lastPlayerUnit.col, r, c, lastPlayerUnit.attackRange)) {
                              // NEW: הדגש רק אם ניתן לגרום נזק
-                             if (calculateTotalExpectedDamage(selectedUnit, targetUnit) > 0) {
+                             if (calculateTotalExpectedDamage(lastPlayerUnit, targetUnit) > 0) {
                                 tile.classList.add('highlight-attack');
                              }
                     }
                 }
             }
-            // שמור על היחידה הנבחרת מסומנת
-            board[selectedUnit.row][selectedUnit.col].classList.add('selected');
+            // שמור על היחידה הפעילה מסומנת
+            board[lastPlayerUnit.row][lastPlayerUnit.col].classList.add('selected');
         }
 
 
@@ -2148,7 +2258,7 @@
         // --- פונקציות בדיקת טווח ---
 
         // פונקציה משודרגת - מקבלת את היחידה הנבחרת כדי לקבל את טווח התנועה
-        function isValidMove(startR, startC, endR, endC, unit = selectedUnit) {
+        function isValidMove(startR, startC, endR, endC, unit) {
             // FIXED: בדיקה אם האריח תפוס, אבל מאפשר תזוזה למקום של האויב אם הוא אינו קיים יותר
             const unitAtEnd = getUnitAt(endR, endC);
             if (unitAtEnd && unitAtEnd !== unit) {
@@ -2348,7 +2458,7 @@
                 await loadGold();
                 
                 // FIXED: הודעת סטטוס שמנחה את המשתמש
-                STATUS_MESSAGE.textContent = "טעינת נתונים הסתיימה. לחץ 'התחל קרב חדש' כדי להתחיל."; 
+                STATUS_MESSAGE.textContent = "טוענת נתונים. לחץ 'התחל קרב חדש' כדי להתחיל."; 
                 isReady = true;
                 RESTART_BTN.disabled = false;
                 generateStoryContent(); // **NEW: טעינת הסיפור בהתאם להתקדמות שנשמרה**
@@ -2564,8 +2674,45 @@
 
 
             // הלחצנים לא מבצעים פעולה ישירה יותר, אלא רק מציגים את הסטטוס
-            if(MOVE_BTN) MOVE_BTN.onclick = () => { if (selectedUnit) showAvailableActions(); };
-            if(ATTACK_BTN) ATTACK_BTN.onclick = () => { if (selectedUnit) showAvailableActions(); };
+            if(MOVE_BTN) MOVE_BTN.onclick = () => { 
+                hideFloatingForecast(); // ביטול תחזית אם קיימת
+                if (lastPlayerUnit) showAvailableActions(); 
+            };
+            
+            // **UPDATED**: לוגיקת כפתור ההתקפה/אישור
+            if(ATTACK_BTN) ATTACK_BTN.onclick = () => { 
+                if (gameState !== 'playerTurn') return; // Only allow clicks during player turn
+
+                const unit = lastPlayerUnit;
+                const target = pendingTarget;
+
+                // Check if we are in the confirmation state (pendingTarget is set)
+                if (target && target.team === 'enemy' && unit && !unit.hasAttacked) {
+                    
+                    // **CONFIRMATION ACTION: Execute the attack**
+                    (async () => {
+                        await performAttackAction(unit, target);
+                        
+                        // Cleanup state after attack
+                        unit.hasAttacked = true;
+                        
+                        // Revert state back to selection mode, keeping the attacker selected
+                        selectedUnit = unit;
+                        lastPlayerUnit = unit; 
+                        hideFloatingForecast();
+                        clearHighlights();
+                        board[selectedUnit.row][selectedUnit.col].classList.add('selected');
+                        updateSelectedUnitInfo(selectedUnit);
+                        renderBoard();
+                    })();
+
+                } else {
+                    // Normal click action: highlight attack targets
+                    if (unit && !unit.hasAttacked) {
+                         showAvailableActions();
+                    }
+                }
+            };
             
             // הגדרת לוגיקה לכפתור סיום תור
             END_TURN_BTN.onclick = () => {

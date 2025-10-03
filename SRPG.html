@@ -100,7 +100,7 @@
             border-radius: 6px;
             border: 2px solid #ffc107; /* Gold border */
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-            pointer-events: none; /* Ignore mouse events */
+            pointer-events: none; /* Ignore mouse events for click-through to tile */
             display: none;
             text-align: center;
             font-size: 0.9rem;
@@ -582,6 +582,7 @@
         let selectedUnit = null; // היחידה שנבחרה לצפייה (יכולה להיות אויב או שחקן)
         let lastPlayerUnit = null; // היחידה האחרונה של השחקן שנבחרה לפעולה (נשמרת עבור תחזית)
         let pendingTarget = null; // היעד הנוכחי להמתנה לאישור תקיפה (NEW)
+        let initialMovePosition = null; // NEW: שומר את המיקום ההתחלתי לפני התזוזה
         let gameState = 'loading'; // loading, ready, playerTurn, enemyTurn, gameOver, animating, upgradePhase
         let currentTurn = 0;
         let isReady = false; // דגל טעינת Firebase
@@ -1646,6 +1647,7 @@
             selectedUnit = null;
             lastPlayerUnit = null; // Resetting last player unit
             pendingTarget = null; // NEW: Reset pending target
+            initialMovePosition = null; // Reset initial move position
             currentTurn = 0;
             gameState = 'ready';
             clearHighlights();
@@ -1667,6 +1669,7 @@
             selectedUnit = null;
             lastPlayerUnit = null;
             pendingTarget = null; // NEW: Reset pending target
+            initialMovePosition = null; // Reset initial move position
             hideFloatingForecast(); // NEW: Hide any lingering forecast
             
             // איפוס פעולות ליחידות השחקן
@@ -1899,6 +1902,7 @@
             clearHighlights();
             selectedUnit = null;
             pendingTarget = null; // NEW: Reset pending target
+            initialMovePosition = null; // Reset initial move position
             hideFloatingForecast(); // NEW: Hide any lingering forecast
             
             // UPDATED: קרב 2 נותן 1500 זהב בסיסי
@@ -1944,6 +1948,7 @@
             clearHighlights();
             selectedUnit = null;
             pendingTarget = null; // NEW: Reset pending target
+            initialMovePosition = null; // Reset initial move position
             hideFloatingForecast(); // NEW: Hide any lingering forecast
             updateActionButtons();
             
@@ -1955,6 +1960,85 @@
             RESTART_BTN.disabled = false;
             END_TURN_BTN.disabled = true;
             TURN_DISPLAY.textContent = `תור: - (הסתיים)`;
+        }
+
+        // --- NEW: Confirmation and Cancellation Handlers ---
+        // Helper to execute attack (called by the popup's 'Attack' button)
+        function confirmPendingAttackExecution() {
+             if (!lastPlayerUnit || !pendingTarget) return;
+
+             // Execute the attack logic (copied from previous ATTACK_BTN handler)
+             (async () => {
+                 const attacker = lastPlayerUnit;
+                 const target = pendingTarget;
+
+                 await performAttackAction(attacker, target);
+                 
+                 // Cleanup state after attack
+                 attacker.hasAttacked = true;
+                 
+                 // Revert state back to selection mode, keeping the attacker selected
+                 selectedUnit = attacker;
+                 lastPlayerUnit = attacker; 
+                 
+                 // IMPORTANT: DO NOT CALL hideFloatingForecast() here, only cancelPendingAttack does
+                 FORECAST_POPUP.style.display = 'none'; // Hide the popup immediately
+                 FORECAST_POPUP.style.pointerEvents = 'none';
+                 pendingTarget = null;
+                 initialMovePosition = null; // תזוזה אושרה, אז המיקום ההתחלתי נמחק
+                 
+                 clearHighlights();
+                 if(selectedUnit.isAlive) {
+                     board[selectedUnit.row][selectedUnit.col].classList.add('selected');
+                     updateSelectedUnitInfo(selectedUnit);
+                 } else {
+                     selectedUnit = null;
+                     lastPlayerUnit = null;
+                     SELECTED_UNIT_INFO.innerHTML = "בחר יחידה מהלוח...";
+                 }
+             })();
+        }
+
+        // Helper to cancel the pending attack (called by the popup's 'Cancel' button)
+        function cancelPendingAttack() {
+             // 1. איפוס התזוזה והחזרת היחידה למקום ההתחלתי
+             if (lastPlayerUnit && lastPlayerUnit.hasMoved && initialMovePosition) {
+                 
+                 // **NEW FIX: Move unit back to initial position**
+                 // צריך להסיר את היחידה מהאריח הנוכחי, לעדכן קואורדינטות, לצייר מחדש
+                 board[lastPlayerUnit.row][lastPlayerUnit.col].innerHTML = '';
+                 
+                 lastPlayerUnit.row = initialMovePosition.row;
+                 lastPlayerUnit.col = initialMovePosition.col;
+                 
+                 lastPlayerUnit.draw(board[lastPlayerUnit.row][lastPlayerUnit.col]);
+                 
+                 // **איפוס סטטוס**
+                 lastPlayerUnit.hasMoved = false; 
+                 initialMovePosition = null; // מיקום התחלה נמחק
+                 
+                 STATUS_MESSAGE.textContent = `${lastPlayerUnit.name}: הפעולה בוטלה. הוחזר למיקום התחלתי.`;
+             } else {
+                 STATUS_MESSAGE.textContent = `${lastPlayerUnit.name}: תקיפה בוטלה.`;
+             }
+             
+             // 2. הסתרת הפופאפ ואיפוס ה-pendingTarget
+             FORECAST_POPUP.style.display = 'none';
+             FORECAST_POPUP.style.pointerEvents = 'none';
+             pendingTarget = null;
+             
+             // 3. עדכון UI והדגשה מחדש
+             if (lastPlayerUnit) {
+                  selectedUnit = lastPlayerUnit;
+                  clearHighlights(); // Clear highlights first
+                  showAvailableActions(); // Re-highlight actions based on existing state (including now possible movement)
+                  updateSelectedUnitInfo(selectedUnit);
+             } else {
+                  SELECTED_UNIT_INFO.innerHTML = "בחר יחידה מהלוח...";
+             }
+             updateActionButtons();
+             // צייר מחדש את הלוח כדי לוודא שכל האייקונים נכונים
+             renderBoard();
         }
 
         // --- NEW: Floating Forecast Logic ---
@@ -1972,12 +2056,17 @@
             const tileRect = tile.getBoundingClientRect();
             const boardRect = BOARD_CONTAINER.getBoundingClientRect();
 
-            // 1. הגדרת התוכן
+            // 1. הגדרת התוכן (כולל כפתורים)
             FORECAST_POPUP.innerHTML = `
                  <h4>תחזית: ${defender.name}</h4>
+                 <p>HP: ${defender.hp.toFixed(0)} -> ${remainingHP.toFixed(0)}</p>
                  <p>נזק נטו: <strong>${damagePerHit}</strong> x ${attackCount}</p>
-                 <p style="color: #ff4500;">סה"כ נזק: <strong>${damage}</strong></p>
-                 <p>HP צפוי: <strong>${remainingHP.toFixed(0)}/${defender.maxHp}</strong> ${kills}</p>
+                 <p style="color: #ff4500;">סה"כ נזק: <strong>${damage}</strong> ${kills}</p>
+                 
+                 <div style="margin-top: 8px; display: flex; gap: 8px; justify-content: center;">
+                    <button id="forecast-attack-btn" class="action-btn" style="background-color: #388E3C; color: white; padding: 5px 10px; pointer-events: auto;">תקוף</button>
+                    <button id="forecast-cancel-btn" class="action-btn" style="background-color: #5d4037; color: white; padding: 5px 10px; pointer-events: auto;">בטל פעולה</button>
+                 </div>
             `;
 
             // 2. מיקום - ממוקם מעל האריח של המגן
@@ -1988,18 +2077,29 @@
             FORECAST_POPUP.style.top = `${tileRect.top - boardRect.top - popupHeight - 10}px`;
             FORECAST_POPUP.style.right = `${boardRect.width - (tileRect.right - boardRect.left)}px`;
             
-            // 3. הצגה
+            // 3. הצגה והגדרת פוינטר
             FORECAST_POPUP.style.display = 'block';
+            FORECAST_POPUP.style.pointerEvents = 'auto';
 
-            // הגדרת היעד הממתין
+            // 4. הגדרת היעד הממתין והאזנה לאירועים
             pendingTarget = defender;
+            document.getElementById('forecast-attack-btn').onclick = confirmPendingAttackExecution;
+            document.getElementById('forecast-cancel-btn').onclick = cancelPendingAttack;
+            
             updateActionButtons();
         }
 
         function hideFloatingForecast() {
+            // אם אנחנו מסתירים את התחזית, זה רק מסתיר אותה
             FORECAST_POPUP.style.display = 'none';
+            FORECAST_POPUP.style.pointerEvents = 'none'; // Reset pointer events
             pendingTarget = null;
             updateActionButtons();
+            
+            // לאחר ביטול התחזית, נרצה לעדכן את המידע על הדמות הנבחרת כדי לשקף את הסטטוס החדש (אם ה-hasMoved השתנה)
+            if (selectedUnit) {
+                 updateSelectedUnitInfo(selectedUnit);
+            }
         }
 
         // ------------------------------------
@@ -2012,13 +2112,19 @@
             const clickedUnit = getUnitAt(r, c);
             const tile = board[r][c];
 
-            // --- 1. ניסיון לבצע פעולה (התקפה/תזוזה) ---
+            // --- 1. ניסיון לבצע פעולה (תזוזה) ---
             if (gameState === 'playerTurn' && lastPlayerUnit) {
                 const isMoveAttempt = tile.classList.contains('highlight-move');
                 const isAttackTarget = tile.classList.contains('highlight-attack');
 
                 // ביצוע תזוזה
                 if (isMoveAttempt && !lastPlayerUnit.hasMoved) {
+                    
+                    // NEW: שמירת מיקום התחלה רק בפעם הראשונה
+                    if (!initialMovePosition) {
+                        initialMovePosition = { row: lastPlayerUnit.row, col: lastPlayerUnit.col };
+                    }
+
                     moveUnit(lastPlayerUnit, r, c);
                     lastPlayerUnit.hasMoved = true;
                     selectedUnit = lastPlayerUnit; 
@@ -2035,24 +2141,28 @@
                     
                     // אם זה אותו יעד שכבר נבחר (Pending) - בטל את התחזית
                     if (pendingTarget === clickedUnit) {
-                        hideFloatingForecast();
-                        // נשאר על היחידה הפעילה
-                        selectedUnit = lastPlayerUnit; 
-                        updateSelectedUnitInfo(selectedUnit);
+                        // כעת לחיצה על אותו יעד מבטלת רק את התחזית, לא משפיעה על hasMoved
+                        hideFloatingForecast(); 
                         return;
                     }
                     
-                    // הצג תחזית ואשר התקפה חדשה
+                    // הצג תחזית חדשה (במקום לצאת)
                     selectedUnit = clickedUnit; // הדגשת האויב לצפייה
                     showFloatingForecast(lastPlayerUnit, clickedUnit);
-                    updateSelectedUnitInfo(clickedUnit); // הצג את התחזית בלוח הצדדי
                     return; // לא מבצעים התקפה - מחכים לאישור כפתור
                 }
             }
 
 
             // --- 2. לוגיקת בחירה / בדיקה (Inspection) ---
-            hideFloatingForecast(); // NEW: נקה תחזית תמיד
+            // אם אנחנו כאן, זה קליק שלא אישר תנועה/תקיפה
+            
+            // אם יש תחזית פתוחה ואין כפתורי אישור/ביטול?
+            if (pendingTarget) {
+                 hideFloatingForecast(); // נקה את התחזית
+                 // במקרה זה, הקליק לא ביצע שום פעולה (לא תזוזה ולא בחירת יחידה חדשה), ולכן אין צורך ב-return
+            }
+
             clearHighlights(); 
 
             if (clickedUnit) {
@@ -2062,6 +2172,10 @@
                 if (clickedUnit.team === 'player' && gameState === 'playerTurn') {
                     // A. נבחרה יחידת שחקן חדשה: היא הופכת ליחידה הפעילה
                     lastPlayerUnit = clickedUnit;
+                    // NEW: שמירת מיקום התחלה רק בבחירה ראשונה (אם עדיין לא זז)
+                    if (!lastPlayerUnit.hasMoved) {
+                         initialMovePosition = { row: lastPlayerUnit.row, col: lastPlayerUnit.col };
+                    }
                     showAvailableActions(); // הצג טווח תנועה/התקפה
                 } else if (clickedUnit.team === 'enemy') {
                     // B. נבחרה יחידת אויב: רק לבדיקה.
@@ -2082,6 +2196,7 @@
                 // D. קליק על אריח ריק: בטל הכל
                 selectedUnit = null;
                 lastPlayerUnit = null;
+                initialMovePosition = null; // איפוס מיקום התחלה
                 SELECTED_UNIT_INFO.innerHTML = "בחר יחידה מהלוח...";
             }
             
@@ -2099,33 +2214,21 @@
             // אם אין יחידה פעילה של השחקן (lastPlayerUnit), הלחצנים מושבתים
             const unit = lastPlayerUnit; 
             const target = pendingTarget; // משתמש ב-pendingTarget לאישור
-            let isReadyToConfirm = false;
             
-            if (unit && target && target.team === 'enemy' && !unit.hasAttacked) {
-                // בדיקה אם המטרה בטווח והנזק הצפוי הוא מעל 0
-                if (isAttackable(unit.row, unit.col, target.row, target.col, unit.attackRange) && calculateTotalExpectedDamage(unit, target) > 0) {
-                    isReadyToConfirm = true;
-                }
-            }
-
-
+            // כפתור התזוזה משמש רק לתזוזה, ומציג סטטוס
             if (MOVE_BTN) {
-                // כפתור תזוזה (רגיל)
                 MOVE_BTN.textContent = "תזוזה";
                 MOVE_BTN.disabled = !unit || unit.hasMoved;
                 MOVE_BTN.style.backgroundColor = unit && !unit.hasMoved ? '#ffc107' : '#795548';
-
-                // כפתור התקפה (הופך לאישור אם יש יעד שנבחר לבדיקה)
-                if (isReadyToConfirm) {
-                    ATTACK_BTN.textContent = `אשר התקפה (${target.name})`;
-                    ATTACK_BTN.disabled = false;
-                    ATTACK_BTN.style.backgroundColor = '#f44336'; // צבע אדום לאישור
-                } else {
-                    ATTACK_BTN.textContent = "התקפה";
-                    ATTACK_BTN.disabled = !unit || unit.hasAttacked;
-                    ATTACK_BTN.style.backgroundColor = unit && !unit.hasAttacked ? '#ffc107' : '#795548';
-                }
             }
+
+            // כפתור ההתקפה הצידי מושבת אם אין יחידה פעילה או אם היא תקפה, ומופעל רק כדי להדגיש
+            if (ATTACK_BTN) {
+                ATTACK_BTN.textContent = "התקפה";
+                ATTACK_BTN.disabled = !unit || unit.hasAttacked || pendingTarget !== null; // מושבת כאשר יש תחזית פתוחה
+                ATTACK_BTN.style.backgroundColor = unit && !unit.hasAttacked ? '#ffc107' : '#795548';
+            }
+            // הערה: כפתור האישור מופיע רק בתוך הפופאפ עצמו.
         }
 
         function updateSelectedUnitInfo(unit) {
@@ -2684,33 +2787,10 @@
                 if (gameState !== 'playerTurn') return; // Only allow clicks during player turn
 
                 const unit = lastPlayerUnit;
-                const target = pendingTarget;
 
-                // Check if we are in the confirmation state (pendingTarget is set)
-                if (target && target.team === 'enemy' && unit && !unit.hasAttacked) {
-                    
-                    // **CONFIRMATION ACTION: Execute the attack**
-                    (async () => {
-                        await performAttackAction(unit, target);
-                        
-                        // Cleanup state after attack
-                        unit.hasAttacked = true;
-                        
-                        // Revert state back to selection mode, keeping the attacker selected
-                        selectedUnit = unit;
-                        lastPlayerUnit = unit; 
-                        hideFloatingForecast();
-                        clearHighlights();
-                        board[selectedUnit.row][selectedUnit.col].classList.add('selected');
-                        updateSelectedUnitInfo(selectedUnit);
-                        renderBoard();
-                    })();
-
-                } else {
-                    // Normal click action: highlight attack targets
-                    if (unit && !unit.hasAttacked) {
-                         showAvailableActions();
-                    }
+                // Normal click action: highlight attack targets
+                if (unit && !unit.hasAttacked) {
+                     showAvailableActions();
                 }
             };
             

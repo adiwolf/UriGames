@@ -504,6 +504,9 @@
                     <!-- NEW: Elven Ranger - Available after Battle 2 -->
                     <button id="recruit-elfRanger" class="action-btn upgrade-btn" style="background-color: #8BC34A;">גיוס סייר אלפים (+$2100 | טווח 2, טווח תנועה 4, נחשף בקרב 3+)</button>
                     <button id="recruit-mage" class="action-btn upgrade-btn" style="background-color: #9C27B0;">גיוס מכשף (+$2200 | טווח 2, **התקפה 40**, טווח תנועה 4)</button>
+                    <!-- NEW: Demon Archer - Available after Battle 3 -->
+                    <button id="recruit-demonArcher" class="action-btn upgrade-btn" style="background-color: #C62828;">גיוס קשת שד (+$2500 | טווח 4, התקפה 40, איטיות 8, נחשף בקרב 4+)</button>
+
 
                     <h3 style="color:#FFF; margin-top: 10px;">שדרוגי אביר</h3>
                     <!-- אביר - שדרוג נשק ושריון -->
@@ -524,14 +527,19 @@
 
                     <!-- NEW: שדרוגי מכשף -->
                     <h3 style="color:#FFF; margin-top: 10px;">שדרוגי מכשף (Mage)</h3>
-                    <!-- UPDATED TEXT: No more ATK bonus in item name -->
-                    <button id="buy-mage-staff" class="action-btn upgrade-btn">מכשף: שרביט עוצמתי (+$2800 | +1 טווח תנועה, +1 טווח תקיפה)</button>
+                    <!-- UPDATED: השרביט נותן ATK 15 -->
+                    <button id="buy-mage-staff" class="action-btn upgrade-btn">מכשף: שרביט עוצמתי (+$2800 | +15 התקפה, +1 טווח תנועה, +1 טווח תקיפה)</button>
                     <button id="buy-mage-robe" class="action-btn upgrade-btn">מכשף: גלימת ארכאון (+$1600 | +20 חיים, +3 הגנה)</button>
                     
                     <!-- NEW: שדרוגי סייר אלפים -->
                     <h3 style="color:#FFF; margin-top: 10px;">שדרוגי סייר אלפים (Elf Ranger)</h3>
                     <button id="buy-elfRanger-daggers" class="action-btn upgrade-btn">סייר: פגיונות רעל (+$2300 | +15 התקפה)</button>
                     <button id="buy-elfRanger-move" class="action-btn upgrade-btn">סייר: גלימת ציידים (+$1500 | +1 טווח תנועה)</button>
+                    
+                    <!-- NEW: שדרוגי קשת שד -->
+                    <h3 style="color:#FFF; margin-top: 10px;">שדרוגי קשת שד (Demon Archer)</h3>
+                    <button id="buy-demonArcher-bow" class="action-btn upgrade-btn">קשת שד: קשת אפלה (+$3500 | +15 התקפה, +1 טווח תקיפה)</button>
+                    <button id="buy-demonArcher-amulet" class="action-btn upgrade-btn">קשת שד: תליון השהייה (+$1800 | +20 חיים, +1 טווח תנועה)</button>
 
 
                 </div>
@@ -583,7 +591,7 @@
         let lastPlayerUnit = null; // היחידה האחרונה של השחקן שנבחרה לפעולה (נשמרת עבור תחזית)
         let pendingTarget = null; // היעד הנוכחי להמתנה לאישור תקיפה (NEW)
         let initialMovePosition = null; // NEW: שומר את המיקום ההתחלתי לפני התזוזה
-        let gameState = 'loading'; // loading, ready, playerTurn, enemyTurn, gameOver, animating, upgradePhase
+        let gameState = 'loading'; // loading, deployment, ready, playerTurn, enemyTurn, gameOver, animating, upgradePhase
         let currentTurn = 0;
         let isReady = false; // דגל טעינת Firebase
         let gold = 0;
@@ -591,13 +599,19 @@
         // NEW: עוקב אחרי באיזה קרב השחקן נמצא (1, 2, 3...)
         let currentBattleIndex = 1; 
         
+        let unitsToDeploy = []; // Queue of player units needing placement
+        let deployingUnit = null; // The unit currently selected to be placed
+        const DEPLOYMENT_ROWS = [3, 4]; // Rows available for deployment
+
+
         // NEW: שמירת שדרוגי ציוד קבועים (Items) - כולל יחידות מגויסות חדשות
         let itemUpgrades = {
             knight: { hp: 0, atk: 0, def: 0, move: 0, range: 0 },
             archer: { hp: 0, atk: 0, def: 0, move: 0, range: 0 },
             spearman: { hp: 0, atk: 0, def: 0, move: 0, range: 0 },
             mage: { hp: 0, atk: 0, def: 0, move: 0, range: 0 },
-            elfRanger: { hp: 0, atk: 0, def: 0, move: 0, range: 0 } // NEW
+            elfRanger: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, // NEW
+            demonArcher: { hp: 0, atk: 0, def: 0, move: 0, range: 0 } // NEW DEMON ARCHER
         };
         // NEW: שמירת נתוני רמה/XP - כולל סטטוס גיוס
         let unitProgress = {
@@ -605,7 +619,8 @@
             archer: { level: 1, xp: 0, nextLevelXp: 1000 },
             spearman: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false },
             mage: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false },
-            elfRanger: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false } // NEW
+            elfRanger: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false }, // NEW
+            demonArcher: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false } // NEW DEMON ARCHER
         };
 
         // קבוע עבור מתקפה כפולה מבוססת מהירות - סף מופחת ל-5
@@ -661,8 +676,9 @@
             },
             // Stage 4: After Battle 3 (The Long War)
             4: {
-                title: "המערכה המתארכת: כוחות העומק",
-                lore: `<p>ניצחתם את גל התקיפה הגדול ביותר עד כה, אבל נראה שהאויב אינו נגמר. אם ברשותך כוחות נוספים (לוחם מגן או מכשף), למד לשלב את יכולות ההגנה וההתקפה המיוחדות שלהם. כל קרב עולה בדרגת הקושי, והרמה הממוצעת של האויבים תמשיך לעלות. המשך לאגור זהב, המפקד!</p>`,
+                title: "המערכה המתארכת: כוחות העומק והשדים",
+                lore: `<p>ניצחתם את גל התקיפה הגדול ביותר עד כה, אבל נראה שהאויב אינו נגמר. נתקלנו ביחידת <strong>קשת שד (Demon Archer)</strong> איטית אך קטלנית בעלת טווח תקיפה עצום. נדרשת הגנה מיידית על היחידות הרכות.</p>
+                       <p><strong>גיוס חדש:</strong> אם הצלחתם לשרוד את הגל השלישי, ייתכן שתוכלו לגייס את קשת השד עצמה! כוח האש שלה חיוני נגד האויבים המתבצרים. כל קרב עולה בדרגת הקושי, והרמה הממוצעת של האויבים תמשיך לעלות. המשך לאגור זהב, המפקד!</p>`,
                 guide: `<h3>חוקי בסיס: תזכורת</h3>
                         <ul>
                             <li><strong>שמירה:</strong> כל ההתקדמות (זהב, רמות, גיוסים) נשמרת אוטומטית ב-Firestore.</li>
@@ -707,31 +723,36 @@
             
             switch (unitType) {
                 case 'knight':
-                    // Speed 10 (Medium Speed - Horseback)
+                    // גזע: אדם (מאוזן). יתרון: יכולת צמיחה חזקה.
                     baseHp = 120; baseAtk = 30; baseDef = 10; baseMove = 2; baseRange = 1; baseSpeed = 10; break; 
                 case 'archer':
-                    // Speed 15 (High Speed - Light Armor) - KITING UNIT
+                    // גזע: אדם (צייד). יתרון: טווח תנועה טוב ומהירות גבוהה.
                     baseHp = 80; baseAtk = 20; baseDef = 5; baseMove = 3; baseRange = 3; baseSpeed = 15; break; 
                 case 'spearman': 
-                    // Speed 5 (Slowest - heavy shield infantry)
-                    baseHp = 140; baseAtk = 20; baseDef = 12; baseMove = 1; baseRange = 1; baseSpeed = 5; break;
+                    // גזע: אדם (מגן כבד). יתרון: הגנה וחיים גבוהים. חיסרון: תנועה איטית והתקפה חלשה.
+                    baseHp = 140; baseAtk = 15; baseDef = 12; baseMove = 1; baseRange = 1; baseSpeed = 5; break; // UPDATED ATK
                 case 'mage': 
-                    // Speed 15 (High Speed - reduced from 18) - GLASS CANNON KITER
+                    // גזע: מיסטיקן (תותח זכוכית). יתרון: התקפה אדירה. חיסרון: 0 הגנה וחיים נמוכים.
                     baseHp = 60; baseAtk = 40; baseDef = 0; baseMove = 4; baseRange = 2; baseSpeed = 15; break; 
                 case 'elfRanger':
-                    // Speed 18 (Very Fast - max speed) - FAST FLANKER
-                    baseHp = 70; baseAtk = 25; baseDef = 5; baseMove = 4; baseRange = 2; baseSpeed = 18; break; 
+                    // גזע: אלף (סייר זריז). יתרון: מהירות ותנועה קיצונית. חיסרון: שברירי (HP/DEF נמוכים).
+                    baseHp = 60; baseAtk = 25; baseDef = 3; baseMove = 4; baseRange = 2; baseSpeed = 18; break; // UPDATED HP & DEF
+                case 'demonArcher':
+                    // גזע: שד (קשת כבד). יתרון: טווח תקיפה גבוה, כוח אש. חיסרון: איטיות קיצונית וטווח תנועה מוגבל.
+                    baseHp = 90; baseAtk = 40; baseDef = 5; baseMove = 1; baseRange = 4; baseSpeed = 8; break; // UPDATED ATK
+                
+                // Enemy units (Orc, Bandit, Goblin) remain as is, they get their flavor through leader bonuses
                 case 'orc': 
-                    // ENEMY STATS: Speed 10 (Medium Speed)
+                    // גזע: אורק. חיסרון: איטי יחסית.
                     baseHp = 100; baseAtk = 25; baseDef = 8; baseMove = 2; baseRange = 1; baseSpeed = 10; break;
                 case 'bandit':
-                    // ENEMY STATS: Speed 12 (Fast)
-                    baseHp = 80; baseAtk = 20; baseDef = 5; baseMove = 2; baseRange = 1; baseSpeed = 12; break; // UPDATED: Move Range reduced to 2
+                    // גזע: שודד. יתרון: מהירות בינונית-גבוהה.
+                    baseHp = 80; baseAtk = 20; baseDef = 5; baseMove = 2; baseRange = 1; baseSpeed = 12; break; 
                 case 'banditArcher': 
-                    // ENEMY STATS: Speed 12 (Fast)
+                    // גזע: קשת שודד. יתרון: טווח.
                     baseHp = 60; baseAtk = 18; baseDef = 3; baseMove = 3; baseRange = 3; baseSpeed = 12; break;
                 case 'goblin': 
-                    // ENEMY STATS: Speed 22 (Insane Speed) - XP FODDER
+                    // גזע: גובלין. יתרון: מהירות קיצונית. חיסרון: שבריריות מוחלטת.
                     baseHp = 40; baseAtk = 15; baseDef = 0; baseMove = 4; baseRange = 1; baseSpeed = 22; break;
                 default:
                     baseHp = 80; baseAtk = 20; baseDef = 5; baseMove = 2; baseRange = 1; baseSpeed = 10; break;
@@ -748,7 +769,7 @@
             let totalSpeed = baseSpeed;
             
             // NEW: Speed increases with level only for Player units (every 3 levels)
-            if (unitType === 'knight' || unitType === 'archer' || unitType === 'spearman' || unitType === 'mage' || unitType === 'elfRanger') {
+            if (unitType === 'knight' || unitType === 'archer' || unitType === 'spearman' || unitType === 'mage' || unitType === 'elfRanger' || unitType === 'demonArcher') {
                 // מקבל +1 מהירות על כל 3 רמות
                 const speedBonus = Math.floor(levelFactor / 3);
                 totalSpeed = baseSpeed + speedBonus;
@@ -778,6 +799,8 @@
             const BRONZE_LIGHT = '#D4A017'; // Lighter Bronze for highlights
             const MAGE_ROBE = '#9C27B0'; // Purple for Mage robe
             const MAGE_ACCENT = '#FFEB3B'; // Gold/Yellow for Mage trim
+            const DEMON_COLOR = '#880E4F'; // Deep Maroon/Demon Red
+            const DEMON_HORN = '#FFD54F'; // Yellow/Gold Horns
             
             let svgContent = '';
             
@@ -872,6 +895,31 @@
                             
                             <!-- Shoulder pads/Accent -->
                             <rect x="3.5" y="4" width="3" height="0.5" fill="${ELF_BROWN}"/> 
+                        </svg>`;
+                    break;
+                case 'demonArcher':
+                    // UPDATED: Demon Archer now uses the standard horizontal bow for consistency, but with Demon colors
+                    const DEMON_BOW = '#424242'; // Dark steel/Black bow
+                    svgContent = `
+                        <svg viewBox="0 0 10 10" xmlns="http://www.w3.org/2000/svg">
+                            <!-- Body/Robe (Demon Maroon) -->
+                            <rect x="3.5" y="4" width="3" height="6" fill="${DEMON_COLOR}"/>
+                            <!-- Head/Hood (Demon Maroon) -->
+                            <rect x="3" y="1.5" width="4" height="3" fill="${DEMON_COLOR}"/>
+                            <!-- Horns (Yellow/Gold) -->
+                            <polygon points="3,1.5 3.5,0.5 4,1.5" fill="${DEMON_HORN}"/> 
+                            <polygon points="7,1.5 6.5,0.5 6,1.5" fill="${DEMON_HORN}"/>
+                            <!-- Eyes (Red) -->
+                            <rect x="4" y="3" width="2" height="1" fill="${RED}"/>
+                            
+                            <!-- Bow (Horizontal - consistent with Archer) -->
+                            <path d="M 1 5 Q 3.5 3.5, 6 5" fill="none" stroke="${DEMON_BOW}" stroke-width="0.5"/>
+                            
+                            <!-- String (White) - Longer, horizontal line drawn back - Y set to 5.3 to create space from the bow -->
+                            <line x1="1" y1="5.3" x2="5.5" y2="5.3" stroke="${WHITE}" stroke-width="0.5"/> 
+
+                            <!-- Hand (Demon Maroon) - holding the bow string/arrow -->
+                            <rect x="5.5" y="4.8" width="1" height="1" fill="${DEMON_COLOR}"/> 
                         </svg>`;
                     break;
                 case 'archer':
@@ -976,15 +1024,17 @@
 
             // UPDATED: הוספת סימון מנהיג (קרניים או כתר ברונזה)
             if (isLeader) {
-                if (type === 'orc') {
-                    // הוספת קרניים לבנות לאורק
-                    const orcHeadMatch = svgContent.match(/<rect x="2" y="1.5" width="6" height="4" fill="#558B2F"\/>/);
+                if (type === 'orc' || type === 'demonArcher') { // ADDED demonArcher to Orc style leader
+                    // הוספת קרניים לבנות לאורק/שד
+                    const headColor = type === 'orc' ? ORC_SKIN : DEMON_COLOR;
+                    const orcHeadMatch = svgContent.match(new RegExp(`<rect x="2" y="1.5" width="6" height="4" fill="${headColor}"\/>`));
+
                     if (orcHeadMatch) {
                         svgContent = svgContent.replace(orcHeadMatch[0], `
-                            <!-- LEADER: Orc Horns -->
-                            <polygon points="2,1.5 3,0.5 4,1.5" fill="${WHITE}"/> 
-                            <polygon points="8,1.5 7,0.5 6,1.5" fill="${WHITE}"/>
-                            <rect x="2" y="1.5" width="6" height="4" fill="${ORC_SKIN}"/>
+                            <!-- LEADER: Horns (White/Gold) -->
+                            <polygon points="2,1.5 3,0.5 4,1.5" fill="${type === 'orc' ? WHITE : DEMON_HORN}"/> 
+                            <polygon points="8,1.5 7,0.5 6,1.5" fill="${type === 'orc' ? WHITE : DEMON_HORN}"/>
+                            <rect x="2" y="1.5" width="6" height="4" fill="${headColor}"/>
                         `);
                     }
                 } else if (type === 'bandit' || type === 'banditArcher') {
@@ -1009,7 +1059,7 @@
             // Units now receive base stats and apply item upgrades and level bonuses on creation
             // UPDATED: הוספת isLeader ל-Constructor
             constructor(type, team, row, col, name, xp, level, initialHpRatio = 1.0, isLeader = false) {
-                this.type = type; // 'knight', 'archer', 'orc', 'bandit', 'banditArcher', 'goblin', 'elfRanger'
+                this.type = type; // 'knight', 'archer', 'orc', 'bandit', 'banditArcher', 'goblin', 'elfRanger', 'demonArcher'
                 this.team = team; // 'player', 'enemy'
                 this.row = row;
                 this.col = col;
@@ -1028,7 +1078,7 @@
                 const levelStats = calculateLevelBonus(type, level);
                 
                 // 2. Apply permanent Item Upgrades (stored in itemUpgrades global)
-                // Ensure we only try to apply item upgrades to units that actually have them (knight/archer/spearman/mage/elfRanger)
+                // Ensure we only try to apply item upgrades to units that actually have them (knight/archer/spearman/mage/elfRanger/demonArcher)
                 let itemUpgradesForType = { hp: 0, atk: 0, def: 0, move: 0, range: 0 };
                 if (itemUpgrades[type]) {
                     itemUpgradesForType = itemUpgrades[type];
@@ -1183,7 +1233,7 @@
                     tile.onclick = () => handleTileClick(r, c); 
                     
                     const unit = getUnitAt(r, c);
-                    if (unit) {
+                    if (unit && unit.row !== -1) { // רק יחידות שנפרסו או אויבים מוצגים
                         unit.draw(tile);
                     }
                     
@@ -1218,11 +1268,14 @@
             const costSpearman = 2000;
             const costMage = 2200; // UPDATED COST FOR MAGE
             const costElfRanger = 2100; // NEW COST
+            const costDemonArcher = 2500; // UPDATED COST FOR DEMON ARCHER
             const costSpearmanShield = 1800; // NEW COST
             const costMageStaff = 2800; // NEW COST
             const costMageRobe = 1600; // NEW COST
             const costElfRangerDaggers = 2300; // NEW COST
             const costElfRangerMove = 1500; // NEW COST
+            const costDemonArcherBow = 3500; // NEW COST DEMON ARCHER ITEM
+            const costDemonArcherAmulet = 1800; // NEW COST DEMON ARCHER ITEM
 
 
             const knightLevel = unitProgress.knight.level;
@@ -1230,6 +1283,7 @@
             const spearmanRecruited = unitProgress.spearman.recruited;
             const mageRecruited = unitProgress.mage.recruited;
             const elfRangerRecruited = unitProgress.elfRanger.recruited;
+            const demonArcherRecruited = unitProgress.demonArcher.recruited; // NEW
 
             // Item Upgrade Buttons
             const buyKnightIronSwordBtn = document.getElementById('buy-knight-iron-sword');
@@ -1245,11 +1299,14 @@
             const buyMageRobeBtn = document.getElementById('buy-mage-robe');
             const buyElfRangerDaggersBtn = document.getElementById('buy-elfRanger-daggers');
             const buyElfRangerMoveBtn = document.getElementById('buy-elfRanger-move');
+            const buyDemonArcherBowBtn = document.getElementById('buy-demonArcher-bow'); // NEW
+            const buyDemonArcherAmuletBtn = document.getElementById('buy-demonArcher-amulet'); // NEW
             
             // Unit Recruit Buttons
             const recruitSpearmanBtn = document.getElementById('recruit-spearman');
             const recruitMageBtn = document.getElementById('recruit-mage'); 
             const recruitElfRangerBtn = document.getElementById('recruit-elfRanger'); // NEW BUTTON
+            const recruitDemonArcherBtn = document.getElementById('recruit-demonArcher'); // NEW BUTTON
 
             // עדכון כפתורי הקנייה: בדיקת זהב ורמה
             if (buyKnightIronSwordBtn) buyKnightIronSwordBtn.disabled = gold < costIronSword || itemUpgrades.knight.atk >= 10;
@@ -1296,6 +1353,21 @@
                     }
                 }
             }
+            // NEW: Demon Archer - Available from Battle 4 onwards
+            if (recruitDemonArcherBtn) {
+                 if (currentBattleIndex < 4) {
+                    recruitDemonArcherBtn.disabled = true;
+                    recruitDemonArcherBtn.style.display = 'block';
+                    recruitDemonArcherBtn.textContent = `קשת שד (נפתח לאחר קרב 3)`;
+                 } else {
+                    recruitDemonArcherBtn.disabled = gold < costDemonArcher || demonArcherRecruited;
+                    if (demonArcherRecruited) {
+                        recruitDemonArcherBtn.textContent = "קשת שד גויס (ברשותך)";
+                    } else {
+                         recruitDemonArcherBtn.textContent = `גיוס קשת שד (+$${costDemonArcher} | טווח 4, התקפה 40, איטיות 8)`;
+                    }
+                 }
+            }
             
             // NEW: עדכון כפתורי ציוד ייעודיים (מוסתרים אם היחידה לא גויסה)
             if (buySpearmanShieldBtn) {
@@ -1304,8 +1376,9 @@
             }
             if (buyMageStaffBtn) {
                 buyMageStaffBtn.style.display = mageRecruited ? 'block' : 'none';
-                // UPDATED: Mage staff no longer gives ATK
-                buyMageStaffBtn.disabled = gold < costMageStaff || (itemUpgrades.mage.range >= 1 && itemUpgrades.mage.move >= 1);
+                // UPDATED: Mage staff now gives ATK 15
+                const currentMageStaffAtk = itemUpgrades.mage.atk;
+                buyMageStaffBtn.disabled = gold < costMageStaff || currentMageStaffAtk >= 15;
             }
             if (buyMageRobeBtn) {
                 buyMageRobeBtn.style.display = mageRecruited ? 'block' : 'none';
@@ -1323,6 +1396,20 @@
                     ? `סייר: גלימת ציידים (פעיל - לחץ לביטול!)`
                     : `סייר: גלימת ציידים (+$${costElfRangerMove} | +1 טווח תנועה)`;
             }
+            if (buyDemonArcherBowBtn) { // NEW DEMON ARCHER ITEM
+                buyDemonArcherBowBtn.style.display = demonArcherRecruited ? 'block' : 'none';
+                // נשק (ATK/RANGE)
+                const currentDemonBowAtk = itemUpgrades.demonArcher.atk;
+                buyDemonArcherBowBtn.disabled = gold < costDemonArcherBow || currentDemonBowAtk >= 15; 
+            }
+            if (buyDemonArcherAmuletBtn) { // NEW DEMON ARCHER AMULET
+                buyDemonArcherAmuletBtn.style.display = demonArcherRecruited ? 'block' : 'none';
+                // שריון/חפץ (HP/MOVE)
+                const isAmuletActive = itemUpgrades.demonArcher.move > 0;
+                // הפריט נותן HP ו-MOVE, אבל רק ה-MOVE הוא Toggle. HP לא צריך להשתנות כאן כי הוא נשמר רק כבונוס קבוע.
+                buyDemonArcherAmuletBtn.disabled = gold < costDemonArcherAmulet && !isAmuletActive;
+            }
+
 
             // עדכון תצוגת חנות
             UPGRADE_SHOP.style.display = (gameState === 'upgradePhase') ? 'flex' : 'none';
@@ -1331,6 +1418,19 @@
             if (gameState === 'upgradePhase') {
                 END_TURN_BTN.textContent = `התחל קרב הבא (${currentBattleIndex})`;
                 END_TURN_BTN.disabled = false;
+            } else if (gameState === 'deployment') { // NEW DEPLOYMENT STATE CHECK
+                 const playerUnitsAlive = units.filter(u => u.team === 'player' && u.isAlive).length;
+                 const deployedUnitsCount = units.filter(u => u.team === 'player' && u.row !== -1).length;
+                 
+                 // Enable "Start Turn" only when all units are placed
+                 if (deployedUnitsCount === playerUnitsAlive) {
+                      END_TURN_BTN.textContent = "התחל קרב >>";
+                      END_TURN_BTN.disabled = false;
+                 } else {
+                      END_TURN_BTN.textContent = `נא לסיים פריסה (${deployedUnitsCount}/${playerUnitsAlive})`;
+                      END_TURN_BTN.disabled = true;
+                 }
+
             } else if (gameState !== 'gameOver') {
                 END_TURN_BTN.textContent = "סיום תור >>";
             }
@@ -1583,15 +1683,28 @@
                  enemies.push(new Unit('goblin', 'enemy', 2, 4, 'גובלין צופה', 0, 1, 1.0)); 	// NEW! L1 Goblin
             }
             
-            // קרב 4+: קרב קשה יותר ומתגבר
+            // UPDATED: קרב 4: מנהיגים חזקים וקשת שד מסוכן
+            else if (battleIndex === 4) {
+                 const baseLevel = 2; // רמה בסיסית גבוהה יותר
+                 // מנהיג חזק
+                 enemies.push(new Unit('orc', 'enemy', 0, 2, `גנרל מלחמה`, 0, baseLevel + 1, 1.0, true)); 
+                 // קשת שד חדש ומאיים
+                 enemies.push(new Unit('demonArcher', 'enemy', 0, 4, 'קשת שד קדמי', 0, baseLevel, 1.0, true)); // NEW ENEMY TYPE
+                 // יחידות אגף
+                 enemies.push(new Unit('bandit', 'enemy', 1, 1, 'שודד מנוסה', 0, baseLevel, 1.0));
+                 enemies.push(new Unit('banditArcher', 'enemy', 1, 3, 'קשת שודד', 0, baseLevel, 1.0));
+                 enemies.push(new Unit('goblin', 'enemy', 2, 0, 'גובלין צופה', 0, 1, 1.0)); // גובלין לבזבוז תור
+            }
+            
+            // קרב 5+: קשה יותר ומתגבר
             else {
-                 const baseLevel = battleIndex - 2; // מתחיל מ-2 בקרב 4
+                 const baseLevel = battleIndex - 3; // מתחיל מ-2 בקרב 5
                  // מנהיג חזק
                  enemies.push(new Unit('orc', 'enemy', 0, 2, `גנרל קרב ${battleIndex}`, 0, Math.min(6, baseLevel + 1), 1.0, true)); 
                  enemies.push(new Unit('bandit', 'enemy', 1, 1, 'שודד', 0, baseLevel, 1.0));
                  enemies.push(new Unit('bandit', 'enemy', 1, 3, 'שודד', 0, baseLevel, 1.0));
-                 // מנהיג קשתים
-                 enemies.push(new Unit('banditArcher', 'enemy', 0, 4, 'קשת מאגף מנהיג', 0, baseLevel, 1.0, true));
+                 // קשת שד
+                 enemies.push(new Unit('demonArcher', 'enemy', 0, 4, 'קשת שד מאגף', 0, baseLevel, 1.0, true));
                  enemies.push(new Unit('orc', 'enemy', 1, 2, 'אורק משוריין', 0, baseLevel + 1, 1.0));
             }
             
@@ -1604,6 +1717,8 @@
                     e.attackRange = 3; 
                 } else if (e.type === 'mage') { // mage has long range
                     e.attackRange = 2; // UPDATED RANGE
+                } else if (e.type === 'demonArcher') {
+                    e.attackRange = 4; // Demon Archer has max range
                 }
             });
             
@@ -1615,52 +1730,89 @@
             const knightProgress = unitProgress.knight;
             const archerProgress = unitProgress.archer;
             
-            // יצירת יחידות השחקן עם סטטיסטיקות מעודכנות ו-HP מלא
+            // 1. יצירת יחידות השחקן עם סטטיסטיקות מעודכנות ו-HP מלא - מתחילות במיקום וירטואלי (-1,-1)
             const playerUnits = [
-                // initialHpRatio = 1.0 מבטיח ריפוי מלא
-                new Unit('knight', 'player', 4, 1, 'אביר', knightProgress.xp, knightProgress.level, 1.0),
-                new Unit('archer', 'player', 4, 3, 'קשת', archerProgress.xp, archerProgress.level, 1.0),
+                new Unit('knight', 'player', -1, -1, 'אביר', knightProgress.xp, knightProgress.level, 1.0),
+                new Unit('archer', 'player', -1, -1, 'קשת', archerProgress.xp, archerProgress.level, 1.0),
             ];
 
             // NEW: הוספת יחידות מגויסות
             if (unitProgress.spearman.recruited) {
                 const sp = unitProgress.spearman;
-                playerUnits.push(new Unit('spearman', 'player', 4, 0, 'לוחם מגן', sp.xp, sp.level, 1.0));
+                playerUnits.push(new Unit('spearman', 'player', -1, -1, 'לוחם מגן', sp.xp, sp.level, 1.0));
             }
-            // UPDATED: recruit mage if recruited
             if (unitProgress.mage.recruited) {
                 const mg = unitProgress.mage;
-                playerUnits.push(new Unit('mage', 'player', 3, 4, 'מכשף', mg.xp, mg.level, 1.0));
+                playerUnits.push(new Unit('mage', 'player', -1, -1, 'מכשף', mg.xp, mg.level, 1.0));
             }
-            // NEW: recruit Elven Ranger if recruited
             if (unitProgress.elfRanger.recruited) {
                 const er = unitProgress.elfRanger;
-                // Place Elven Ranger in a suitable spot (e.g., 3, 3)
-                playerUnits.push(new Unit('elfRanger', 'player', 3, 3, 'סייר אלפים', er.xp, er.level, 1.0));
+                playerUnits.push(new Unit('elfRanger', 'player', -1, -1, 'סייר אלפים', er.xp, er.level, 1.0));
+            }
+            if (unitProgress.demonArcher.recruited) {
+                const da = unitProgress.demonArcher;
+                playerUnits.push(new Unit('demonArcher', 'player', -1, -1, 'קשת שד', da.xp, da.level, 1.0));
             }
             
-            // יצירת אויבים לפי מספר הקרב
+            // 2. יצירת אויבים
             const enemyUnits = spawnEnemiesForBattle(currentBattleIndex);
             
+            // שילוב יחידות (יחידות שחקן עדיין לא מוצבות)
             units = playerUnits.concat(enemyUnits);
+            unitsToDeploy = playerUnits.filter(u => u.isAlive); // רק יחידות חיות נכנסות לפריסה
             
             selectedUnit = null;
             lastPlayerUnit = null; // Resetting last player unit
             pendingTarget = null; // NEW: Reset pending target
             initialMovePosition = null; // Reset initial move position
             currentTurn = 0;
-            gameState = 'ready';
-            clearHighlights();
-            renderBoard(); // עכשיו מוצגות היחידות
             
-            STATUS_MESSAGE.textContent = `מתחילים קרב ${currentBattleIndex}! בחר יחידה והתחל.`;
+            // 3. התחלת שלב הפריסה
+            startDeploymentPhase();
+            
             RESTART_BTN.disabled = false;
-            END_TURN_BTN.disabled = false;
-            END_TURN_BTN.textContent = "התחל תור (1)";
             
-            generateStoryContent(); // **NEW: עדכון הסיפור לפני הקרב**
+            generateStoryContent(); 
             updateUI(); 
-            startGameTurn();
+        }
+        
+        // NEW DEPLOYMENT PHASE FUNCTIONS
+        function startDeploymentPhase() {
+            gameState = 'deployment';
+            TURN_DISPLAY.textContent = `תור: - (פריסה)`;
+            END_TURN_BTN.disabled = true; // Disabled until all units are placed
+            
+            deployingUnit = unitsToDeploy[0] || null; // Unit currently selected for placement
+            
+            if (!deployingUnit) {
+                // If there are no units to deploy (e.g., loaded a game where deployment was complete), start turn
+                gameState = 'ready';
+                startGameTurn();
+                return;
+            }
+
+            STATUS_MESSAGE.textContent = `נא לבחור מיקום עבור: ${deployingUnit.name}.`;
+            
+            renderBoard(); // Renders empty board or units already placed
+            highlightDeploymentZone();
+            
+            // Simulate selecting the first unit to deploy to show its stats
+            selectedUnit = deployingUnit;
+            if (selectedUnit) updateSelectedUnitInfo(selectedUnit);
+
+            updateUI(); 
+        }
+        
+        function highlightDeploymentZone() {
+            for (let r = 0; r < BOARD_SIZE; r++) {
+                for (let c = 0; c < BOARD_SIZE; c++) {
+                    // Highlight only if it's a valid deployment row AND the tile is empty
+                    const unit = getUnitAt(r, c);
+                    if (DEPLOYMENT_ROWS.includes(r) && (!unit || unit.team === 'player')) {
+                        board[r][c].classList.add('highlight-move'); 
+                    }
+                }
+            }
         }
         
         function startGameTurn() {
@@ -2004,13 +2156,14 @@
              // 1. איפוס התזוזה והחזרת היחידה למקום ההתחלתי
              if (lastPlayerUnit && lastPlayerUnit.hasMoved && initialMovePosition) {
                  
-                 // **NEW FIX: Move unit back to initial position**
+                 // **FIXED: Move unit back to initial position**
                  // צריך להסיר את היחידה מהאריח הנוכחי, לעדכן קואורדינטות, לצייר מחדש
                  board[lastPlayerUnit.row][lastPlayerUnit.col].innerHTML = '';
                  
                  lastPlayerUnit.row = initialMovePosition.row;
                  lastPlayerUnit.col = initialMovePosition.col;
                  
+                 // ציור הדמות במיקום הקודם
                  lastPlayerUnit.draw(board[lastPlayerUnit.row][lastPlayerUnit.col]);
                  
                  // **איפוס סטטוס**
@@ -2037,8 +2190,7 @@
                   SELECTED_UNIT_INFO.innerHTML = "בחר יחידה מהלוח...";
              }
              updateActionButtons();
-             // צייר מחדש את הלוח כדי לוודא שכל האייקונים נכונים
-             renderBoard();
+             // אין צורך ב-renderBoard, מכיוון שה-draw בתוך cancelPendingAttack כבר עדכן את האריחים הרלוונטיים.
         }
 
         // --- NEW: Floating Forecast Logic ---
@@ -2112,7 +2264,68 @@
             const clickedUnit = getUnitAt(r, c);
             const tile = board[r][c];
 
-            // --- 1. ניסיון לבצע פעולה (תזוזה) ---
+            // --- DEPLOYMENT PHASE LOGIC (NEW) ---
+            if (gameState === 'deployment') {
+                const isDeploymentZone = DEPLOYMENT_ROWS.includes(r);
+                
+                if (clickedUnit && clickedUnit.team === 'player' && isDeploymentZone) {
+                    // Clicked on an already deployed player unit: make it the current deploying unit
+                    deployingUnit = clickedUnit;
+                    STATUS_MESSAGE.textContent = `נא לבחור מיקום חדש עבור: ${deployingUnit.name}.`;
+                    clearHighlights();
+                    highlightDeploymentZone();
+                    tile.classList.add('selected');
+                    return;
+                }
+                
+                if (!clickedUnit && isDeploymentZone && deployingUnit) {
+                    // Clicked on an empty, valid deployment tile: Place the unit
+                    
+                    // Remove unit from its old spot if it was moved (old spot had a unit)
+                    if (deployingUnit.row !== -1 && deployingUnit.row < BOARD_SIZE && deployingUnit.col < BOARD_SIZE) {
+                        board[deployingUnit.row][deployingUnit.col].innerHTML = '';
+                    }
+                    
+                    // Update position
+                    deployingUnit.row = r;
+                    deployingUnit.col = c;
+                    deployingUnit.draw(tile);
+                    
+                    // If the unit was in the deployment queue, remove it
+                    const indexInQueue = unitsToDeploy.indexOf(deployingUnit);
+                    if (indexInQueue !== -1) {
+                        unitsToDeploy.splice(indexInQueue, 1);
+                    }
+                    
+                    clearHighlights(); // Remove highlighting/selection
+                    
+                    if (unitsToDeploy.length === 0) {
+                        // Deployment complete!
+                        deployingUnit = null;
+                        STATUS_MESSAGE.textContent = "פריסה הושלמה. לחץ 'התחל קרב' כדי להתחיל.";
+                        selectedUnit = null;
+                        END_TURN_BTN.disabled = false; // Enable Start Turn button
+                        gameState = 'ready'; // Move to ready state
+                        updateUI();
+                    } else {
+                        // Move to next unit
+                        deployingUnit = unitsToDeploy[0];
+                        STATUS_MESSAGE.textContent = `נא לבחור מיקום עבור: ${deployingUnit.name}.`;
+                        highlightDeploymentZone(); // Re-highlight zones
+                        selectedUnit = deployingUnit;
+                        updateSelectedUnitInfo(selectedUnit); // Show next unit to be deployed
+                    }
+                    
+                    return;
+                }
+                
+                // Ignore clicks on enemy units or invalid tiles during deployment
+                return;
+            }
+
+
+            // --- 2. לוגיקת תור השחקן ---
+
             if (gameState === 'playerTurn' && lastPlayerUnit) {
                 const isMoveAttempt = tile.classList.contains('highlight-move');
                 const isAttackTarget = tile.classList.contains('highlight-attack');
@@ -2154,13 +2367,11 @@
             }
 
 
-            // --- 2. לוגיקת בחירה / בדיקה (Inspection) ---
-            // אם אנחנו כאן, זה קליק שלא אישר תנועה/תקיפה
+            // --- 3. לוגיקת בחירה / בדיקה (Inspection) ---
             
             // אם יש תחזית פתוחה ואין כפתורי אישור/ביטול?
             if (pendingTarget) {
                  hideFloatingForecast(); // נקה את התחזית
-                 // במקרה זה, הקליק לא ביצע שום פעולה (לא תזוזה ולא בחירת יחידה חדשה), ולכן אין צורך ב-return
             }
 
             clearHighlights(); 
@@ -2222,7 +2433,7 @@
                 MOVE_BTN.style.backgroundColor = unit && !unit.hasMoved ? '#ffc107' : '#795548';
             }
 
-            // כפתור ההתקפה הצידי מושבת אם אין יחידה פעילה או אם היא תקפה, ומופעל רק כדי להדגיש
+            // כפתור ההתקפה הצידי מושבת אם אין יחידה פעילה או אם היא תקפה, ומופעל רק כדי להדגיח
             if (ATTACK_BTN) {
                 ATTACK_BTN.textContent = "התקפה";
                 ATTACK_BTN.disabled = !unit || unit.hasAttacked || pendingTarget !== null; // מושבת כאשר יש תחזית פתוחה
@@ -2399,10 +2610,14 @@
                 return;
             }
 
-            // NEW: תנאי רכישת סייר אלפים - זמין רק אחרי קרב 2
+            // NEW: תנאי רכישת יחידות לפי קרב
             if (unitType === 'elfRanger' && currentBattleIndex < 3) {
                 STATUS_MESSAGE.textContent = "גיוס סייר אלפים נפתח רק אחרי קרב 2.";
                 return;
+            }
+            if (unitType === 'demonArcher' && currentBattleIndex < 4) {
+                 STATUS_MESSAGE.textContent = "גיוס קשת שד נפתח רק אחרי קרב 3.";
+                 return;
             }
 
             gold -= cost;
@@ -2421,7 +2636,6 @@
             }
             
             // NEW: ודא שניתן לקנות ציוד רק ליחידות קיימות/מגויסות
-            // UPDATED: Added 'elfRanger' to the check
             if (!unitProgress[unitType] || (unitType !== 'knight' && unitType !== 'archer' && !unitProgress[unitType].recruited)) {
                  if (unitType === 'spearman' && !unitProgress.spearman.recruited) {
                      STATUS_MESSAGE.textContent = `לא ניתן לקנות ציוד. גייס את לוחם המגן תחילה!`;
@@ -2429,26 +2643,28 @@
                       STATUS_MESSAGE.textContent = `לא ניתן לקנות ציוד. גייס את המכשף תחילה!`;
                  } else if (unitType === 'elfRanger' && !unitProgress.elfRanger.recruited) {
                       STATUS_MESSAGE.textContent = `לא ניתן לקנות ציוד. גייס את סייר האלפים תחילה!`;
-                 } else {
-                      // ליתר ביטחון, אם זה knight או archer שלא מוגדרים
-                      if (!unitProgress[unitType]) {
-                           STATUS_MESSAGE.textContent = `שגיאה: יחידת ${unitType} אינה קיימת.`;
-                      }
+                 } else if (unitType === 'demonArcher' && !unitProgress.demonArcher.recruited) {
+                      STATUS_MESSAGE.textContent = `לא ניתן לקנות ציוד. גייס את קשת השד תחילה!`;
                  }
                  return;
             }
             
-            // 1. **Toggle Logic for MOVE items (Leather Boots / Hunter's Cloak)**
-            const isMoveItem = (itemName === 'מגפי עור' || itemName === 'גלימת ציידים') && updates.move !== undefined && updates.atk === undefined && updates.hp === undefined;
+            // 1. **Toggle Logic for MOVE items (Leather Boots / Hunter's Cloak / Demon Amulet)**
+            const isMoveItem = (itemName === 'מגפי עור' || itemName === 'גלימת ציידים' || itemName === 'תליון השהייה') && updates.move !== undefined;
             
             if (isMoveItem) {
                 
                 // הבונוס המנוטרל הוא בדיוק גובה הבונוס שניתן
                 const isItemActive = itemUpgrades[unitType].move === updates.move;
                 
+                // NEW: אם זה תליון השהייה, הבונוס הוא גם HP
+                const isAmulet = itemName === 'תליון השהייה';
+                
                 if (isItemActive) {
                     // אם כבר בבעלותם -> בטל את ההשפעה (Toggle Off)
                     itemUpgrades[unitType].move = 0; // הסרת הבונוס
+                    if (isAmulet) itemUpgrades[unitType].hp -= 20; // הסרת בונוס HP
+                    
                     STATUS_MESSAGE.innerHTML = `<span style="color:#f44336;">בוטלה ההשפעה!</span> ${itemName} הוסר מ${unitType}.`;
                     await saveGold();
                     updateUI();
@@ -2473,7 +2689,7 @@
             // אם קונים נשק או שריון, צריך לוודא שהוא שדרוג
             
             // בדיקת שריון (HP/DEF) - קניית שריון חדש מבטלת ישן
-            if (updates.hp !== undefined || updates.def !== undefined) {
+            if ((updates.hp !== undefined && !isMoveItem) || updates.def !== undefined) {
                  // רק אם יש כבר שריון פעיל וחזק יותר
                  if (itemUpgrades[unitType].hp >= (updates.hp || 0) && itemUpgrades[unitType].def >= (updates.def || 0) && (itemUpgrades[unitType].hp > 0 || itemUpgrades[unitType].def > 0) ) {
                       STATUS_MESSAGE.textContent = `השריון הנוכחי שלך (${itemUpgrades[unitType].hp} HP, ${itemUpgrades[unitType].def} DEF) חזק יותר או שווה ל-${itemName}.`;
@@ -2489,6 +2705,7 @@
                 const currentAtkBonus = itemUpgrades[unitType].atk;
                 const newAtk = updates.atk || 0; 
                 
+                // אם הבונוס החדש שווה לבונוס הישן, זה לא שדרוג (למעט אם הבונוס הוא 0)
                 if (newAtk < currentAtkBonus) {
                     STATUS_MESSAGE.textContent = `לא שודרג! ${itemName} (+${newAtk} התקפה) אינו חזק מהנשק הפעיל (+${currentAtkBonus} התקפה).`;
                     return;
@@ -2502,12 +2719,19 @@
                  itemUpgrades[unitType].range = 0;
             }
             
-            // גביית מחיר והחלת הבונוסים החדשים
+            // **תיקון קריטי**: גביית מחיר
             gold -= cost;
+            
+            // החלת הבונוסים החדשים
             Object.keys(updates).forEach(stat => {
                  itemUpgrades[unitType][stat] += updates[stat];
             });
             
+            // אם קנינו תליון השהייה (פריט Toggle), צריך להוסיף את ה-HP שלו
+            if (isAmulet && !isItemActive) {
+                 itemUpgrades[unitType].hp += 20;
+            }
+
             await saveGold();
             
             STATUS_MESSAGE.innerHTML = `<span style="color:#ffc107;">קנייה מוצלחת!</span> נרכש: ${itemName}.`;
@@ -2587,11 +2811,11 @@
                     currentBattleIndex = data.currentBattleIndex || 1; 
                     
                     // NEW: טעינת שדרוגי ציוד ונתוני גיוס
-                    const defaultItemUpgrades = { knight: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, archer: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, spearman: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, mage: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, elfRanger: { hp: 0, atk: 0, def: 0, move: 0, range: 0 } };
+                    const defaultItemUpgrades = { knight: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, archer: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, spearman: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, mage: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, elfRanger: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, demonArcher: { hp: 0, atk: 0, def: 0, move: 0, range: 0 } };
                     itemUpgrades = { ...defaultItemUpgrades, ...data.itemUpgrades };
                     
                     // UPDATED: Ensure default includes 'mage' and 'elfRanger'
-                    const defaultUnitProgress = { knight: { level: 1, xp: 0, nextLevelXp: 1000 }, archer: { level: 1, xp: 0, nextLevelXp: 1000 }, spearman: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false }, mage: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false }, elfRanger: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false } };
+                    const defaultUnitProgress = { knight: { level: 1, xp: 0, nextLevelXp: 1000 }, archer: { level: 1, xp: 0, nextLevelXp: 1000 }, spearman: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false }, mage: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false }, elfRanger: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false }, demonArcher: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false } };
                     unitProgress = { ...defaultUnitProgress, ...data.unitProgress };
 
                     // FIX: אם היחידה הישנה 'scout' קיימת, מעביר אותה ל-'mage'
@@ -2626,14 +2850,16 @@
                 archer: itemUpgrades.archer,
                 spearman: itemUpgrades.spearman,
                 mage: itemUpgrades.mage,
-                elfRanger: itemUpgrades.elfRanger // NEW
+                elfRanger: itemUpgrades.elfRanger, // NEW
+                demonArcher: itemUpgrades.demonArcher // NEW
             };
             const savedUnitProgress = {
                 knight: unitProgress.knight,
                 archer: unitProgress.archer,
                 spearman: unitProgress.spearman,
                 mage: unitProgress.mage,
-                elfRanger: unitProgress.elfRanger // NEW
+                elfRanger: unitProgress.elfRanger, // NEW
+                demonArcher: unitProgress.demonArcher // NEW
             };
 
             const docRef = doc(db, 'artifacts', typeof __app_id !== 'undefined' ? __app_id : 'default-app-id', 'users', userId, 'progress', 'goldData');
@@ -2663,8 +2889,8 @@
                       // NEW: איפוס מלא כולל התקדמות
                       currentBattleIndex = 1; 
                       // איפוס מלא של כל הנתונים כולל הגיוס
-                      itemUpgrades = { knight: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, archer: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, spearman: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, mage: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, elfRanger: { hp: 0, atk: 0, def: 0, move: 0, range: 0 } };
-                      unitProgress = { knight: { level: 1, xp: 0, nextLevelXp: 1000 }, archer: { level: 1, xp: 0, nextLevelXp: 1000 }, spearman: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false }, mage: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false }, elfRanger: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false } };
+                      itemUpgrades = { knight: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, archer: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, spearman: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, mage: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, elfRanger: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, demonArcher: { hp: 0, atk: 0, def: 0, move: 0, range: 0 } };
+                      unitProgress = { knight: { level: 1, xp: 0, nextLevelXp: 1000 }, archer: { level: 1, xp: 0, nextLevelXp: 1000 }, spearman: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false }, mage: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false }, elfRanger: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false }, demonArcher: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false } };
                       gold = 0;
                       // שמירה רק אם יש db
                       if(db) saveGold();
@@ -2704,6 +2930,7 @@
             const recruitSpearmanBtn = document.getElementById('recruit-spearman');
             const recruitMageBtn = document.getElementById('recruit-mage');
             const recruitElfRangerBtn = document.getElementById('recruit-elfRanger'); // NEW HANDLER
+            const recruitDemonArcherBtn = document.getElementById('recruit-demonArcher'); // NEW HANDLER
             
             // New Unit Item Handlers
             const buySpearmanShieldBtn = document.getElementById('buy-spearman-shield');
@@ -2711,6 +2938,8 @@
             const buyMageRobeBtn = document.getElementById('buy-mage-robe');
             const buyElfRangerDaggersBtn = document.getElementById('buy-elfRanger-daggers');
             const buyElfRangerMoveBtn = document.getElementById('buy-elfRanger-move');
+            const buyDemonArcherBowBtn = document.getElementById('buy-demonArcher-bow'); // NEW HANDLER
+            const buyDemonArcherAmuletBtn = document.getElementById('buy-demonArcher-amulet'); // NEW HANDLER
 
 
             if (buyKnightIronSwordBtn) {
@@ -2746,7 +2975,7 @@
             // NEW: מכשף - UPDATED ITEM LOGIC
             if (buyMageStaffBtn) {
                  // שרביט עוצמתי (נותן רק טווח תנועה ותקיפה)
-                 buyMageStaffBtn.onclick = () => buyItem('mage', 2800, { range: 1, move: 1 }, 'שרביט עוצמתי', 1);
+                 buyMageStaffBtn.onclick = () => buyItem('mage', 2800, { atk: 15, range: 1, move: 1 }, 'שרביט עוצמתי', 1);
             }
             if (buyMageRobeBtn) {
                  buyMageRobeBtn.onclick = () => buyItem('mage', 1600, { hp: 20, def: 3 }, 'גלימת ארכאון', 1);
@@ -2759,6 +2988,16 @@
             if (buyElfRangerMoveBtn) {
                  // פריט Toggle לטווח תנועה
                  buyElfRangerMoveBtn.onclick = () => buyItem('elfRanger', 1500, { move: 1 }, 'גלימת ציידים', 1);
+            }
+            
+            // NEW: קשת שד
+            if (buyDemonArcherBowBtn) {
+                // קשת שד: קשת אפלה (+10 ATK, +1 טווח)
+                buyDemonArcherBowBtn.onclick = () => buyItem('demonArcher', 3500, { atk: 15, range: 1 }, 'קשת אפלה', 1);
+            }
+            if (buyDemonArcherAmuletBtn) {
+                // קשת שד: תליון השהייה (+20 HP, +1 Move) - פריט Toggle
+                buyDemonArcherAmuletBtn.onclick = () => buyItem('demonArcher', 1800, { move: 1 }, 'תליון השהייה', 1);
             }
 
 
@@ -2773,6 +3012,10 @@
             // NEW: Recruit Elven Ranger
             if (recruitElfRangerBtn) {
                 recruitElfRangerBtn.onclick = () => recruitUnit('elfRanger', 2100, 'סייר אלפים');
+            }
+            // NEW: Recruit Demon Archer
+            if (recruitDemonArcherBtn) {
+                recruitDemonArcherBtn.onclick = () => recruitUnit('demonArcher', 2500, 'קשת שד');
             }
 
 
@@ -2798,6 +3041,14 @@
             END_TURN_BTN.onclick = () => {
                 if (gameState === 'upgradePhase') {
                     initGame(); // התחל קרב חדש עם שדרוגים חדשים
+                } else if (gameState === 'deployment') { // NEW LOGIC
+                     // אם אנחנו בשלב הפריסה וכל היחידות הוצבו, התחל את התור הראשון
+                     const playerUnitsAlive = units.filter(u => u.team === 'player' && u.isAlive).length;
+                     const deployedUnitsCount = units.filter(u => u.team === 'player' && u.row !== -1).length;
+                     if (deployedUnitsCount === playerUnitsAlive) {
+                         gameState = 'ready';
+                         startGameTurn();
+                     }
                 } else {
                     startGameTurn();
                 }

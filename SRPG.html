@@ -464,10 +464,10 @@
                     
                     <!-- NEW: גיוס יחידות -->
                     <h3 style="color:#FFF;">גיוס יחידות חדשות (רכישה חד פעמית)</h3>
-                    <button id="recruit-spearman" class="action-btn upgrade-btn" style="background-color: #64B5F6;">גיוס לוחם מגן (+$2000 | HP גבוה, הגנה 12, תנועה 1)</button>
+                    <button id="recruit-spearman" class="action-btn upgrade-btn" style="background-color: #64B5F6;">גיוס לוחם מגן (+$2000 | HP גבוה, הגנה 12, טווח תנועה 1)</button>
                     <!-- NEW: Elven Ranger - Available after Battle 2 -->
-                    <button id="recruit-elfRanger" class="action-btn upgrade-btn" style="background-color: #8BC34A;">גיוס סייר אלפים (+$2100 | טווח 2, תנועה 4, נחשף בקרב 3+)</button>
-                    <button id="recruit-mage" class="action-btn upgrade-btn" style="background-color: #9C27B0;">גיוס מכשף (+$2200 | טווח 2, **התקפה 40**, מהירות גבוהה)</button>
+                    <button id="recruit-elfRanger" class="action-btn upgrade-btn" style="background-color: #8BC34A;">גיוס סייר אלפים (+$2100 | טווח 2, טווח תנועה 4, נחשף בקרב 3+)</button>
+                    <button id="recruit-mage" class="action-btn upgrade-btn" style="background-color: #9C27B0;">גיוס מכשף (+$2200 | טווח 2, **התקפה 40**, טווח תנועה 4)</button>
 
                     <h3 style="color:#FFF; margin-top: 10px;">שדרוגי אביר</h3>
                     <!-- אביר - שדרוג נשק ושריון -->
@@ -481,6 +481,21 @@
                     <button id="buy-archer-iron-bow" class="action-btn upgrade-btn">קשת: קשת ברזל (+$1800 | +15 התקפה)</button>
                     <button id="buy-archer-steel-bow" class="action-btn upgrade-btn">קשת: קשת פלדה (+$2500 | רמה 3+ | +20 התקפה, +1 טווח)</button>
                     <button id="buy-archer-move" class="action-btn upgrade-btn">קשת: מגפי עור (+$1500 | +1 טווח תנועה)</button>
+                    
+                    <!-- NEW: שדרוגי לוחם מגן -->
+                    <h3 style="color:#FFF; margin-top: 10px;">שדרוגי לוחם מגן (Spearman)</h3>
+                    <button id="buy-spearman-shield" class="action-btn upgrade-btn">לוחם מגן: מגן פלדה (+$1800 | +30 חיים, +10 הגנה)</button>
+
+                    <!-- NEW: שדרוגי מכשף -->
+                    <h3 style="color:#FFF; margin-top: 10px;">שדרוגי מכשף (Mage)</h3>
+                    <button id="buy-mage-staff" class="action-btn upgrade-btn">מכשף: שרביט עוצמתי (+$2800 | +25 התקפה, +1 טווח)</button>
+                    <button id="buy-mage-robe" class="action-btn upgrade-btn">מכשף: גלימת ארכאון (+$1600 | +20 חיים, +3 הגנה)</button>
+                    
+                    <!-- NEW: שדרוגי סייר אלפים -->
+                    <h3 style="color:#FFF; margin-top: 10px;">שדרוגי סייר אלפים (Elf Ranger)</h3>
+                    <button id="buy-elfRanger-daggers" class="action-btn upgrade-btn">סייר: פגיונות רעל (+$2300 | +15 התקפה)</button>
+                    <button id="buy-elfRanger-move" class="action-btn upgrade-btn">סייר: גלימת ציידים (+$1500 | +1 טווח תנועה)</button>
+
 
                 </div>
             </div>
@@ -552,6 +567,11 @@
             elfRanger: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false } // NEW
         };
 
+        // קבוע עבור מתקפה כפולה מבוססת מהירות - סף מופחת ל-5
+        // UPDATED: הגדרת ספי המתקפות המרובות
+        const SPEED_THRESHOLD_DOUBLE = 5; 
+        const SPEED_THRESHOLD_TRIPLE = 8;
+        const SPEED_THRESHOLD_QUADRUPLE = 10; 
 
         // מצבי פעולה - כבר לא משתמשים בו בצורה מפורשת עבור ה-UI
         let currentAction = null; 
@@ -593,6 +613,7 @@
                        <p><strong>גיוס חדש:</strong> שמענו על יחידת <strong>סייר אלפים</strong> המתמחה בתנועה מהירה ויכולה לסייע בהגנה על האגפים. גיוס יחידות נוספות נפתח עכשיו! </p>`,
                 guide: `<h3>חוקי בסיס: טקטיקה מתקדמת</h3>
                         <ul>
+                            <li><strong>מתקפה כפולה:</strong> הפרש של <strong>5</strong> מהירות = 2 התקפות. <strong>8</strong> מהירות = 3 התקפות. <strong>10</strong> מהירות = 4 התקפות.</li>
                             <li><strong>התקפת מטווח:</strong> קשתות ומכשפים יכולים לתקוף יחידות ממרחק. <strong>אביר</strong> יכול לשמש כהגנה על יחידות שבריריות יותר.</li>
                             <li><strong>מיקום:</strong> השתמשו בלוח בצורה חכמה. יחידות קשת נמצאות בטוחות יותר בשורה האחורית (4) בזמן שהאבירים מחפים עליהן בשורה הקדמית.</li>
                         </ul>`
@@ -641,24 +662,38 @@
         // NEW: פונקציה לחישוב בונוס סטטוס לפי רמה
         function calculateLevelBonus(unitType, level) {
             // סטטיסטיקות בסיס (Level 1)
-            let baseHp, baseAtk, baseDef, baseMove, baseRange;
+            let baseHp, baseAtk, baseDef, baseMove, baseRange, baseSpeed;
             
             switch (unitType) {
                 case 'knight':
-                    baseHp = 120; baseAtk = 30; baseDef = 10; baseMove = 2; baseRange = 1; break;
+                    // Speed 10 (Medium Speed - Horseback)
+                    baseHp = 120; baseAtk = 30; baseDef = 10; baseMove = 2; baseRange = 1; baseSpeed = 10; break; 
                 case 'archer':
-                    baseHp = 80; baseAtk = 20; baseDef = 5; baseMove = 3; baseRange = 3; break;
-                case 'spearman': // UPDATED: SHIELD WARRIOR STATS
-                    baseHp = 140; baseAtk = 20; baseDef = 12; baseMove = 1; baseRange = 1; break; // High HP/DEF, Low Move/ATK
+                    // Speed 15 (High Speed - Light Armor)
+                    baseHp = 80; baseAtk = 20; baseDef = 5; baseMove = 3; baseRange = 3; baseSpeed = 15; break; 
+                case 'spearman': 
+                    // Speed 5 (Slowest - heavy shield infantry)
+                    baseHp = 140; baseAtk = 20; baseDef = 12; baseMove = 1; baseRange = 1; baseSpeed = 5; break;
                 case 'mage': 
-                    baseHp = 60; baseAtk = 40; baseDef = 0; baseMove = 4; baseRange = 2; break; 
-                case 'goblin': // NEW ENEMY
-                    baseHp = 40; baseAtk = 15; baseDef = 0; baseMove = 4; baseRange = 1; break; // Low HP, low ATK, very fast move
-                case 'elfRanger': // NEW UNIT: Elven Ranger (High Mobility, Medium Range)
-                    baseHp = 70; baseAtk = 25; baseDef = 5; baseMove = 4; baseRange = 2; break; // Fast, decent range, decent attack
-                // Enemy units can fall through here with default stats
+                    // Speed 18 (Very Fast - max speed)
+                    baseHp = 60; baseAtk = 40; baseDef = 0; baseMove = 4; baseRange = 2; baseSpeed = 18; break; 
+                case 'elfRanger':
+                    // Speed 18 (Very Fast - max speed)
+                    baseHp = 70; baseAtk = 25; baseDef = 5; baseMove = 4; baseRange = 2; baseSpeed = 18; break; 
+                case 'orc': 
+                    // ENEMY STATS: Speed 10 (BACK TO 10, Medium Speed)
+                    baseHp = 100; baseAtk = 25; baseDef = 8; baseMove = 2; baseRange = 1; baseSpeed = 10; break;
+                case 'bandit':
+                    // ENEMY STATS: Speed 12 (Fast)
+                    baseHp = 80; baseAtk = 20; baseDef = 5; baseMove = 3; baseRange = 1; baseSpeed = 12; break;
+                case 'banditArcher': 
+                    // ENEMY STATS: Speed 12 (Fast)
+                    baseHp = 60; baseAtk = 18; baseDef = 3; baseMove = 3; baseRange = 3; baseSpeed = 12; break;
+                case 'goblin': 
+                    // ENEMY STATS: Speed 15 (Very Fast)
+                    baseHp = 40; baseAtk = 15; baseDef = 0; baseMove = 4; baseRange = 1; baseSpeed = 15; break;
                 default:
-                    baseHp = 80; baseAtk = 20; baseDef = 5; baseMove = 2; baseRange = 1; break;
+                    baseHp = 80; baseAtk = 20; baseDef = 5; baseMove = 2; baseRange = 1; baseSpeed = 10; break;
             }
             
             // פקטור צמיחה (לכל רמה נוספת מעבר ל-1)
@@ -667,8 +702,19 @@
             const totalHp = baseHp + (levelFactor * 10); // צמיחת חיים מהירה יותר
             const totalAtk = baseAtk + (levelFactor * 3);  // צמיחת התקפה
             const totalDef = baseDef + (levelFactor * 1);
+            
+            // Speed (baseSpeed) is constant by unit type, not affected by level or moveRange upgrades
+            let totalSpeed = baseSpeed;
+            
+            // NEW: Speed increases with level only for Player units (every 3 levels)
+            if (unitType === 'knight' || unitType === 'archer' || unitType === 'spearman' || unitType === 'mage' || unitType === 'elfRanger') {
+                // מקבל +1 מהירות על כל 3 רמות
+                const speedBonus = Math.floor(levelFactor / 3);
+                totalSpeed = baseSpeed + speedBonus;
+            }
 
-            return { totalHp, totalAtk, totalDef, baseMove, baseRange };
+
+            return { totalHp, totalAtk, totalDef, baseMove, baseRange, totalSpeed };
         }
         
         // ------------------------------------
@@ -781,7 +827,7 @@
                             <line x1="2.5" y1="5.5" x2="6.5" y2="5.5" stroke="${WHITE}" stroke-width="0.3"/> 
                             
                             <!-- Hand (Skin) - holding the bow string/arrow -->
-                            <rect x="5.5" y="5" width="1" height="1" fill="${ELF_SKIN}"/> 
+                            <rect x="5.5" y="5" width="1" height="1" fill="${SKIN}"/> 
                             
                             <!-- Shoulder pads/Accent -->
                             <rect x="3.5" y="4" width="3" height="0.5" fill="${ELF_BROWN}"/> 
@@ -923,6 +969,8 @@
                 // Movement/Range stats get a bonus if items were bought
                 this.moveRange = levelStats.baseMove + itemUpgradesForType.move;
                 this.attackRange = levelStats.baseRange + itemUpgradesForType.range;
+                // Speed (used for double attack logic) - כעת משלב בסיס + בונוס רמה
+                this.speed = levelStats.totalSpeed; 
                 
                 // NEW: Keep current HP ratio unless it's a new game (or full heal is intended)
                 this.hp = Math.floor(this.maxHp * initialHpRatio);
@@ -955,6 +1003,7 @@
                     this.maxHp = levelStats.totalHp + itemUpgradesForType.hp;
                     this.atk = levelStats.totalAtk + itemUpgradesForType.atk;
                     this.def = levelStats.totalDef + itemUpgradesForType.def;
+                    this.speed = levelStats.totalSpeed; // עדכון המהירות מרמת הבסיס החדשה
                     
                     // NEW LOGIC: HP מתעדכן באופן פרופורציונלי (לא ריפוי מלא)
                     this.hp = Math.min(this.maxHp, Math.floor(this.maxHp * currentHpRatio));
@@ -1077,9 +1126,18 @@
             const costSpearman = 2000;
             const costMage = 2200; // UPDATED COST FOR MAGE
             const costElfRanger = 2100; // NEW COST
+            const costSpearmanShield = 1800; // NEW COST
+            const costMageStaff = 2800; // NEW COST
+            const costMageRobe = 1600; // NEW COST
+            const costElfRangerDaggers = 2300; // NEW COST
+            const costElfRangerMove = 1500; // NEW COST
+
 
             const knightLevel = unitProgress.knight.level;
             const archerLevel = unitProgress.archer.level;
+            const spearmanRecruited = unitProgress.spearman.recruited;
+            const mageRecruited = unitProgress.mage.recruited;
+            const elfRangerRecruited = unitProgress.elfRanger.recruited;
 
             // Item Upgrade Buttons
             const buyKnightIronSwordBtn = document.getElementById('buy-knight-iron-sword');
@@ -1088,6 +1146,13 @@
             const buyArcherIronBowBtn = document.getElementById('buy-archer-iron-bow');
             const buyArcherSteelBowBtn = document.getElementById('buy-archer-steel-bow');
             const buyArcherMoveBtn = document.getElementById('buy-archer-move');
+            
+            // New Unit Item Buttons
+            const buySpearmanShieldBtn = document.getElementById('buy-spearman-shield');
+            const buyMageStaffBtn = document.getElementById('buy-mage-staff');
+            const buyMageRobeBtn = document.getElementById('buy-mage-robe');
+            const buyElfRangerDaggersBtn = document.getElementById('buy-elfRanger-daggers');
+            const buyElfRangerMoveBtn = document.getElementById('buy-elfRanger-move');
             
             // Unit Recruit Buttons
             const recruitSpearmanBtn = document.getElementById('recruit-spearman');
@@ -1113,14 +1178,14 @@
 
             // NEW: עדכון כפתורי גיוס
             if (recruitSpearmanBtn) {
-                recruitSpearmanBtn.disabled = gold < costSpearman || unitProgress.spearman.recruited;
-                if (unitProgress.spearman.recruited) {
+                recruitSpearmanBtn.disabled = gold < costSpearman || spearmanRecruited;
+                if (spearmanRecruited) {
                     recruitSpearmanBtn.textContent = "לוחם מגן גויס (ברשותך)";
                 }
             }
             if (recruitMageBtn) { 
-                recruitMageBtn.disabled = gold < costMage || unitProgress.mage.recruited; 
-                if (unitProgress.mage.recruited) { 
+                recruitMageBtn.disabled = gold < costMage || mageRecruited; 
+                if (mageRecruited) { 
                     recruitMageBtn.textContent = "מכשף גויס (ברשותך)";
                 }
             }
@@ -1131,15 +1196,40 @@
                     recruitElfRangerBtn.style.display = 'block'; // Ensure it's visible but disabled
                     recruitElfRangerBtn.textContent = `גיוס סייר אלפים (נפתח לאחר קרב 2)`;
                 } else {
-                    recruitElfRangerBtn.disabled = gold < costElfRanger || unitProgress.elfRanger.recruited;
-                    if (unitProgress.elfRanger.recruited) {
+                    recruitElfRangerBtn.disabled = gold < costElfRanger || elfRangerRecruited;
+                    if (elfRangerRecruited) {
                         recruitElfRangerBtn.textContent = "סייר אלפים גויס (ברשותך)";
                     } else {
-                         recruitElfRangerBtn.textContent = `גיוס סייר אלפים (+$${costElfRanger} | טווח 2, תנועה 4)`;
+                         recruitElfRangerBtn.textContent = `גיוס סייר אלפים (+$${costElfRanger} | טווח 2, טווח תנועה 4)`;
                     }
                 }
             }
-
+            
+            // NEW: עדכון כפתורי ציוד ייעודיים (מוסתרים אם היחידה לא גויסה)
+            if (buySpearmanShieldBtn) {
+                buySpearmanShieldBtn.style.display = spearmanRecruited ? 'block' : 'none';
+                buySpearmanShieldBtn.disabled = gold < costSpearmanShield || itemUpgrades.spearman.def >= 10;
+            }
+            if (buyMageStaffBtn) {
+                buyMageStaffBtn.style.display = mageRecruited ? 'block' : 'none';
+                buyMageStaffBtn.disabled = gold < costMageStaff || itemUpgrades.mage.atk >= 25;
+            }
+            if (buyMageRobeBtn) {
+                buyMageRobeBtn.style.display = mageRecruited ? 'block' : 'none';
+                buyMageRobeBtn.disabled = gold < costMageRobe || itemUpgrades.mage.def >= 3;
+            }
+            if (buyElfRangerDaggersBtn) {
+                buyElfRangerDaggersBtn.style.display = elfRangerRecruited ? 'block' : 'none';
+                buyElfRangerDaggersBtn.disabled = gold < costElfRangerDaggers || itemUpgrades.elfRanger.atk >= 15;
+            }
+            if (buyElfRangerMoveBtn) {
+                buyElfRangerMoveBtn.style.display = elfRangerRecruited ? 'block' : 'none';
+                const isElfMoveActive = itemUpgrades.elfRanger.move > 0;
+                buyElfRangerMoveBtn.disabled = gold < costElfRangerMove && !isElfMoveActive;
+                buyElfRangerMoveBtn.textContent = isElfMoveActive 
+                    ? `סייר: גלימת ציידים (פעיל - לחץ לביטול!)`
+                    : `סייר: גלימת ציידים (+$${costElfRangerMove} | +1 טווח תנועה)`;
+            }
 
             // עדכון תצוגת חנות
             UPGRADE_SHOP.style.display = (gameState === 'upgradePhase') ? 'flex' : 'none';
@@ -1187,14 +1277,10 @@
                 hpText: slot.querySelector(`#${unit.team}-hp-text`),
             };
         }
-
-        // פונקציית האנימציה בפועל
-        async function animateAttack(attacker, defender) {
+        
+        // NEW: פונקציה ליצירת סצנת הקרב (כניסה אחת)
+        async function startBattleCutscene(attacker, defender) {
             const ZOOM_IN_TIME = 500;
-            const ATTACK_LUNGE_TIME = 150;
-            const SHAKE_TIME = 300;
-            
-            // 1. הסתרת ה-UI והצגת האוברליי
             GAME_CONTAINER.style.opacity = '0';
             BATTLE_OVERLAY.style.display = 'flex';
             
@@ -1203,20 +1289,39 @@
             // 2. הכנת יחידות האוברליי
             const attackerElements = setupOverlayUnit(attacker, OVERLAY_ATTACKER, true);
             const defenderElements = setupOverlayUnit(defender, OVERLAY_DEFENDER, false);
-            
-            await sleep(300); // Pause for unit display to settle
 
-            // 3. תקיפה (זינוק קדימה)
+            await sleep(300); // Pause for unit display to settle
+            
+            // Return elements needed for animation
+            return { attackerElements, defenderElements };
+        }
+
+        // NEW: פונקציה לסיום סצנת הקרב (יציאה אחת)
+        async function endBattleCutscene() {
+            OVERLAY_ATTACKER.innerHTML = '';
+            OVERLAY_DEFENDER.innerHTML = '';
+            BATTLE_OVERLAY.style.display = 'none';
+            GAME_CONTAINER.style.opacity = '1';
+            // Small delay to allow the fade back in
+            await sleep(200); 
+        }
+
+        // UPDATED: פונקציית האנימציה בפועל - מקבלת את אלמנטי ה-DOM ישירות
+        async function animateAttack(attacker, defender, attackerElements, defenderElements, attackIndex = 0) {
+            const ATTACK_LUNGE_TIME = 150;
+            const SHAKE_TIME = 300;
+            
+            // 1. תקיפה (זינוק קדימה)
             const lungeDistance = 30; // פיקסלים
-            attackerElements.icon.style.transition = `transform ${ATTACK_LUNGE_TIME}ms ease-out`;
+            // Ensure transition is set for the lunge
+            attackerElements.icon.style.transition = `transform ${ATTACK_LUNGE_TIME}ms ease-out`; 
             
             // זינוק של התוקף לעבר המגן
             attackerElements.icon.style.transform = `translateX(${attacker.team === 'player' ? lungeDistance : -lungeDistance}px)`; 
             
             await sleep(ATTACK_LUNGE_TIME); 
 
-            // 4. יישום נזק
-            // *** שימו לב: הלוגיקה של לקיחת הנזק והפחתת HP נמצאת בתוך takeDamage() ***
+            // 2. יישום נזק
             const isDead = defender.takeDamage(attacker.atk);
             
             // אנימציית רעד קלה על המגן
@@ -1227,45 +1332,98 @@
             defenderElements.hpFill.style.width = `${hpPercent}%`;
             defenderElements.hpText.textContent = Math.floor(defender.hp);
             
+            // הדגשה של פגיעה כפולה/משולשת/מרובעת
+            if (attackIndex > 0) {
+                 defenderElements.hpText.style.color = '#FFFFFF';
+                 attackerElements.hpText.style.color = '#FFFFFF';
+                 await sleep(50);
+            }
+            
             await sleep(SHAKE_TIME); // מחכים שהרעד יסתיים
 
-            // 5. חזרה למיקום
+            // 3. חזרה למיקום
             attackerElements.icon.style.transform = 'translateX(0)'; 
             defenderElements.icon.style.animation = 'none'; 
             
+            // החזרת צבע הטקסט
+            if (attackIndex > 0) {
+                 defenderElements.hpText.style.color = '';
+                 attackerElements.hpText.style.color = '';
+            }
+
             await sleep(ATTACK_LUNGE_TIME);
-            
-            // 6. סיום האוברליי
-            OVERLAY_ATTACKER.innerHTML = '';
-            OVERLAY_DEFENDER.innerHTML = '';
-            BATTLE_OVERLAY.style.display = 'none';
-            GAME_CONTAINER.style.opacity = '1';
-            
-            // NEW: אם התוקף הרג, תן לו XP
+
+            // 4. עדכון XP ו-HP אם מת
             if (isDead && attacker.team === 'player') {
-                attacker.xp += 500; // XP קבוע על הריגה
+                attacker.xp += 500; 
                 attacker.checkLevelUp(); 
-                await saveGold(); // שמור התקדמות
+                await saveGold(); 
             }
 
             return isDead;
         }
 
-        // פונקציה עוטפת שמבצעת את כל רצף ההתקפה
+        // UPDATED: פונקציה לחישוב מספר ההתקפות על בסיס הפרש מהירות
+        function calculateAttackCount(attacker, defender) {
+            const speedDiff = attacker.speed - defender.speed;
+            
+            if (speedDiff >= SPEED_THRESHOLD_QUADRUPLE) {
+                return 4;
+            } else if (speedDiff >= SPEED_THRESHOLD_TRIPLE) {
+                return 3;
+            } else if (speedDiff >= SPEED_THRESHOLD_DOUBLE) {
+                return 2;
+            }
+            return 1;
+        }
+
+
+        // UPDATED: פונקציה עוטפת שמבצעת את כל רצף ההתקפה
         async function performAttackAction(attacker, defender) {
             // נעילת המשחק
             gameState = 'animating'; 
             
-            // ** FIXED: הפונקציה takeDamage דואגת כעת לעדכן את הפס חיים על הלוח **
-            const isDead = await animateAttack(attacker, defender);
+            // 1. כניסה למסך הקרב (פעם אחת)
+            const { attackerElements, defenderElements } = await startBattleCutscene(attacker, defender);
 
+            // 2. חישוב מספר ההתקפות
+            const attackCount = calculateAttackCount(attacker, defender);
+            let defenderWasDead = false;
+
+            // 3. לולאה לכל ההתקפות (1 עד 4)
+            for (let i = 0; i < attackCount; i++) {
+                if (!defender.isAlive) {
+                    defenderWasDead = true;
+                    break; 
+                }
+
+                // העבר את האינדקס כדי לדעת אם זו מתקפה כפולה/משולשת/מרובעת
+                const isKilledThisHit = await animateAttack(attacker, defender, attackerElements, defenderElements, i);
+                
+                if (isKilledThisHit) {
+                    defenderWasDead = true;
+                    break; 
+                }
+                
+                // השהיה קלה בין התקפות אם יש יותר מאחת
+                if (attackCount > 1 && i < attackCount - 1) await sleep(500); 
+            }
+            
+            // 4. יציאה ממסך הקרב (פעם אחת)
+            await endBattleCutscene();
+            
             // 5. לוגיקה לאחר האנימציה
-            if (isDead) {
+            if (defenderWasDead) {
                 // עדכן סטטוס
-                STATUS_MESSAGE.textContent = `${attacker.name} השמיד את ${defender.name}!`;
+                let pluralMessage = `במכה אחת`;
+                if (attackCount === 2) pluralMessage = `במתקפה כפולה`;
+                if (attackCount === 3) pluralMessage = `במתקפה משולשת`;
+                if (attackCount === 4) pluralMessage = `במתקפה מרובעת`;
+
+                STATUS_MESSAGE.textContent = `${attacker.name} השמיד את ${defender.name} ${pluralMessage}!`;
                 checkWinCondition(); 
             } else {
-                 STATUS_MESSAGE.textContent = `${attacker.name} תקף את ${defender.name}. נותרו לו ${Math.floor(defender.hp)} חיים.`;
+                 STATUS_MESSAGE.textContent = `${attacker.name} תקף (${attackCount} מכות). ל-${defender.name} נותרו ${Math.floor(defender.hp)} חיים.`;
             }
             
             // עדכון הלוח לאחר הקרב (כדי לוודא שהיחידה המתה נעלמת והפסים מתעדכנים סופית)
@@ -1276,7 +1434,7 @@
                  gameState = 'playerTurn';
             }
             
-            return isDead;
+            return defenderWasDead; // Return status for enemy AI
         }
 
         // ------------------------------------
@@ -1674,15 +1832,24 @@
         // ------------------------------------
 
         function handleTileClick(r, c) {
-            if (gameState !== 'playerTurn') return;
+            if (gameState === 'animating') return; // לא מאפשר קליקים במהלך אנימציה
             
             const clickedUnit = getUnitAt(r, c);
             const tile = board[r][c];
             
-            // 1. ניסיון לבצע פעולה (תזוזה או התקפה)
-            if (selectedUnit) {
+            // 1. ניסיון לבצע פעולה (תזוזה או התקפה) - רק בתור שחקן
+            if (gameState === 'playerTurn' && selectedUnit && selectedUnit.team === 'player') {
                 const isMoveAttempt = tile.classList.contains('highlight-move');
                 const isAttackAttempt = tile.classList.contains('highlight-attack');
+                
+                // ביטול בחירה אם לוחצים על היחידה הנבחרת
+                if (clickedUnit === selectedUnit) {
+                    clearHighlights();
+                    selectedUnit = null;
+                    SELECTED_UNIT_INFO.innerHTML = "בחר יחידה מהלוח...";
+                    updateActionButtons();
+                    return;
+                }
 
                 if (isMoveAttempt && !selectedUnit.hasMoved) {
                     // ביצוע תזוזה
@@ -1701,18 +1868,12 @@
                         
                         // ביצוע האנימציה והלוגיקה בתוך async wrapper כדי לאפשר await
                         (async () => {
-                            const isDead = await performAttackAction(selectedUnit, clickedUnit);
+                            // FIXED: שימוש ב-performAttackAction המעודכן לריבוי התקפות
+                            await performAttackAction(selectedUnit, clickedUnit);
                             
                             // Check if game ended or unit was unselected during animation
                             if (gameState === 'gameOver' || gameState === 'upgradePhase' || !selectedUnit) return; 
                             
-                            // NEW: עדכון XP לאחר קרב
-                            if (isDead) {
-                                // XP ניתן בתוך פונקציית animateAttack
-                                // רק צריך לעדכן את תצוגת היחידה הנבחרת
-                                updateSelectedUnitInfo(selectedUnit);
-                            }
-
                             selectedUnit.hasAttacked = true;
                             clearHighlights();
                             // נשאר על היחידה הנבחרת כדי לראות סטטוס
@@ -1724,28 +1885,42 @@
                     }
                 }
             }
-
-            // 2. ניסיון לבחור יחידה חדשה או לבטל בחירה
-            clearHighlights(); // נקה הכל לפני בחירה חדשה
             
-            if (clickedUnit && clickedUnit.team === 'player') {
-                if (selectedUnit === clickedUnit) {
-                    // ביטול בחירה
-                    selectedUnit = null;
-                    SELECTED_UNIT_INFO.innerHTML = "בחר יחידה מהלוח...";
-                } else {
-                    // בחירת יחידה חדשה
+            // 2. טיפול בבחירת יחידה (או ביטול בחירה)
+            
+            // אם לחצנו על יחידה שלנו בתור שחקן
+            if (clickedUnit && clickedUnit.team === 'player' && gameState === 'playerTurn') {
+                clearHighlights();
+                if (selectedUnit !== clickedUnit) {
                     selectedUnit = clickedUnit;
                     tile.classList.add('selected');
                     updateSelectedUnitInfo(selectedUnit);
                     showAvailableActions(); // הצג פעולות זמינות מיידית
                 }
-            } else {
-                selectedUnit = null; // קליק על אריח ריק או אויב ללא פעולה
+            } 
+            // אם לחצנו על יחידת אויב (בכל שלב) - מצב צפייה
+            else if (clickedUnit && clickedUnit.team === 'enemy') {
+                clearHighlights(); 
+                selectedUnit = clickedUnit;
+                tile.classList.add('selected'); // NEW: הדגשת אויב בריבוע צהוב
+                updateSelectedUnitInfo(selectedUnit);
+            }
+            // אם לחצנו על אריח ריק, או אם יחידת השחקן הנוכחית לא רשאית לבצע פעולה
+            else {
+                clearHighlights();
+                selectedUnit = null; 
                 SELECTED_UNIT_INFO.innerHTML = "בחר יחידה מהלוח...";
             }
             
-            updateActionButtons();
+            // אם היחידה שנבחרה היא אויב, הלחצנים מושבתים
+            if (selectedUnit && selectedUnit.team === 'enemy') {
+                MOVE_BTN.disabled = true;
+                ATTACK_BTN.disabled = true;
+                MOVE_BTN.style.backgroundColor = '#795548';
+                ATTACK_BTN.style.backgroundColor = '#795548';
+            } else {
+                updateActionButtons();
+            }
         }
         
         // --- פונקציות עזר לפעולות ---
@@ -1774,6 +1949,8 @@
              const totalDef = unit.def;
              const totalMove = unit.moveRange;
              const totalRange = unit.attackRange;
+             // NEW: הצגת מהירות
+             const totalSpeed = unit.speed;
              
              // בונוס חפץ מוצג בסוגריים
              const hpBonus = itemUpgradesForType.hp > 0 ? ` (+${itemUpgradesForType.hp})` : '';
@@ -1782,12 +1959,30 @@
              const rangeBonus = itemUpgradesForType.range > 0 ? ` (+${itemUpgradesForType.range})` : '';
              
              let progressInfo = '';
+             let statusInfo = '';
+             
              if (unit.team === 'player') {
                  const percent = (unit.xp / unit.xpToNextLevel) * 100;
                  progressInfo = `
                       <p>רמה: ${unit.level}</p>
                       <p>XP: ${unit.xp}/${unit.xpToNextLevel} (${Math.floor(percent)}%)</p>
                     `;
+                 statusInfo = `
+                      <p style="color:${unit.hasMoved ? '#f44336' : '#4CAF50'}">הוזז: ${unit.hasMoved ? 'כן' : 'לא'}</p>
+                      <p style="color:${unit.hasAttacked ? '#f44336' : '#4CAF50'}">תקף: ${unit.hasAttacked ? 'כן' : 'לא'}</p>
+                 `;
+             }
+             
+             // UPDATED: הצגת סף המתקפה בהתאם למדרג
+             let attackInfo = 'רגילה';
+             const speedDiff = totalSpeed - (selectedUnit?.team === 'player' ? getUnitAt(unit.row, unit.col)?.speed : 0); // רק לשחקן זה רלוונטי
+             
+             if (totalSpeed >= SPEED_THRESHOLD_QUADRUPLE + (unit.team === 'enemy' ? unit.speed : 0) ) { // בדיקה רק עבור אויב
+                 attackInfo = 'מרובעת';
+             } else if (totalSpeed >= SPEED_THRESHOLD_TRIPLE + (unit.team === 'enemy' ? unit.speed : 0)) {
+                 attackInfo = 'משולשת';
+             } else if (totalSpeed >= SPEED_THRESHOLD_DOUBLE + (unit.team === 'enemy' ? unit.speed : 0)) {
+                 attackInfo = 'כפולה';
              }
              
              SELECTED_UNIT_INFO.innerHTML = `
@@ -1795,15 +1990,15 @@
                  ${progressInfo}
                  <p>חיים: ${Math.floor(unit.hp)}/${totalHp} ${hpBonus}</p>
                  <p>התקפה: ${totalAtk} ${atkBonus} | הגנה: ${totalDef}</p>
-                 <p>טווח תנועה: ${totalMove} ${moveBonus} | טווח תקיפה: ${totalRange} ${rangeBonus}</p>
-                 <p style="color:${unit.hasMoved ? '#f44336' : '#4CAF50'}">הוזז: ${unit.hasMoved ? 'כן' : 'לא'}</p>
-                 <p style="color:${unit.hasAttacked ? '#f44336' : '#4CAF50'}">תקף: ${unit.hasAttacked ? 'כן' : 'לא'}</p>
+                 <p><strong>טווח תנועה: ${totalMove} ${moveBonus}</strong> | טווח תקיפה: ${totalRange} ${rangeBonus}</p>
+                 <p><strong>מהירות: ${totalSpeed}</strong> (יכולת תקיפה: ${attackInfo})</p>
+                 ${statusInfo}
              `;
         }
         
         // הפונקציה החדשה שמציגה טווח תנועה והתקפה אוטומטית
         function showAvailableActions() {
-            if (!selectedUnit) return;
+            if (!selectedUnit || selectedUnit.team === 'enemy') return;
             clearHighlights(); // ודא שכל הדגשות קודמות נמחקו
             
             for (let r = 0; r < BOARD_SIZE; r++) {
@@ -1928,17 +2123,19 @@
                  }
                  return;
             }
-
-            // 1. **Toggle Logic for Leather Boots (MOVE only item)**
-            if (itemName === 'מגפי עור' && updates.move !== undefined && updates.atk === undefined && updates.hp === undefined) {
+            
+            // 1. **Toggle Logic for MOVE items (Leather Boots / Hunter's Cloak)**
+            const isMoveItem = (itemName === 'מגפי עור' || itemName === 'גלימת ציידים') && updates.move !== undefined && updates.atk === undefined && updates.hp === undefined;
+            
+            if (isMoveItem) {
                 
                 // הבונוס המנוטרל הוא בדיוק גובה הבונוס שניתן
-                const isBootsActive = itemUpgrades[unitType].move === updates.move;
+                const isItemActive = itemUpgrades[unitType].move === updates.move;
                 
-                if (isBootsActive) {
+                if (isItemActive) {
                     // אם כבר בבעלותם -> בטל את ההשפעה (Toggle Off)
                     itemUpgrades[unitType].move = 0; // הסרת הבונוס
-                    STATUS_MESSAGE.innerHTML = `<span style="color:#f44336;">בוטלה ההשפעה!</span> ${itemName} הוסרו מ${unitType === 'knight' ? 'האביר' : 'הקשת'}.`;
+                    STATUS_MESSAGE.innerHTML = `<span style="color:#f44336;">בוטלה ההשפעה!</span> ${itemName} הוסר מ${unitType}.`;
                     await saveGold();
                     updateUI();
                     return; // יציאה ללא גביית מחיר
@@ -1958,33 +2155,35 @@
                  return;
             }
 
-            // 2. **Stronger Weapon Only Check (ATK/RANGE)**
+            // 2. **Stronger Item Only Check (ATK/DEF/HP/RANGE)**
+            // אם קונים נשק או שריון, צריך לוודא שהוא שדרוג
+            
+            // בדיקת שריון (HP/DEF) - קניית שריון חדש מבטלת ישן
+            if (updates.hp !== undefined || updates.def !== undefined) {
+                 // רק אם יש כבר שריון פעיל וחזק יותר
+                 if (itemUpgrades[unitType].hp >= (updates.hp || 0) && itemUpgrades[unitType].def >= (updates.def || 0) && (itemUpgrades[unitType].hp > 0 || itemUpgrades[unitType].def > 0) ) {
+                      STATUS_MESSAGE.textContent = `השריון הנוכחי שלך (${itemUpgrades[unitType].hp} HP, ${itemUpgrades[unitType].def} DEF) חזק יותר או שווה ל-${itemName}.`;
+                      return;
+                 }
+                 // איפוס בונוסי שריון ישנים
+                 itemUpgrades[unitType].hp = 0;
+                 itemUpgrades[unitType].def = 0;
+            }
+
+            // בדיקת נשק (ATK/RANGE) - קניית נשק חדש מבטלת ישן
             if (updates.atk !== undefined || updates.range !== undefined) {
                 const currentAtkBonus = itemUpgrades[unitType].atk;
                 const newAtk = updates.atk || 0; 
                 
-                // ודא שהנשק החדש חזק יותר
                 if (newAtk < currentAtkBonus) {
                     STATUS_MESSAGE.textContent = `לא שודרג! ${itemName} (+${newAtk} התקפה) אינו חזק מהנשק הפעיל (+${currentAtkBonus} התקפה).`;
                     return;
                 }
-                // ודא שלא קונים נשק זהה (למעט אם אין נשק, ואז currentAtkBonus=0)
                 if (newAtk === currentAtkBonus && currentAtkBonus !== 0) {
                      STATUS_MESSAGE.textContent = `כבר ברשותך נשק בעל בונוס זהה (+${currentAtkBonus} התקפה).`;
                      return;
                 }
-            }
-
-
-            // לוגיקת החלפת ציוד: מאפס את הבונוסים הישנים ומחיל את החדשים
-            
-            // איפוס בונוסי שריון (HP/DEF) - קניית שריון חדש מבטלת ישן
-            if (updates.hp !== undefined || updates.def !== undefined) {
-                 itemUpgrades[unitType].hp = 0;
-                 itemUpgrades[unitType].def = 0;
-            }
-            // איפוס בונוסי נשק (ATK/RANGE) - קניית נשק חדש מבטלת ישן
-            if (updates.atk !== undefined || updates.range !== undefined) {
+                 // איפוס בונוסי נשק ישנים
                  itemUpgrades[unitType].atk = 0;
                  itemUpgrades[unitType].range = 0;
             }
@@ -2191,6 +2390,13 @@
             const recruitSpearmanBtn = document.getElementById('recruit-spearman');
             const recruitMageBtn = document.getElementById('recruit-mage');
             const recruitElfRangerBtn = document.getElementById('recruit-elfRanger'); // NEW HANDLER
+            
+            // New Unit Item Handlers
+            const buySpearmanShieldBtn = document.getElementById('buy-spearman-shield');
+            const buyMageStaffBtn = document.getElementById('buy-mage-staff');
+            const buyMageRobeBtn = document.getElementById('buy-mage-robe');
+            const buyElfRangerDaggersBtn = document.getElementById('buy-elfRanger-daggers');
+            const buyElfRangerMoveBtn = document.getElementById('buy-elfRanger-move');
 
 
             if (buyKnightIronSwordBtn) {
@@ -2217,6 +2423,29 @@
                  // קשת: מגפי עור (רמה 1, +1 תנועה) - פריט Toggle
                  buyArcherMoveBtn.onclick = () => buyItem('archer', 1500, { move: 1 }, 'מגפי עור', 1);
             }
+            
+            // NEW: לוחם מגן
+            if (buySpearmanShieldBtn) {
+                 buySpearmanShieldBtn.onclick = () => buyItem('spearman', 1800, { hp: 30, def: 10 }, 'מגן פלדה', 1);
+            }
+
+            // NEW: מכשף
+            if (buyMageStaffBtn) {
+                 buyMageStaffBtn.onclick = () => buyItem('mage', 2800, { atk: 25, range: 1 }, 'שרביט עוצמתי', 1);
+            }
+            if (buyMageRobeBtn) {
+                 buyMageRobeBtn.onclick = () => buyItem('mage', 1600, { hp: 20, def: 3 }, 'גלימת ארכאון', 1);
+            }
+
+            // NEW: סייר אלפים
+            if (buyElfRangerDaggersBtn) {
+                 buyElfRangerDaggersBtn.onclick = () => buyItem('elfRanger', 2300, { atk: 15 }, 'פגיונות רעל', 1);
+            }
+            if (buyElfRangerMoveBtn) {
+                 // פריט Toggle לטווח תנועה
+                 buyElfRangerMoveBtn.onclick = () => buyItem('elfRanger', 1500, { move: 1 }, 'גלימת ציידים', 1);
+            }
+
 
             // NEW: גיוס יחידות
             if (recruitSpearmanBtn) {

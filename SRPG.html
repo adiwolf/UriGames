@@ -1437,44 +1437,99 @@
             setTimeout(processEnemyTurn, 1000); 
         }
         
-        // NEW: פונקציה לבחירת המהלך האופטימלי ביותר עבור האויב
+        // UPDATED: פונקציה לבחירת המהלך האופטימלי ביותר עבור האויב - כעת מכוון לטווח התקפה של המטרה
         function findBestEnemyMove(enemy, target) {
             let bestR = enemy.row;
             let bestC = enemy.col;
-            let minDistance = Infinity;
+            let minDistanceToAttackPos = Infinity; // המרחק הקצר ביותר שנמצא לאריח תקיפה פוטנציאלי
+            let initialDistance = Math.abs(enemy.row - target.row) + Math.abs(enemy.col - target.col);
 
+            // 1. מציאת כל האריחים מהם ניתן לתקוף את המטרה (אריחי יעד אסטרטגיים)
+            let attackPositions = [];
             for (let r = 0; r < BOARD_SIZE; r++) {
                 for (let c = 0; c < BOARD_SIZE; c++) {
-                    // 1. בדוק אם המיקום החדש תפוס
-                    const unitAtTarget = getUnitAt(r, c);
-                    if (unitAtTarget && unitAtTarget !== enemy) continue;
-
-                    // 2. בדוק אם המיקום החדש הוא בטווח תנועה
-                    const moveDist = Math.abs(enemy.row - r) + Math.abs(enemy.col - c);
-                    if (moveDist > 0 && moveDist <= enemy.moveRange) {
-
-                        // 3. חשב את המרחק מנקודה זו אל היעד
-                        const distToTarget = Math.abs(r - target.row) + Math.abs(c - target.col);
-
-                        // 4. קריטריונים לבחירה:
-                        // א. עדיפות למרחק שקרוב לטווח התקפה של האויב (distToTarget <= enemy.attackRange)
-                        // ב. מזער את המרחק ליעד באופן כללי
-                        
-                        if (distToTarget < minDistance) {
-                            minDistance = distToTarget;
-                            bestR = r;
-                            bestC = c;
+                    if (isAttackable(r, c, target.row, target.col, enemy.attackRange)) {
+                        // ודא שהמיקום לא תפוס על ידי יחידה אחרת (שכמובן אינה האויב עצמו)
+                        const unitAtPos = getUnitAt(r, c);
+                        if (!unitAtPos || unitAtPos === enemy) {
+                            attackPositions.push({ r, c });
                         }
                     }
                 }
             }
             
-            // אם לא נמצא מהלך טוב יותר, או אם המיקום הטוב ביותר הוא המיקום הנוכחי, נחזיר null
+            // אם האויב כבר נמצא בעמדת תקיפה, אין צורך לזוז
+            if (findBestTarget(enemy, [target])) {
+                return null;
+            }
+            
+            // 2. מציאת המהלך בטווח תנועה של האויב שמביא אותו קרוב ביותר לאחד מ'אריחי התקיפה'
+            // המהלך הטוב ביותר הוא המהלך בטווח התנועה של האויב שממזער את המרחק לאחד מ-attackPositions.
+            for (let r = 0; r < BOARD_SIZE; r++) {
+                for (let c = 0; c < BOARD_SIZE; c++) {
+                    // ודא שזהו מהלך חוקי (בטווח תנועה ואינו תפוס)
+                    if (isValidMove(enemy.row, enemy.col, r, c, enemy)) {
+                        const moveDistFromStart = Math.abs(enemy.row - r) + Math.abs(enemy.col - c);
+                        
+                        let distToAttackPosition = Infinity;
+                        
+                        // מצא את המרחק הקצר ביותר בין נקודת התנועה הנוכחית (r,c) לכל אריח תקיפה
+                        for (const pos of attackPositions) {
+                            const dist = Math.abs(r - pos.r) + Math.abs(c - pos.c);
+                            distToAttackPosition = Math.min(distToAttackPosition, dist);
+                        }
+
+                        // **הקריטריון לבחירה:**
+                        // א. למזער את המרחק הנותר כדי להגיע לעמדת תקיפה (minDistanceToAttackPos)
+                        if (distToAttackPosition < minDistanceToAttackPos) {
+                            minDistanceToAttackPos = distToAttackPosition;
+                            bestR = r;
+                            bestC = c;
+                        } 
+                        // ב. שובר שוויון: אם המרחק הנותר זהה, בחר את המהלך שמקרב אותנו הכי הרבה ליעד (יותר קדימה).
+                        else if (distToAttackPosition === minDistanceToAttackPos) {
+                            // שובר שוויון משני: בחר את המהלך שמקרב יותר ליעד עצמו (מרחק מנהטן)
+                            const distToTargetNew = Math.abs(r - target.row) + Math.abs(c - target.col);
+                            const distToTargetBest = Math.abs(bestR - target.row) + Math.abs(bestC - target.col);
+                            
+                            if (distToTargetNew < distToTargetBest) {
+                                bestR = r;
+                                bestC = c;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // אם המיקום הטוב ביותר שנמצא הוא עדיין המיקום הנוכחי של האויב (וזה לא מהלך תקיפה), אין תנועה.
             if (bestR === enemy.row && bestC === enemy.col) {
                 return null;
             }
 
             return { row: bestR, col: bestC };
+        }
+
+        // NEW: פונקציה לבחירת היעד הטוב ביותר של האויב (הגנה הנמוכה ביותר בטווח)
+        function findBestTarget(attacker, potentialTargets) {
+            let bestTarget = null;
+            let minDef = Infinity;
+            
+            for (const target of potentialTargets) {
+                if (target.team === attacker.team) continue; // ודא שלא תוקפים חברים
+                
+                if (isAttackable(attacker.row, attacker.col, target.row, target.col, attacker.attackRange)) {
+                    // תעדוף יחידה עם הגנה נמוכה
+                    if (target.def < minDef) {
+                        minDef = target.def;
+                        bestTarget = target;
+                    } 
+                    // שובר שוויון: אם ההגנה שווה, תקוף את זה עם ה-HP הנמוך ביותר
+                    else if (target.def === minDef && target.hp < bestTarget?.hp) {
+                         bestTarget = target;
+                    }
+                }
+            }
+            return bestTarget;
         }
 
 
@@ -1484,29 +1539,37 @@
             const enemyUnits = units.filter(u => u.team === 'enemy' && u.isAlive);
             
             for (const enemy of enemyUnits) {
-                if (gameState === 'gameOver' || gameState === 'upgradePhase') break;
+                if (gameState === 'gameOver' || gameState === 'upgradePhase' || playerUnits.length === 0) break;
                 
-                // 1. נסה לתקוף מהמיקום הנוכחי
-                let target = playerUnits.find(p => isAttackable(enemy.row, enemy.col, p.row, p.col, enemy.attackRange));
+                // 1. נסה לתקוף מהמיקום הנוכחי: תעדוף את היחידה עם ההגנה הנמוכה ביותר
+                let target = findBestTarget(enemy, playerUnits);
 
                 if (target) {
+                    // יש יעד מיידי בטווח התקפה - תוקפים וגמרנו את התור
                     await performAttackAction(enemy, target);
                     if (checkWinCondition()) return; 
-                    continue; // האויב תקף, התור שלו נגמר
+                    continue; 
                 }
 
-                // 2. אם אין יעד, מצא את המהלך האופטימלי כדי להתקרב
-                // א. מצא את היחידה הקרובה ביותר
-                let closestTarget = playerUnits.reduce((closest, current) => {
-                    const distCurrent = Math.abs(enemy.row - current.row) + Math.abs(enemy.col - current.col);
-                    if (distCurrent < closest.distance) {
-                        return { unit: current, distance: distCurrent };
-                    }
-                    return closest;
-                }, { unit: null, distance: Infinity });
+                // 2. אם אין יעד מיידי, מצא את היחידה החלשה ביותר על הלוח כולו (מטרה אסטרטגית)
+                let strategicMoveTarget = playerUnits.reduce((weakest, current) => {
+                    // יוצר אובייקט ברירת מחדל אם weakest אינו יחידה (למשל, בהתחלת ה-reduce)
+                    const weakestDef = weakest.def !== undefined ? weakest.def : Infinity;
+                    const weakestHp = weakest.hp !== undefined ? weakest.hp : Infinity;
 
-                if (closestTarget.unit) {
-                    const moveCoords = findBestEnemyMove(enemy, closestTarget.unit);
+                    if (current.def < weakestDef) {
+                        return current;
+                    }
+                    if (current.def === weakestDef && current.hp < weakestHp) {
+                         return current;
+                    }
+                    return weakest;
+                }, { def: Infinity, hp: Infinity, name: 'NO TARGET' }); 
+
+                if (strategicMoveTarget.def !== Infinity) { 
+                    
+                    // 3. מצא את המהלך הטוב ביותר להגיע לעמדת תקיפה של המטרה האסטרטגית
+                    const moveCoords = findBestEnemyMove(enemy, strategicMoveTarget); 
 
                     if (moveCoords) {
                         // ב. בצע את התנועה
@@ -1514,8 +1577,8 @@
                         renderBoard();
                         await sleep(500); // השהיה קלה לאחר תזוזת האויב
 
-                        // 3. בדוק שוב לתקיפה לאחר התזוזה (Move-Attack)
-                        let postMoveTarget = playerUnits.find(p => isAttackable(enemy.row, enemy.col, p.row, p.col, enemy.attackRange));
+                        // 4. בדוק שוב לתקיפה לאחר התזוזה: תעדוף את היחידה עם ההגנה הנמוכה ביותר
+                        let postMoveTarget = findBestTarget(enemy, playerUnits);
 
                         if (postMoveTarget) {
                             await performAttackAction(enemy, postMoveTarget);
@@ -1790,7 +1853,9 @@
 
         // פונקציה משודרגת - מקבלת את היחידה הנבחרת כדי לקבל את טווח התנועה
         function isValidMove(startR, startC, endR, endC, unit = selectedUnit) {
-            if (getUnitAt(endR, endC)) {
+            // FIXED: בדיקה אם האריח תפוס, אבל מאפשר תזוזה למקום של האויב אם הוא אינו קיים יותר
+            const unitAtEnd = getUnitAt(endR, endC);
+            if (unitAtEnd && unitAtEnd !== unit) {
                 return false; // אריח תפוס
             }
             

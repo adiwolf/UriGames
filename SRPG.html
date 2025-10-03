@@ -337,8 +337,8 @@
         #game-status {
             background-color: #3e2723;
             padding: 15px;
-            border-radius: 8px;
             border-left: 5px solid #ffc107; 
+            border-radius: 8px;
         }
 
         /* Unit Stats and Actions (Now dynamic, moved under the board) */
@@ -348,6 +348,17 @@
             border-radius: 8px;
             min-height: 180px; 
             border-right: 5px solid #4CAF50; 
+        }
+
+        /* NEW: Style for the unit icon inside the stats panel */
+        #selected-unit-details .unit-icon {
+            position: relative;
+            transform: none;
+            top: auto;
+            left: auto;
+            width: 100%;
+            height: 100%;
+            font-size: 3rem; /* Make it smaller inside the panel */
         }
         
         /* UPDATED: Action buttons container */
@@ -455,7 +466,10 @@
             <!-- סטטוס יחידה נבחרת -->
             <div id="unit-stats">
                 <h2>יחידה נבחרת</h2>
-                <p id="selected-unit-info">בחר יחידה מהלוח...</p>
+                <!-- NEW: פאנל פנימי שיכיל את הסטטוס והאייקון, ויכול להיות מוסתר -->
+                <div id="selected-unit-details" style="display: none;">
+                    <p id="selected-unit-info">בחר יחידה מהלוח...</p>
+                </div>
             </div>
             
             <!-- כפתורי פעולה (ללא סיום תור) -->
@@ -474,7 +488,7 @@
             <div id="main-controls">
                 <!-- END_TURN_BTN is placed here and styled with order:-1 to be first -->
                 <button id="end-turn-btn" class="action-btn main-control-btn" disabled>סיום תור &gt;&gt;</button>
-                <button id="restart-btn" class="action-btn main-control-btn" disabled>התחל קרב חדש</button>
+                <button id="restart-btn" class="action-btn main-control-btn" disabled>איפוס התקדמות והתחלה מחדש</button>
                 <!-- Story Toggle Button -->
                 <button id="toggle-story-btn" class="action-btn main-control-btn">סיפור ומדריך</button>
             </div>
@@ -566,7 +580,11 @@
         const STATUS_MESSAGE = document.getElementById('status-message');
         const GOLD_DISPLAY = document.getElementById('gold-display');
         const TURN_DISPLAY = document.getElementById('turn-display');
+        
+        // NEW: עטיפה לפרטי היחידה
+        const SELECTED_UNIT_DETAILS = document.getElementById('selected-unit-details');
         const SELECTED_UNIT_INFO = document.getElementById('selected-unit-info');
+
         const MOVE_BTN = document.getElementById('move-btn'); 
         const ATTACK_BTN = document.getElementById('attack-btn'); 
         const END_TURN_BTN = document.getElementById('end-turn-btn');
@@ -613,15 +631,21 @@
             elfRanger: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, // NEW
             demonArcher: { hp: 0, atk: 0, def: 0, move: 0, range: 0 } // NEW DEMON ARCHER
         };
-        // NEW: שמירת נתוני רמה/XP - כולל סטטוס גיוס
-        let unitProgress = {
-            knight: { level: 1, xp: 0, nextLevelXp: 1000 },
-            archer: { level: 1, xp: 0, nextLevelXp: 1000 },
-            spearman: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false },
-            mage: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false },
-            elfRanger: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false }, // NEW
-            demonArcher: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false } // NEW DEMON ARCHER
-        };
+        // NEW: שמירת נתוני רמה/XP - כולל סטטוס גיוס (ובהמשך גם מיקום אחרון)
+        let unitProgress = {}; // יטען ויאופס ע"י defaultUnitProgress
+
+        // NEW: אובייקט ברירת המחדל המלא לאיפוס
+        function createDefaultUnitProgress() {
+            return {
+                knight: { level: 1, xp: 0, nextLevelXp: 1000, recruited: true, lastPosition: { row: -1, col: -1 } },
+                archer: { level: 1, xp: 0, nextLevelXp: 1000, recruited: true, lastPosition: { row: -1, col: -1 } },
+                spearman: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false, lastPosition: { row: -1, col: -1 } },
+                mage: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false, lastPosition: { row: -1, col: -1 } },
+                elfRanger: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false, lastPosition: { row: -1, col: -1 } },
+                demonArcher: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false, lastPosition: { row: -1, col: -1 } }
+            };
+        }
+
 
         // קבוע עבור מתקפה כפולה מבוססת מהירות - סף מופחת ל-5
         // UPDATED: הגדרת ספי המתקפות המרובות
@@ -640,20 +664,21 @@
             1: {
                 title: "ההתחלה: קרב הדרור הראשון",
                 lore: `<p>ממלכת הדרור, שפעם הייתה נחלת שלווה המוגנת על ידי חומות עתיקות, עומדת כעת בפני מבחן. בעקבות גילוי עורק נדיר של <strong>זהב קסום</strong> בהרי צפון, התעוררו ישויות רעבות ותאבות בצע.</p>
-                       <p>אתה, המפקד הצעיר של חיל המצב, נותרת עם שניים בלבד מהלוחמים הנאמנים ביותר: <strong>האביר</strong> ו<strong>הקשת</strong>. זה הקרב הראשון שלכם על הגנת הבסיס. זהו רק משמר קדמי של שודדים, אך היכולות שלהם עלולות להפתיע.</p>`,
+                        <p>אתה, המפקד הצעיר של חיל המצב, נותרת עם שניים בלבד מהלוחמים הנאמנים ביותר: <strong>האביר</strong> ו<strong>הקשת</strong>. זה הקרב הראשון שלכם על הגנת הבסיס. זהו רק משמר קדמי של שודדים, אך היכולות שלהם עלולות להפתיע.</p>`,
                 guide: `<h3>מדריך: חוקי בסיס</h3>
                         <ul>
                             <li>כל יחידה שחקן יכולה לבצע <strong>תזוזה אחת</strong> ו<strong>התקפה אחת</strong> בתור.</li>
                             <li><strong>טווח תנועה:</strong> מספר האריחים המקסימלי למהלך (במצטבר).</li>
                             <li><strong>טווח התקפה:</strong> מרחק המטרה מהיחידה.</li>
                             <li><strong>מצב שדרוג:</strong> לאחר ניצחון בקרב, ה-HP מתמלא במלואו, ואתה עובר לחנות (Upgrade Shop) לרכישת ציוד, גיוס או שדרוג רמות.</li>
+                            <li><strong>שמירת מיקום:</strong> היחידות שנפרסו ייזכרו את מיקומן לקרב הבא.</li>
                         </ul>`
             },
             // Stage 2: After Battle 1 (New Threat Revealed - Ranged Units)
             2: {
                 title: "האויב לומד: איום הקשתים",
                 lore: `<p>הדיפתם את גל האורקים הראשון! אך מרחוק, זיהינו קשתים שודדים שמתקרבים דרך העמקים הצדדיים. האויב לומד את הטקטיקה שלך ומנסה לשבור את קו החזית שלך עם יחידות לטווח רחוק.</p>
-                       <p><strong>טיפ גיוס:</strong> יש שמועות על <strong>לוחם מגן (Spearman)</strong> שאולי תוכל לגייס. הוא מגן חזק שיכול לשמש כחומה נגד יחידות מליאה, אך דורש עבודה טקטית בגלל טווח התנועה המוגבל שלו.</p>`,
+                        <p><strong>טיפ גיוס:</strong> יש שמועות על <strong>לוחם מגן (Spearman)</strong> שאולי תוכל לגייס. הוא מגן חזק שיכול לשמש כחומה נגד יחידות מליאה, אך דורש עבודה טקטית בגלל טווח התנועה המוגבל שלו.</p>`,
                 guide: `<h3>חוקי בסיס</h3>
                         <ul>
                             <li><strong>התקפה:</strong> הנזק מחושב כך: (התקפת תוקף) - (הגנת מגן) = נזק מינימלי של 1.</li>
@@ -665,8 +690,8 @@
             3: {
                 title: "חומות הברזל: כוח חדש?",
                 lore: `<p>ניצחון קשה נגד תגבורת האויב. המפקדים המנוסים יותר של האורקים מגיעים לשטח, והם נעים בצורה מתוכננת יותר. ההגנות שלך חזקות, אבל כוח אש חזק יותר ידרש בקרוב. </p>
-                       <p><strong>טיפ גיוס:</strong> בדרכים נתקלנו ב<strong>מכשף נודד (Mage)</strong> בעל כוח אש מדהים, אך הוא שביר כמו קליפת ביצה. הוא יקר לגיוס, אבל הנזק שלו עשוי להפוך את הקרב הבא לפשוט יותר.</p>
-                       <p><strong>גיוס חדש:</strong> שמענו על יחידת <strong>סייר אלפים</strong> המתמחה בתנועה מהירה ויכולה לסייע בהגנה על האגפים. גיוס יחידות נוספות נפתח עכשו! </p>`,
+                        <p><strong>טיפ גיוס:</strong> בדרכים נתקלנו ב<strong>מכשף נודד (Mage)</strong> בעל כוח אש מדהים, אך הוא שביר כמו קליפת ביצה. הוא יקר לגיוס, אבל הנזק שלו עשוי להפוך את הקרב הבא לפשוט יותר.</p>
+                        <p><strong>גיוס חדש:</strong> שמענו על יחידת <strong>סייר אלפים</strong> המתמחה בתנועה מהירה ויכולה לסייע בהגנה על האגפים. גיוס יחידות נוספות נפתח עכשו! </p>`,
                 guide: `<h3>חוקי בסיס: טקטיקה מתקדמת</h3>
                         <ul>
                             <li><strong>מתקפה כפולה:</strong> הפרש של <strong>5</strong> מהירות = 2 התקפות. <strong>8</strong> מהירות = 3 התקפות. <strong>10</strong> מהירות = 4 התקפות.</li>
@@ -678,10 +703,10 @@
             4: {
                 title: "המערכה המתארכת: כוחות העומק והשדים",
                 lore: `<p>ניצחתם את גל התקיפה הגדול ביותר עד כה, אבל נראה שהאויב אינו נגמר. נתקלנו ביחידת <strong>קשת שד (Demon Archer)</strong> איטית אך קטלנית בעלת טווח תקיפה עצום. נדרשת הגנה מיידית על היחידות הרכות.</p>
-                       <p><strong>גיוס חדש:</strong> אם הצלחתם לשרוד את הגל השלישי, ייתכן שתוכלו לגייס את קשת השד עצמה! כוח האש שלה חיוני נגד האויבים המתבצרים. כל קרב עולה בדרגת הקושי, והרמה הממוצעת של האויבים תמשיך לעלות. המשך לאגור זהב, המפקד!</p>`,
+                        <p><strong>גיוס חדש:</strong> אם הצלחתם לשרוד את הגל השלישי, ייתכן שתוכלו לגייס את קשת השד עצמה! כוח האש שלה חיוני נגד האויבים המתבצרים. כל קרב עולה בדרגת הקושי, והרמה הממוצעת של האויבים תמשיך לעלות. המשך לאגור זהב, המפקד!</p>`,
                 guide: `<h3>חוקי בסיס: תזכורת</h3>
                         <ul>
-                            <li><strong>שמירה:</strong> כל ההתקדמות (זהב, רמות, גיוסים) נשמרת אוטומטית ב-Firestore.</li>
+                            <li><strong>שמירה:</strong> כל ההתקדמות (זהב, רמות, גיוסים, מיקומי יחידות) נשמרת אוטומטית ב-Firestore.</li>
                             <li><strong>מטרה:</strong> השמד את כל יחידות האויב כדי להתקדם לחנות השדרוג ולקרב הבא.</li>
                         </ul>`
             }
@@ -689,7 +714,6 @@
 
         function generateStoryContent() {
             // הצגת כל הסיפורים שנחשפו עד כה
-            // אם currentBattleIndex הוא 3, זה אומר שניצחנו את קרב 2 והצגנו את סיפור 2, אז נציג את כל הסיפורים מ-1 עד 3.
             const battlesWon = Math.max(0, currentBattleIndex - 1);
             const segmentsToShow = battlesWon + 1;
             
@@ -712,6 +736,23 @@
         // ------------------------------------
         // פונקציות עזר (Utility)
         // ------------------------------------
+        function getUnitName(type) {
+             switch(type) {
+                case 'knight': return 'אביר';
+                case 'archer': return 'קשת';
+                case 'spearman': return 'לוחם מגן';
+                case 'mage': return 'מכשף';
+                case 'elfRanger': return 'סייר אלפים';
+                case 'demonArcher': return 'קשת שד';
+                // Enemies
+                case 'orc': return 'אורק';
+                case 'bandit': return 'שודד';
+                case 'banditArcher': return 'קשת שודד';
+                case 'goblin': return 'גובלין';
+                default: return 'יחידה לא ידועה';
+            }
+        }
+        
         function sleep(ms) {
             return new Promise(resolve => setTimeout(resolve, ms));
         }
@@ -938,7 +979,7 @@
                             <!-- FIX 2: String (White) - Longer, horizontal line drawn back - Y set to 5.3 to create space from the bow -->
                             <line x1="1" y1="5.3" x2="5.5" y2="5.3" stroke="${WHITE}" stroke-width="0.5"/> 
 
-                            <!-- Hand (Skin) - holding the bow string/arrow (Positioned at the end of the drawn string) - Y set to 4.8 to hold the string -->
+                            <!-- Hand (Skin) - holding the bow string/arrow (Positioned at the end of the drawn string) - Y set to 4.8 to hold the string) -->
                             <rect x="5.5" y="4.8" width="1" height="1" fill="${SKIN}"/> 
                         </svg>`;
                     break;
@@ -958,7 +999,7 @@
                             <!-- FIX 2: String (White) - Longer, horizontal line drawn back - Y set to 5.3 to create space from the bow -->
                             <line x1="1" y1="5.3" x2="5.5" y2="5.3" stroke="${WHITE}" stroke-width="0.5"/> 
 
-                            <!-- Hand (Skin) - holding the bow string/arrow (Positioned at the end of the drawn string) - Y set to 4.8 to hold the string -->
+                            <!-- Hand (Skin) - holding the bow string/arrow (Positioned at the end of the drawn string) - Y set to 4.8 to hold the string) -->
                             <rect x="5.5" y="4.8" width="1" height="1" fill="${SKIN}"/> 
                         </svg>`;
                     break;
@@ -1349,7 +1390,7 @@
                     if (elfRangerRecruited) {
                         recruitElfRangerBtn.textContent = "סייר אלפים גויס (ברשותך)";
                     } else {
-                         recruitElfRangerBtn.textContent = `גיוס סייר אלפים (+$${costElfRanger} | טווח 2, טווח תנועה 4)`;
+                        recruitElfRangerBtn.textContent = `גיוס סייר אלפים (+$${costElfRanger} | טווח 2, טווח תנועה 4)`;
                     }
                 }
             }
@@ -1359,14 +1400,14 @@
                     recruitDemonArcherBtn.disabled = true;
                     recruitDemonArcherBtn.style.display = 'block';
                     recruitDemonArcherBtn.textContent = `קשת שד (נפתח לאחר קרב 3)`;
-                 } else {
+                   } else {
                     recruitDemonArcherBtn.disabled = gold < costDemonArcher || demonArcherRecruited;
                     if (demonArcherRecruited) {
                         recruitDemonArcherBtn.textContent = "קשת שד גויס (ברשותך)";
                     } else {
-                         recruitDemonArcherBtn.textContent = `גיוס קשת שד (+$${costDemonArcher} | טווח 4, התקפה 40, איטיות 8)`;
+                        recruitDemonArcherBtn.textContent = `גיוס קשת שד (+$${costDemonArcher} | טווח 4, התקפה 40, איטיות 8)`;
                     }
-                 }
+                   }
             }
             
             // NEW: עדכון כפתורי ציוד ייעודיים (מוסתרים אם היחידה לא גויסה)
@@ -1630,7 +1671,7 @@
                 STATUS_MESSAGE.textContent = `${attacker.name} השמיד את ${defender.name} ${pluralMessage}!`;
                 checkWinCondition(); 
             } else {
-                 STATUS_MESSAGE.textContent = `${attacker.name} תקף (${attackCount} מכות). ל-${defender.name} נותרו ${Math.floor(defender.hp)} חיים.`;
+                STATUS_MESSAGE.textContent = `${attacker.name} תקף (${attackCount} מכות). ל-${defender.name} נותרו ${Math.floor(defender.hp)} חיים.`;
             }
             
             // עדכון הלוח לאחר הקרב (כדי לוודא שהיחידה המתה נעלמת והפסים מתעדכנים סופית)
@@ -1675,8 +1716,8 @@
             // UPDATED: קרב 3: התקפה קלה יותר עם גובלינים חלשים
             else if (battleIndex === 3) {
                  // **MODIFIED SCENARIO (EASIER, 6 units - lower level enemies and Goblins)**
-                 enemies.push(new Unit('orc', 'enemy', 0, 2, 'מפקד קרב', 0, 2, 1.0, true)); 	    // L2 Orc Leader
-                 enemies.push(new Unit('bandit', 'enemy', 0, 4, 'שודד מובחר', 0, 2, 1.0)); 	    // L2 Bandit 
+                 enemies.push(new Unit('orc', 'enemy', 0, 2, 'מפקד קרב', 0, 2, 1.0, true)); 	// L2 Orc Leader
+                 enemies.push(new Unit('bandit', 'enemy', 0, 4, 'שודד מובחר', 0, 2, 1.0)); 	// L2 Bandit 
                  enemies.push(new Unit('banditArcher', 'enemy', 1, 0, 'קשת שודד (אגף)', 0, 1, 1.0)); // L1 Archer 
                  enemies.push(new Unit('banditArcher', 'enemy', 1, 3, 'קשת שודד (אגף)', 0, 1, 1.0)); // L1 Archer 
                  enemies.push(new Unit('goblin', 'enemy', 2, 1, 'גובלין צופה', 0, 1, 1.0)); 	// NEW! L1 Goblin
@@ -1726,49 +1767,58 @@
         }
         
         function initGame() {
-            // שימוש ב-currentBattleIndex
-            const knightProgress = unitProgress.knight;
-            const archerProgress = unitProgress.archer;
-            
-            // 1. יצירת יחידות השחקן עם סטטיסטיקות מעודכנות ו-HP מלא - מתחילות במיקום וירטואלי (-1,-1)
-            const playerUnits = [
-                new Unit('knight', 'player', -1, -1, 'אביר', knightProgress.xp, knightProgress.level, 1.0),
-                new Unit('archer', 'player', -1, -1, 'קשת', archerProgress.xp, archerProgress.level, 1.0),
-            ];
+            // 1. יצירת יחידות השחקן עם סטטיסטיקות מעודכנות ו-HP מלא
+            const playerUnits = [];
+            // קבלת כל סוגי יחידות השחקן, כולל המגויסות (שהסטטוס recruited שלהן הוא true)
+            const playerUnitTypes = Object.keys(unitProgress).filter(type => 
+                unitProgress[type].recruited
+            );
 
-            // NEW: הוספת יחידות מגויסות
-            if (unitProgress.spearman.recruited) {
-                const sp = unitProgress.spearman;
-                playerUnits.push(new Unit('spearman', 'player', -1, -1, 'לוחם מגן', sp.xp, sp.level, 1.0));
-            }
-            if (unitProgress.mage.recruited) {
-                const mg = unitProgress.mage;
-                playerUnits.push(new Unit('mage', 'player', -1, -1, 'מכשף', mg.xp, mg.level, 1.0));
-            }
-            if (unitProgress.elfRanger.recruited) {
-                const er = unitProgress.elfRanger;
-                playerUnits.push(new Unit('elfRanger', 'player', -1, -1, 'סייר אלפים', er.xp, er.level, 1.0));
-            }
-            if (unitProgress.demonArcher.recruited) {
-                const da = unitProgress.demonArcher;
-                playerUnits.push(new Unit('demonArcher', 'player', -1, -1, 'קשת שד', da.xp, da.level, 1.0));
-            }
+            playerUnitTypes.forEach(type => {
+                const progress = unitProgress[type];
+                const unitName = getUnitName(type);
+                const lastPos = progress.lastPosition || { row: -1, col: -1 };
+                
+                // Units start at last known good position, or (-1, -1) if new/reset
+                // אם lastPos.row הוא -1, היחידה תיחשב ככזו שצריך לפרוס
+                playerUnits.push(new Unit(
+                    type, 
+                    'player', 
+                    lastPos.row, 
+                    lastPos.col, 
+                    unitName,
+                    progress.xp, 
+                    progress.level, 
+                    1.0 // HP מלא
+                ));
+            });
             
             // 2. יצירת אויבים
             const enemyUnits = spawnEnemiesForBattle(currentBattleIndex);
             
-            // שילוב יחידות (יחידות שחקן עדיין לא מוצבות)
+            // שילוב יחידות
             units = playerUnits.concat(enemyUnits);
-            unitsToDeploy = playerUnits.filter(u => u.isAlive); // רק יחידות חיות נכנסות לפריסה
+            // יחידות לפריסה: רק אלה שעדיין לא מוקמו על הלוח
+            unitsToDeploy = playerUnits.filter(u => u.isAlive && u.row === -1); 
             
             selectedUnit = null;
             lastPlayerUnit = null; // Resetting last player unit
             pendingTarget = null; // NEW: Reset pending target
             initialMovePosition = null; // Reset initial move position
             currentTurn = 0;
+
+            // NEW: הסתרת פאנל הסטטוס בהתחלת שלב חדש
+            SELECTED_UNIT_DETAILS.style.display = 'none';
             
-            // 3. התחלת שלב הפריסה
-            startDeploymentPhase();
+            // 3. התחלת שלב הפריסה או מעבר מידי לקרב
+            if (unitsToDeploy.length === 0) {
+                 // אם אין יחידות לפריסה, מתחילים את הקרב מיד
+                 gameState = 'ready'; 
+                 startGameTurn();
+            } else {
+                 // אחרת, מתחילים שלב הפריסה
+                 startDeploymentPhase();
+            }
             
             RESTART_BTN.disabled = false;
             
@@ -1784,32 +1834,43 @@
             
             deployingUnit = unitsToDeploy[0] || null; // Unit currently selected for placement
             
-            if (!deployingUnit) {
-                // If there are no units to deploy (e.g., loaded a game where deployment was complete), start turn
+            if (!deployingUnit && unitsToDeploy.length === 0) {
+                // If there are no units to deploy (all were loaded with positions), start turn
                 gameState = 'ready';
                 startGameTurn();
                 return;
             }
 
-            STATUS_MESSAGE.textContent = `נא לבחור מיקום עבור: ${deployingUnit.name}.`;
+            if(deployingUnit) {
+                 STATUS_MESSAGE.textContent = `נא לבחור מיקום עבור: ${deployingUnit.name}.`;
+                 selectedUnit = deployingUnit;
+                 updateSelectedUnitInfo(selectedUnit); // Show stats of unit to deploy
+            } else {
+                SELECTED_UNIT_DETAILS.style.display = 'none';
+            }
             
-            renderBoard(); // Renders empty board or units already placed
+            renderBoard(); // Renders board with units already placed
             highlightDeploymentZone();
             
-            // Simulate selecting the first unit to deploy to show its stats
-            selectedUnit = deployingUnit;
-            if (selectedUnit) updateSelectedUnitInfo(selectedUnit);
-
             updateUI(); 
         }
         
         function highlightDeploymentZone() {
             for (let r = 0; r < BOARD_SIZE; r++) {
                 for (let c = 0; c < BOARD_SIZE; c++) {
-                    // Highlight only if it's a valid deployment row AND the tile is empty
-                    const unit = getUnitAt(r, c);
-                    if (DEPLOYMENT_ROWS.includes(r) && (!unit || unit.team === 'player')) {
-                        board[r][c].classList.add('highlight-move'); 
+                    const tile = board[r][c];
+                    // Highlight only if it's a valid deployment row
+                    if (DEPLOYMENT_ROWS.includes(r)) {
+                        // ודא שהאריח לא מכיל יחידת אויב
+                        const unitAtPos = getUnitAt(r, c);
+                        if (!unitAtPos || unitAtPos.team === 'player') {
+                             tile.classList.add('highlight-move'); 
+                        }
+                    }
+                    
+                    // NEW: סימון היחידה הנוכחית לפריסה
+                    if (deployingUnit && deployingUnit.row === r && deployingUnit.col === c) {
+                        tile.classList.add('selected');
                     }
                 }
             }
@@ -1824,6 +1885,9 @@
             initialMovePosition = null; // Reset initial move position
             hideFloatingForecast(); // NEW: Hide any lingering forecast
             
+            // NEW: הסתרת פאנל הסטטוס
+            SELECTED_UNIT_DETAILS.style.display = 'none';
+
             // איפוס פעולות ליחידות השחקן
             units.filter(u => u.team === 'player' && u.isAlive).forEach(u => {
                 u.hasMoved = false;
@@ -1861,6 +1925,9 @@
             END_TURN_BTN.disabled = true;
             updateActionButtons();
             
+            // NEW: הסתרת פאנל הסטטוס
+            SELECTED_UNIT_DETAILS.style.display = 'none';
+
             // התחלת תהליך תור האויב האסינכרוני
             setTimeout(processEnemyTurn, 1000); 
         }
@@ -2062,11 +2129,15 @@
             const goldEarned = baseGold + (currentTurn * 100);
             gold += goldEarned;
             
-            // NEW: שמירת נתוני הרמה/XP רק של היחידות החיות והקיימות
-            units.filter(u => u.team === 'player').forEach(u => {
+            // NEW: שמירת נתוני הרמה/XP **והמיקום** של היחידות החיות
+            units.filter(u => u.team === 'player' && u.isAlive).forEach(u => {
+                // 1. Update XP/Level
                 unitProgress[u.type].level = u.level;
                 unitProgress[u.type].xp = u.xp;
                 unitProgress[u.type].nextLevelXp = u.xpToNextLevel;
+                
+                // 2. NEW: Save current deployed position
+                unitProgress[u.type].lastPosition = { row: u.row, col: u.col };
             });
             
             currentBattleIndex++; // **קידום מספר הקרב לפני שמירת הנתונים ועדכון הסיפור**
@@ -2080,7 +2151,7 @@
             } else if (currentBattleIndex === 4) { // ניצחון בקרב 3
                  battleStory = "התקיפה המתואמת של גל האויבים השלישי נכשלה בזכות הלוחמים החדשים והנשקים המשופרים שלכם. נראה שהמלחמה רק החלה להתחמם.";
             } else {
-                 battleStory = "ניצחון נוסף! אויבי הממלכה ממשיכים להפסיד קרב אחר קרב.";
+                battleStory = "ניצחון נוסף! אויבי הממלכה ממשיכים להפסיד קרב אחר קרב.";
             }
 
             STATUS_MESSAGE.innerHTML = `<span style="color:#ffc107;">ניצחון בקרב ${currentBattleIndex - 1}!</span> ${battleStory} זכית ב-${goldEarned} זהב. שדרג את יחידותיך בחנות לפני הקרב הבא.`;
@@ -2141,12 +2212,13 @@
                  
                  clearHighlights();
                  if(selectedUnit.isAlive) {
-                     board[selectedUnit.row][selectedUnit.col].classList.add('selected');
-                     updateSelectedUnitInfo(selectedUnit);
+                      board[selectedUnit.row][selectedUnit.col].classList.add('selected');
+                      updateSelectedUnitInfo(selectedUnit); 
                  } else {
-                     selectedUnit = null;
-                     lastPlayerUnit = null;
-                     SELECTED_UNIT_INFO.innerHTML = "בחר יחידה מהלוח...";
+                      selectedUnit = null;
+                      lastPlayerUnit = null;
+                      SELECTED_UNIT_INFO.innerHTML = "בחר יחידה מהלוח...";
+                      SELECTED_UNIT_DETAILS.style.display = 'none'; // HIDE if unit died
                  }
              })();
         }
@@ -2187,7 +2259,7 @@
                   showAvailableActions(); // Re-highlight actions based on existing state (including now possible movement)
                   updateSelectedUnitInfo(selectedUnit);
              } else {
-                  SELECTED_UNIT_INFO.innerHTML = "בחר יחידה מהלוח...";
+                 SELECTED_UNIT_DETAILS.style.display = 'none'; // HIDE if lastPlayerUnit is null
              }
              updateActionButtons();
              // אין צורך ב-renderBoard, מכיוון שה-draw בתוך cancelPendingAttack כבר עדכן את האריחים הרלוונטיים.
@@ -2216,8 +2288,8 @@
                  <p style="color: #ff4500;">סה"כ נזק: <strong>${damage}</strong> ${kills}</p>
                  
                  <div style="margin-top: 8px; display: flex; gap: 8px; justify-content: center;">
-                    <button id="forecast-attack-btn" class="action-btn" style="background-color: #388E3C; color: white; padding: 5px 10px; pointer-events: auto;">תקוף</button>
-                    <button id="forecast-cancel-btn" class="action-btn" style="background-color: #5d4037; color: white; padding: 5px 10px; pointer-events: auto;">בטל פעולה</button>
+                     <button id="forecast-attack-btn" class="action-btn" style="background-color: #388E3C; color: white; padding: 5px 10px; pointer-events: auto;">תקוף</button>
+                     <button id="forecast-cancel-btn" class="action-btn" style="background-color: #5d4037; color: white; padding: 5px 10px; pointer-events: auto;">בטל פעולה</button>
                  </div>
             `;
 
@@ -2264,22 +2336,28 @@
             const clickedUnit = getUnitAt(r, c);
             const tile = board[r][c];
 
+            clearHighlights(); 
+            hideFloatingForecast();
+            
             // --- DEPLOYMENT PHASE LOGIC (NEW) ---
             if (gameState === 'deployment') {
                 const isDeploymentZone = DEPLOYMENT_ROWS.includes(r);
                 
+                // 1. Clicked on an existing deployed unit (to move it)
                 if (clickedUnit && clickedUnit.team === 'player' && isDeploymentZone) {
-                    // Clicked on an already deployed player unit: make it the current deploying unit
+                    // Clicks on an existing deployed unit (or one currently selected for deploy)
                     deployingUnit = clickedUnit;
                     STATUS_MESSAGE.textContent = `נא לבחור מיקום חדש עבור: ${deployingUnit.name}.`;
                     clearHighlights();
                     highlightDeploymentZone();
                     tile.classList.add('selected');
+                    selectedUnit = deployingUnit;
+                    updateSelectedUnitInfo(selectedUnit);
                     return;
                 }
                 
+                // 2. Clicked on an empty, valid deployment tile (to place/move the deploying unit)
                 if (!clickedUnit && isDeploymentZone && deployingUnit) {
-                    // Clicked on an empty, valid deployment tile: Place the unit
                     
                     // Remove unit from its old spot if it was moved (old spot had a unit)
                     if (deployingUnit.row !== -1 && deployingUnit.row < BOARD_SIZE && deployingUnit.col < BOARD_SIZE) {
@@ -2304,11 +2382,10 @@
                         deployingUnit = null;
                         STATUS_MESSAGE.textContent = "פריסה הושלמה. לחץ 'התחל קרב' כדי להתחיל.";
                         selectedUnit = null;
-                        END_TURN_BTN.disabled = false; // Enable Start Turn button
+                        SELECTED_UNIT_DETAILS.style.display = 'none';
                         gameState = 'ready'; // Move to ready state
-                        updateUI();
                     } else {
-                        // Move to next unit
+                        // Move to next unit in queue
                         deployingUnit = unitsToDeploy[0];
                         STATUS_MESSAGE.textContent = `נא לבחור מיקום עבור: ${deployingUnit.name}.`;
                         highlightDeploymentZone(); // Re-highlight zones
@@ -2316,104 +2393,103 @@
                         updateSelectedUnitInfo(selectedUnit); // Show next unit to be deployed
                     }
                     
+                    updateUI(); // Check end turn button
                     return;
                 }
                 
-                // Ignore clicks on enemy units or invalid tiles during deployment
+                // 3. Ignore clicks on enemy units or invalid tiles during deployment
                 return;
             }
 
-
-            // --- 2. לוגיקת תור השחקן ---
+            
+            // --- Normal Player Turn / Inspection Logic ---
+            
+            // --- Determine new selection status ---
+            let newSelectedUnit = null;
+            let clearLastPlayer = false; // Flag to indicate if we need to clear lastPlayerUnit
+            
+            const isMoveAttempt = tile.classList.contains('highlight-move');
+            const isAttackTarget = tile.classList.contains('highlight-attack');
 
             if (gameState === 'playerTurn' && lastPlayerUnit) {
-                const isMoveAttempt = tile.classList.contains('highlight-move');
-                const isAttackTarget = tile.classList.contains('highlight-attack');
-
-                // ביצוע תזוזה
-                if (isMoveAttempt && !lastPlayerUnit.hasMoved) {
-                    
-                    // NEW: שמירת מיקום התחלה רק בפעם הראשונה
-                    if (!initialMovePosition) {
-                        initialMovePosition = { row: lastPlayerUnit.row, col: lastPlayerUnit.col };
-                    }
-
-                    moveUnit(lastPlayerUnit, r, c);
-                    lastPlayerUnit.hasMoved = true;
-                    selectedUnit = lastPlayerUnit; 
-                    hideFloatingForecast(); // נקה את התחזית
-                    clearHighlights();
-                    showAvailableActions(); 
-                    updateSelectedUnitInfo(selectedUnit);
-                    renderBoard();
-                    return;
-                } 
-                
-                // NEW LOGIC: אם לחצנו על יעד תקיפה מסומן
-                if (isAttackTarget && clickedUnit && clickedUnit.team === 'enemy' && !lastPlayerUnit.hasAttacked) {
-                    
-                    // אם זה אותו יעד שכבר נבחר (Pending) - בטל את התחזית
-                    if (pendingTarget === clickedUnit) {
-                        // כעת לחיצה על אותו יעד מבטלת רק את התחזית, לא משפיעה על hasMoved
-                        hideFloatingForecast(); 
-                        return;
-                    }
-                    
-                    // הצג תחזית חדשה (במקום לצאת)
-                    selectedUnit = clickedUnit; // הדגשת האויב לצפייה
-                    showFloatingForecast(lastPlayerUnit, clickedUnit);
-                    return; // לא מבצעים התקפה - מחכים לאישור כפתור
-                }
-            }
-
-
-            // --- 3. לוגיקת בחירה / בדיקה (Inspection) ---
-            
-            // אם יש תחזית פתוחה ואין כפתורי אישור/ביטול?
-            if (pendingTarget) {
-                 hideFloatingForecast(); // נקה את התחזית
-            }
-
-            clearHighlights(); 
-
-            if (clickedUnit) {
-                selectedUnit = clickedUnit;
-                tile.classList.add('selected');
-
-                if (clickedUnit.team === 'player' && gameState === 'playerTurn') {
-                    // A. נבחרה יחידת שחקן חדשה: היא הופכת ליחידה הפעילה
-                    lastPlayerUnit = clickedUnit;
-                    // NEW: שמירת מיקום התחלה רק בבחירה ראשונה (אם עדיין לא זז)
-                    if (!lastPlayerUnit.hasMoved) {
+                 // **A1: Perform Move**
+                 if (isMoveAttempt && !lastPlayerUnit.hasMoved && !clickedUnit) { // Must be empty tile
+                     
+                     if (!initialMovePosition) {
                          initialMovePosition = { row: lastPlayerUnit.row, col: lastPlayerUnit.col };
-                    }
-                    showAvailableActions(); // הצג טווח תנועה/התקפה
-                } else if (clickedUnit.team === 'enemy') {
-                    // B. נבחרה יחידת אויב: רק לבדיקה.
-                    if (lastPlayerUnit && lastPlayerUnit.isAlive && gameState === 'playerTurn') {
-                        // אם יש יחידת שחקן פעילה, סמן אותה והצג את הטווח שלה לקונטקסט
-                        board[lastPlayerUnit.row][lastPlayerUnit.col].classList.add('selected');
-                        // NEW: עדיין מציג את הטווחים (אך לא נכנס למצב פנד-טארגט)
-                        showAvailableActions(); 
-                    } else {
-                        lastPlayerUnit = null; // אין יחידת שחקן פעילה
-                    }
-                } else {
-                    // C. יחידה שחקן מתה או יחידה שחקן שנבחרה מחוץ לתורה (רק בדיקה, ללא פעולה)
-                    lastPlayerUnit = null;
-                }
+                     }
 
+                     moveUnit(lastPlayerUnit, r, c);
+                     lastPlayerUnit.hasMoved = true;
+                     selectedUnit = lastPlayerUnit; 
+                     clearHighlights();
+                     showAvailableActions(); 
+                     updateSelectedUnitInfo(selectedUnit);
+                     renderBoard();
+                     return;
+                 }
+                 
+                 // **A2: Preview Attack (Opens Forecast Popup)**
+                 if (isAttackTarget && clickedUnit && clickedUnit.team === 'enemy' && !lastPlayerUnit.hasAttacked) {
+                     if (pendingTarget === clickedUnit) {
+                         hideFloatingForecast(); // Click same target closes it
+                         return;
+                     }
+                     showFloatingForecast(lastPlayerUnit, clickedUnit);
+                     // selectedUnit is the defender here temporarily for info panel, but lastPlayerUnit remains the active unit
+                     selectedUnit = clickedUnit; 
+                     updateSelectedUnitInfo(selectedUnit);
+                     return; 
+                 }
+            }
+
+
+            // --- Default Selection/Inspection ---
+            
+            if (clickedUnit) {
+                const isExhausted = clickedUnit.team === 'player' && clickedUnit.hasMoved && clickedUnit.hasAttacked;
+                
+                if (isExhausted) {
+                    newSelectedUnit = null; 
+                    clearLastPlayer = true;
+                    STATUS_MESSAGE.textContent = `${clickedUnit.name}: תור היחידה הסתיים!`;
+                } else if (clickedUnit.team === 'player' && gameState === 'playerTurn') {
+                    // Active Player Unit: Select it and show actions
+                    newSelectedUnit = clickedUnit;
+                    lastPlayerUnit = clickedUnit;
+                    if (!lastPlayerUnit.hasMoved) {
+                          initialMovePosition = { row: lastPlayerUnit.row, col: lastPlayerUnit.col };
+                    }
+                    showAvailableActions();
+                } else {
+                    // Enemy Unit or Player unit out of turn (Inspection mode)
+                    newSelectedUnit = clickedUnit;
+                    if (lastPlayerUnit && lastPlayerUnit.isAlive && gameState === 'playerTurn') {
+                         board[lastPlayerUnit.row][lastPlayerUnit.col].classList.add('selected');
+                         showAvailableActions(); 
+                    } else {
+                         clearLastPlayer = true;
+                    }
+                }
             } else {
-                // D. קליק על אריח ריק: בטל הכל
-                selectedUnit = null;
+                // Clicked empty tile: Deselect everything
+                clearLastPlayer = true;
+            }
+
+            // --- Apply changes ---
+            selectedUnit = newSelectedUnit;
+            if (clearLastPlayer) {
                 lastPlayerUnit = null;
-                initialMovePosition = null; // איפוס מיקום התחלה
-                SELECTED_UNIT_INFO.innerHTML = "בחר יחידה מהלוח...";
+                initialMovePosition = null;
             }
             
-            // עדכון הלוח הצדדי
+            // Set UI visibility based on final selected unit
             if (selectedUnit) {
-                updateSelectedUnitInfo(selectedUnit);
+                board[selectedUnit.row][selectedUnit.col].classList.add('selected');
+                updateSelectedUnitInfo(selectedUnit); // This sets display: block
+            } else {
+                SELECTED_UNIT_DETAILS.style.display = 'none'; // **FIXED: Hide panel if nothing is selected**
+                SELECTED_UNIT_INFO.innerHTML = "בחר יחידה מהלוח..."; // Clear info content
             }
             
             updateActionButtons();
@@ -2429,22 +2505,32 @@
             // כפתור התזוזה משמש רק לתזוזה, ומציג סטטוס
             if (MOVE_BTN) {
                 MOVE_BTN.textContent = "תזוזה";
-                MOVE_BTN.disabled = !unit || unit.hasMoved;
-                MOVE_BTN.style.backgroundColor = unit && !unit.hasMoved ? '#ffc107' : '#795548';
+                MOVE_BTN.disabled = !unit || unit.hasMoved || gameState !== 'playerTurn';
+                MOVE_BTN.style.backgroundColor = unit && !unit.hasMoved && gameState === 'playerTurn' ? '#ffc107' : '#795548';
             }
 
             // כפתור ההתקפה הצידי מושבת אם אין יחידה פעילה או אם היא תקפה, ומופעל רק כדי להדגיח
             if (ATTACK_BTN) {
                 ATTACK_BTN.textContent = "התקפה";
-                ATTACK_BTN.disabled = !unit || unit.hasAttacked || pendingTarget !== null; // מושבת כאשר יש תחזית פתוחה
-                ATTACK_BTN.style.backgroundColor = unit && !unit.hasAttacked ? '#ffc107' : '#795548';
+                ATTACK_BTN.disabled = !unit || unit.hasAttacked || pendingTarget !== null || gameState !== 'playerTurn'; // מושבת כאשר יש תחזית פתוחה
+                ATTACK_BTN.style.backgroundColor = unit && !unit.hasAttacked && gameState === 'playerTurn' ? '#ffc107' : '#795548';
             }
             // הערה: כפתור האישור מופיע רק בתוך הפופאפ עצמו.
         }
 
+        // UPDATED: הוספת האייקון לסטטיסטיקות + לוגיקה להסתרה לאחר סיום תור
         function updateSelectedUnitInfo(unit) {
-             // NEW: יחידת התקפה לקביעת תחזית
-             const attacker = lastPlayerUnit && lastPlayerUnit.isAlive ? lastPlayerUnit : null;
+             
+             // 1. אם אין יחידה (נלחץ אריח ריק או יחידה מותשת), מסתירים את הפאנל
+             if (!unit) {
+                SELECTED_UNIT_DETAILS.style.display = 'none';
+                return;
+             }
+             
+             // **מצב 2: תור פעיל / בדיקת אויב - הצגת כל הפרטים והאייקון**
+             
+             // NEW: הוספת האייקון לסטטיסטיקות
+             let unitIconHtml = `<div style="width: 50px; height: 50px; margin-right: 10px; display: inline-block; vertical-align: top;" class="unit-icon ${unit.team}-unit">${getUnitSVG(unit.type, unit.isLeader)}</div>`;
              
              // בונוס כולל (רמה + חפץ)
              const itemUpgradesForType = itemUpgrades[unit.type] || { hp: 0, atk: 0, def: 0, move: 0, range: 0 };
@@ -2464,11 +2550,11 @@
              // NEW: הצגת בונוס מנהיגות
              let leaderInfo = '';
              if (unit.isLeader && unit.team === 'enemy') {
-                const levelFactor = unit.level;
-                const leaderBonusHp = 7 * levelFactor; 
-                const leaderBonusAtk = 3 * levelFactor;
-                const leaderBonusDef = 3 * levelFactor;
-                leaderInfo = `<p style="color:#ff9800; font-weight:700;">מנהיג (בונוס: +${leaderBonusHp} HP, +${leaderBonusAtk} ATK, +${leaderBonusDef} DEF)</p>`;
+                 const levelFactor = unit.level;
+                 const leaderBonusHp = 7 * levelFactor; 
+                 const leaderBonusAtk = 3 * levelFactor;
+                 const leaderBonusDef = 3 * levelFactor;
+                 leaderInfo = `<p style="color:#ff9800; font-weight:700;">מנהיג (בונוס: +${leaderBonusHp} HP, +${leaderBonusAtk} ATK, +${leaderBonusDef} DEF)</p>`;
              }
              
              let progressInfo = '';
@@ -2478,35 +2564,37 @@
              if (unit.team === 'player') {
                  const percent = (unit.xp / unit.xpToNextLevel) * 100;
                  progressInfo = `
-                      <p>רמה: ${unit.level}</p>
+                      <p>רמה: <strong>${unit.level}</strong></p>
                       <p>XP: ${unit.xp}/${unit.xpToNextLevel} (${Math.floor(percent)}%)</p>
                     `;
-                 statusInfo = `
-                      <p style="color:${unit.hasMoved ? '#f44336' : '#4CAF50'}">הוזז: ${unit.hasMoved ? 'כן' : 'לא'}</p>
-                      <p style="color:${unit.hasAttacked ? '#f44336' : '#4CAF50'}">תקף: ${unit.hasAttacked ? 'כן' : 'לא'}</p>
-                 `;
+                 if (gameState === 'playerTurn') {
+                     statusInfo = `
+                         <p style="color:${unit.hasMoved ? '#f44336' : '#4CAF50'}">הוזז: ${unit.hasMoved ? 'כן' : 'לא'}</p>
+                         <p style="color:${unit.hasAttacked ? '#f44336' : '#4CAF50'}">תקף: ${unit.hasAttacked ? 'כן' : 'לא'}</p>
+                     `;
+                 }
              }
              
              // חישוב יכולת התקפה כללית
              const targets = units.filter(u => u.team !== unit.team && u.isAlive);
              if (targets.length > 0) {
-                 const weakestTargetSpeed = targets.reduce((min, t) => Math.min(min, t.speed), Infinity);
-                 const speedDiff = unit.speed - weakestTargetSpeed;
-                 
-                 if (speedDiff >= SPEED_THRESHOLD_QUADRUPLE) {
-                      attackInfo = 'מרובעת';
-                 } else if (speedDiff >= SPEED_THRESHOLD_TRIPLE) {
-                      attackInfo = 'משולשת';
-                 } else if (speedDiff >= SPEED_THRESHOLD_DOUBLE) {
-                      attackInfo = 'כפולה';
-                 }
+                  const weakestTargetSpeed = targets.reduce((min, t) => Math.min(min, t.speed), Infinity);
+                  const speedDiff = unit.speed - weakestTargetSpeed;
+                  
+                  if (speedDiff >= SPEED_THRESHOLD_QUADRUPLE) {
+                       attackInfo = 'מרובעת';
+                  } else if (speedDiff >= SPEED_THRESHOLD_TRIPLE) {
+                       attackInfo = 'משולשת';
+                  } else if (speedDiff >= SPEED_THRESHOLD_DOUBLE) {
+                       attackInfo = 'כפולה';
+                  }
              }
 
-             // NEW: הוסר ה-ForecastInfo מהפאנל הצדדי כדי לאפשר רק את הפופאפ
-             let forecastInfo = '';
-             
              SELECTED_UNIT_INFO.innerHTML = `
-                 <p><strong>${unit.name}</strong> (${unit.team === 'player' ? 'שלך' : 'אויב'})</p>
+                 <div style="display: flex; align-items: center; justify-content: space-between; margin-top:0; border-bottom: 1px solid #795548; padding-bottom: 5px; margin-bottom: 10px;">
+                     <h2 style="margin: 0; font-size: 1.5em; flex-grow: 1;">${unit.name}</h2>
+                     <div style="width: 50px; height: 50px;" class="unit-icon ${unit.team}-unit">${getUnitSVG(unit.type, unit.isLeader)}</div>
+                 </div>
                  <p>HP נוכחי: <strong>${Math.floor(unit.hp)}</strong>/${totalHp}</p>
                  ${leaderInfo}
                  ${progressInfo}
@@ -2514,8 +2602,8 @@
                  <p><strong>טווח תנועה: ${totalMove} ${moveBonus}</strong> | טווח תקיפה: ${totalRange} ${rangeBonus}</p>
                  <p><strong>מהירות: ${totalSpeed}</strong> (יכולת תקיפה: ${attackInfo})</p>
                  ${statusInfo}
-                 ${forecastInfo}
              `;
+             SELECTED_UNIT_DETAILS.style.display = 'block';
         }
         
         // הפונקציה החדשה שמציגה טווח תנועה והתקפה אוטומטית
@@ -2540,7 +2628,7 @@
                         isAttackable(lastPlayerUnit.row, lastPlayerUnit.col, r, c, lastPlayerUnit.attackRange)) {
                              // NEW: הדגש רק אם ניתן לגרום נזק
                              if (calculateTotalExpectedDamage(lastPlayerUnit, targetUnit) > 0) {
-                                tile.classList.add('highlight-attack');
+                                 tile.classList.add('highlight-attack');
                              }
                     }
                 }
@@ -2636,16 +2724,8 @@
             }
             
             // NEW: ודא שניתן לקנות ציוד רק ליחידות קיימות/מגויסות
-            if (!unitProgress[unitType] || (unitType !== 'knight' && unitType !== 'archer' && !unitProgress[unitType].recruited)) {
-                 if (unitType === 'spearman' && !unitProgress.spearman.recruited) {
-                     STATUS_MESSAGE.textContent = `לא ניתן לקנות ציוד. גייס את לוחם המגן תחילה!`;
-                 } else if (unitType === 'mage' && !unitProgress.mage.recruited) {
-                      STATUS_MESSAGE.textContent = `לא ניתן לקנות ציוד. גייס את המכשף תחילה!`;
-                 } else if (unitType === 'elfRanger' && !unitProgress.elfRanger.recruited) {
-                      STATUS_MESSAGE.textContent = `לא ניתן לקנות ציוד. גייס את סייר האלפים תחילה!`;
-                 } else if (unitType === 'demonArcher' && !unitProgress.demonArcher.recruited) {
-                      STATUS_MESSAGE.textContent = `לא ניתן לקנות ציוד. גייס את קשת השד תחילה!`;
-                 }
+            if (!unitProgress[unitType] || !unitProgress[unitType].recruited) {
+                 STATUS_MESSAGE.textContent = `לא ניתן לקנות ציוד. גייס את ${getUnitName(unitType)} תחילה!`;
                  return;
             }
             
@@ -2665,7 +2745,7 @@
                     itemUpgrades[unitType].move = 0; // הסרת הבונוס
                     if (isAmulet) itemUpgrades[unitType].hp -= 20; // הסרת בונוס HP
                     
-                    STATUS_MESSAGE.innerHTML = `<span style="color:#f44336;">בוטלה ההשפעה!</span> ${itemName} הוסר מ${unitType}.`;
+                    STATUS_MESSAGE.innerHTML = `<span style="color:#f44336;">בוטלה ההשפעה!</span> ${itemName} הוסר מ${getUnitName(unitType)}.`;
                     await saveGold();
                     updateUI();
                     return; // יציאה ללא גביית מחיר
@@ -2686,7 +2766,6 @@
             }
 
             // 2. **Stronger Item Only Check (ATK/DEF/HP/RANGE)**
-            // אם קונים נשק או שריון, צריך לוודא שהוא שדרוג
             
             // בדיקת שריון (HP/DEF) - קניית שריון חדש מבטלת ישן
             if ((updates.hp !== undefined && !isMoveItem) || updates.def !== undefined) {
@@ -2765,8 +2844,8 @@
                     // NEW: מאפשרים משחק ללא שמירה אם הקונפיגורציה חסרה
                     isReady = true;
                     RESTART_BTN.disabled = false;
-                    generateStoryContent(); // **NEW: טעינת סיפור התחלתי**
-                    STATUS_MESSAGE.textContent = "טעינת נתונים הסתיימה. לחץ 'התחל קרב חדש' כדי להתחיל."; 
+                    unitProgress = createDefaultUnitProgress(); // NEW: אתחול עם ברירת מחדל
+                    initGame(); // התחלת המשחק מיד (יכנס לפריסה)
                     return; 
                 }
 
@@ -2785,10 +2864,10 @@
                 await loadGold();
                 
                 // FIXED: הודעת סטטוס שמנחה את המשתמש
-                STATUS_MESSAGE.textContent = "טוענת נתונים. לחץ 'התחל קרב חדש' כדי להתחיל."; 
+                STATUS_MESSAGE.textContent = "טעינת נתונים הסתיימה. לחץ 'התחל קרב חדש' כדי להתחיל, או המשך מהקרב השמור."; 
                 isReady = true;
                 RESTART_BTN.disabled = false;
-                generateStoryContent(); // **NEW: טעינת הסיפור בהתאם להתקדמות שנשמרה**
+                initGame(); // **NEW: טעינת המשחק מהנתונים השמורים**
                 
             } catch (error) {
                 console.error("Firebase setup failed:", error);
@@ -2803,6 +2882,11 @@
             const docRef = doc(db, 'artifacts', typeof __app_id !== 'undefined' ? __app_id : 'default-app-id', 'users', userId, 'progress', 'goldData');
             try {
                 const docSnap = await getDoc(docRef);
+                
+                // NEW: הגדרת ברירות המחדל
+                const defaultItemUpgrades = { knight: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, archer: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, spearman: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, mage: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, elfRanger: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, demonArcher: { hp: 0, atk: 0, def: 0, move: 0, range: 0 } };
+                const defaultUnitProgress = createDefaultUnitProgress();
+
                 if (docSnap.exists()) {
                     const data = docSnap.data();
                     gold = data.gold || 0;
@@ -2811,28 +2895,29 @@
                     currentBattleIndex = data.currentBattleIndex || 1; 
                     
                     // NEW: טעינת שדרוגי ציוד ונתוני גיוס
-                    const defaultItemUpgrades = { knight: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, archer: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, spearman: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, mage: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, elfRanger: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, demonArcher: { hp: 0, atk: 0, def: 0, move: 0, range: 0 } };
                     itemUpgrades = { ...defaultItemUpgrades, ...data.itemUpgrades };
-                    
-                    // UPDATED: Ensure default includes 'mage' and 'elfRanger'
-                    const defaultUnitProgress = { knight: { level: 1, xp: 0, nextLevelXp: 1000 }, archer: { level: 1, xp: 0, nextLevelXp: 1000 }, spearman: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false }, mage: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false }, elfRanger: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false }, demonArcher: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false } };
                     unitProgress = { ...defaultUnitProgress, ...data.unitProgress };
 
-                    // FIX: אם היחידה הישנה 'scout' קיימת, מעביר אותה ל-'mage'
+                    // FIX: אם היחידה הישנה 'scout' קיימת, מעביר אותה ל-'mage' (לשמירה על התקדמות קודמת)
                     if (data.unitProgress && data.unitProgress.scout && data.unitProgress.scout.recruited) {
+                         unitProgress.mage = { ...defaultUnitProgress.mage, ...data.unitProgress.scout };
                          unitProgress.mage.recruited = true;
-                         unitProgress.mage.level = data.unitProgress.scout.level;
-                         unitProgress.mage.xp = data.unitProgress.scout.xp;
                          itemUpgrades.mage = data.itemUpgrades.scout || itemUpgrades.mage;
-                         delete unitProgress.scout;
-                         delete itemUpgrades.scout;
                     }
+                    // ודא של-knight/archer יש recruited: true
+                    unitProgress.knight.recruited = true;
+                    unitProgress.archer.recruited = true;
+
+
                 } else {
                     // שמור נתוני ברירת מחדל אם אין
+                    unitProgress = defaultUnitProgress; // NEW: הגדרה ל-default לפני שמירה
                     await saveGold(); 
                 }
             } catch (e) {
                 console.error("Error loading document:", e);
+                // גם אם נכשל בטעינה, השתמש בברירת מחדל
+                unitProgress = createDefaultUnitProgress();
             }
         }
 
@@ -2869,7 +2954,7 @@
                     highScore: Math.floor(goldHighScore),
                     currentBattleIndex: currentBattleIndex, // NEW: שמירת אינדקס הקרב
                     itemUpgrades: savedItemUpgrades, // NEW: שמירת שדרוגי ציוד
-                    unitProgress: savedUnitProgress // NEW: שמירת XP/רמה
+                    unitProgress: savedUnitProgress // NEW: שמירת XP/רמה ומיקום
                 }, { merge: true });
             } catch (e) {
                 console.error("Error saving document:", e);
@@ -2885,21 +2970,27 @@
             renderBoard(); // ציור הלוח הריק
             setupFirebase();
             RESTART_BTN.onclick = () => {
-                 if (isReady) {
-                      // NEW: איפוס מלא כולל התקדמות
-                      currentBattleIndex = 1; 
-                      // איפוס מלא של כל הנתונים כולל הגיוס
-                      itemUpgrades = { knight: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, archer: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, spearman: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, mage: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, elfRanger: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, demonArcher: { hp: 0, atk: 0, def: 0, move: 0, range: 0 } };
-                      unitProgress = { knight: { level: 1, xp: 0, nextLevelXp: 1000 }, archer: { level: 1, xp: 0, nextLevelXp: 1000 }, spearman: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false }, mage: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false }, elfRanger: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false }, demonArcher: { level: 1, xp: 0, nextLevelXp: 1000, recruited: false } };
-                      gold = 0;
-                      // שמירה רק אם יש db
-                      if(db) saveGold();
-                      initGame();
-                 } else {
-                      // אם Firebase לא מוכן, נסה להפעיל את ה-setup שוב, אבל הכפתור אמור להיות כבוי
-                      STATUS_MESSAGE.textContent = "טוען נתונים. המתן רגע...";
-                      setupFirebase();
-                 }
+                if (isReady) {
+                     // NEW: איפוס מלא כולל התקדמות
+                     currentBattleIndex = 1; 
+                     // איפוס מלא של כל הנתונים כולל הגיוס והמיקום
+                     itemUpgrades = { knight: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, archer: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, spearman: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, mage: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, elfRanger: { hp: 0, atk: 0, def: 0, move: 0, range: 0 }, demonArcher: { hp: 0, atk: 0, def: 0, move: 0, range: 0 } };
+                     
+                     // **FIXED: איפוס כל המיקומים של יחידות השחקן ל-(-1, -1)**
+                     unitProgress = createDefaultUnitProgress(); 
+                     Object.keys(unitProgress).forEach(type => {
+                        unitProgress[type].lastPosition = { row: -1, col: -1 };
+                     });
+                     
+                     gold = 0;
+                     // שמירה רק אם יש db
+                     if(db) saveGold();
+                     initGame();
+                } else {
+                     // אם Firebase לא מוכן, נסה להפעיל את ה-setup שוב, אבל הכפתור אמור להיות כבוי
+                     STATUS_MESSAGE.textContent = "טוען נתונים. המתן רגע...";
+                     setupFirebase();
+                }
             };
 
             // NEW: לוגיקת קליק של כפתור הסיפור
@@ -2992,12 +3083,12 @@
             
             // NEW: קשת שד
             if (buyDemonArcherBowBtn) {
-                // קשת שד: קשת אפלה (+10 ATK, +1 טווח)
-                buyDemonArcherBowBtn.onclick = () => buyItem('demonArcher', 3500, { atk: 15, range: 1 }, 'קשת אפלה', 1);
+                 // קשת שד: קשת אפלה (+10 ATK, +1 טווח)
+                 buyDemonArcherBowBtn.onclick = () => buyItem('demonArcher', 3500, { atk: 15, range: 1 }, 'קשת אפלה', 1);
             }
             if (buyDemonArcherAmuletBtn) {
-                // קשת שד: תליון השהייה (+20 HP, +1 Move) - פריט Toggle
-                buyDemonArcherAmuletBtn.onclick = () => buyItem('demonArcher', 1800, { move: 1 }, 'תליון השהייה', 1);
+                 // קשת שד: תליון השהייה (+20 HP, +1 Move) - פריט Toggle
+                 buyDemonArcherAmuletBtn.onclick = () => buyItem('demonArcher', 1800, { move: 1 }, 'תליון השהייה', 1);
             }
 
 
@@ -3040,14 +3131,14 @@
             // הגדרת לוגיקה לכפתור סיום תור
             END_TURN_BTN.onclick = () => {
                 if (gameState === 'upgradePhase') {
-                    initGame(); // התחל קרב חדש עם שדרוגים חדשים
+                    initGame(); // התחל קרב חדש עם שדרוגים חדשים ומיקומים שמורים
                 } else if (gameState === 'deployment') { // NEW LOGIC
                      // אם אנחנו בשלב הפריסה וכל היחידות הוצבו, התחל את התור הראשון
                      const playerUnitsAlive = units.filter(u => u.team === 'player' && u.isAlive).length;
                      const deployedUnitsCount = units.filter(u => u.team === 'player' && u.row !== -1).length;
                      if (deployedUnitsCount === playerUnitsAlive) {
-                         gameState = 'ready';
-                         startGameTurn();
+                          gameState = 'ready';
+                          startGameTurn();
                      }
                 } else {
                     startGameTurn();

@@ -488,7 +488,8 @@
 
                     <!-- NEW: שדרוגי מכשף -->
                     <h3 style="color:#FFF; margin-top: 10px;">שדרוגי מכשף (Mage)</h3>
-                    <button id="buy-mage-staff" class="action-btn upgrade-btn">מכשף: שרביט עוצמתי (+$2800 | +25 התקפה, +1 טווח)</button>
+                    <!-- UPDATED TEXT: No more ATK bonus in item name -->
+                    <button id="buy-mage-staff" class="action-btn upgrade-btn">מכשף: שרביט עוצמתי (+$2800 | +1 טווח תנועה, +1 טווח תקיפה)</button>
                     <button id="buy-mage-robe" class="action-btn upgrade-btn">מכשף: גלימת ארכאון (+$1600 | +20 חיים, +3 הגנה)</button>
                     
                     <!-- NEW: שדרוגי סייר אלפים -->
@@ -610,7 +611,7 @@
                 title: "חומות הברזל: כוח חדש?",
                 lore: `<p>ניצחון קשה נגד תגבורת האויב. המפקדים המנוסים יותר של האורקים מגיעים לשטח, והם נעים בצורה מתוכננת יותר. ההגנות שלך חזקות, אבל כוח אש חזק יותר ידרש בקרוב. </p>
                        <p><strong>טיפ גיוס:</strong> בדרכים נתקלנו ב<strong>מכשף נודד (Mage)</strong> בעל כוח אש מדהים, אך הוא שביר כמו קליפת ביצה. הוא יקר לגיוס, אבל הנזק שלו עשוי להפוך את הקרב הבא לפשוט יותר.</p>
-                       <p><strong>גיוס חדש:</strong> שמענו על יחידת <strong>סייר אלפים</strong> המתמחה בתנועה מהירה ויכולה לסייע בהגנה על האגפים. גיוס יחידות נוספות נפתח עכשיו! </p>`,
+                       <p><strong>גיוס חדש:</strong> שמענו על יחידת <strong>סייר אלפים</strong> המתמחה בתנועה מהירה ויכולה לסייע בהגנה על האגפים. גיוס יחידות נוספות נפתח עכשו! </p>`,
                 guide: `<h3>חוקי בסיס: טקטיקה מתקדמת</h3>
                         <ul>
                             <li><strong>מתקפה כפולה:</strong> הפרש של <strong>5</strong> מהירות = 2 התקפות. <strong>8</strong> מהירות = 3 התקפות. <strong>10</strong> מהירות = 4 התקפות.</li>
@@ -669,29 +670,29 @@
                     // Speed 10 (Medium Speed - Horseback)
                     baseHp = 120; baseAtk = 30; baseDef = 10; baseMove = 2; baseRange = 1; baseSpeed = 10; break; 
                 case 'archer':
-                    // Speed 15 (High Speed - Light Armor)
+                    // Speed 15 (High Speed - Light Armor) - KITING UNIT
                     baseHp = 80; baseAtk = 20; baseDef = 5; baseMove = 3; baseRange = 3; baseSpeed = 15; break; 
                 case 'spearman': 
                     // Speed 5 (Slowest - heavy shield infantry)
                     baseHp = 140; baseAtk = 20; baseDef = 12; baseMove = 1; baseRange = 1; baseSpeed = 5; break;
                 case 'mage': 
-                    // Speed 18 (Very Fast - max speed)
-                    baseHp = 60; baseAtk = 40; baseDef = 0; baseMove = 4; baseRange = 2; baseSpeed = 18; break; 
+                    // Speed 15 (High Speed - reduced from 18) - GLASS CANNON KITER
+                    baseHp = 60; baseAtk = 40; baseDef = 0; baseMove = 4; baseRange = 2; baseSpeed = 15; break; 
                 case 'elfRanger':
-                    // Speed 18 (Very Fast - max speed)
+                    // Speed 18 (Very Fast - max speed) - FAST FLANKER
                     baseHp = 70; baseAtk = 25; baseDef = 5; baseMove = 4; baseRange = 2; baseSpeed = 18; break; 
                 case 'orc': 
-                    // ENEMY STATS: Speed 10 (BACK TO 10, Medium Speed)
+                    // ENEMY STATS: Speed 10 (Medium Speed)
                     baseHp = 100; baseAtk = 25; baseDef = 8; baseMove = 2; baseRange = 1; baseSpeed = 10; break;
                 case 'bandit':
                     // ENEMY STATS: Speed 12 (Fast)
-                    baseHp = 80; baseAtk = 20; baseDef = 5; baseMove = 3; baseRange = 1; baseSpeed = 12; break;
+                    baseHp = 80; baseAtk = 20; baseDef = 5; baseMove = 2; baseRange = 1; baseSpeed = 12; break; // UPDATED: Move Range reduced to 2
                 case 'banditArcher': 
                     // ENEMY STATS: Speed 12 (Fast)
                     baseHp = 60; baseAtk = 18; baseDef = 3; baseMove = 3; baseRange = 3; baseSpeed = 12; break;
                 case 'goblin': 
-                    // ENEMY STATS: Speed 15 (Very Fast)
-                    baseHp = 40; baseAtk = 15; baseDef = 0; baseMove = 4; baseRange = 1; baseSpeed = 15; break;
+                    // ENEMY STATS: Speed 22 (Insane Speed) - XP FODDER
+                    baseHp = 40; baseAtk = 15; baseDef = 0; baseMove = 4; baseRange = 1; baseSpeed = 22; break;
                 default:
                     baseHp = 80; baseAtk = 20; baseDef = 5; baseMove = 2; baseRange = 1; baseSpeed = 10; break;
             }
@@ -720,7 +721,8 @@
         // ------------------------------------
         // הגדרת אייקוני SVG (במקום אימוג'י) - פיקסל ארט משופר
         // ------------------------------------
-        function getUnitSVG(type) {
+        // UPDATED: הוספת isLeader ל-SVG לסימון חזותי
+        function getUnitSVG(type, isLeader = false) {
             
             const SILVER = '#B0B0B0';
             const WHITE = '#FFFFFF';
@@ -737,12 +739,11 @@
             const MAGE_ROBE = '#9C27B0'; // Purple for Mage robe
             const MAGE_ACCENT = '#FFEB3B'; // Gold/Yellow for Mage trim
             
-            // Viewbox set to 10x10 for a low-resolution pixel feel
+            let svgContent = '';
             
             switch (type) {
                 case 'knight':
-                    // **KNIGHT: Heavy Armor, Bronze Accents, Silver Shield**
-                    return `
+                    svgContent = `
                         <svg viewBox="0 0 10 10" xmlns="http://www.w3.org/2000/svg">
                             <!-- Body/Armor (Silver base) -->
                             <rect x="3" y="4" width="4" height="6" fill="${SILVER}"/>
@@ -765,9 +766,9 @@
                             <!-- Shield (Silver) -->
                             <rect x="2" y="4" width="1" height="4" fill="${SILVER}"/>
                         </svg>`;
+                    break;
                 case 'spearman':
-                    // **UPDATED: SHIELD WARRIOR: Heavy Defense, Large Shield, Mace/Club**
-                    return `
+                    svgContent = `
                         <svg viewBox="0 0 10 10" xmlns="http://www.w3.org/2000/svg">
                             <!-- Body/Armor (Silver base) -->
                             <rect x="3" y="4" width="4" height="6" fill="${SILVER}"/>
@@ -784,9 +785,9 @@
                             <rect x="7" y="5" width="1" height="4" fill="${WOOD}"/>
                             <circle cx="7.5" cy="4.5" r="0.5" fill="${DARK_STEEL}"/> <!-- Mace Head -->
                         </svg>`;
+                    break;
                 case 'mage':
-                    // **MAGE (Updated): Purple Robe, Gold Trim, Simple Staff**
-                    return `
+                    svgContent = `
                         <svg viewBox="0 0 10 10" xmlns="http://www.w3.org/2000/svg">
                             <!-- Body/Robe (Purple) -->
                             <rect x="3.5" y="3.5" width="3" height="6.5" fill="${MAGE_ROBE}"/>
@@ -806,13 +807,13 @@
                             <!-- Exposed Hand (Skin) -->
                             <rect x="6" y="4" width="1" height="1" fill="${SKIN}"/>
                         </svg>`;
+                    break;
                 case 'elfRanger':
-                    // **ELVEN RANGER: Green Garb, Swift Bow (High Mobility Unit)**
                     const ELF_GREEN = '#8BC34A'; // Light Green/Elven color
                     const ELF_BROWN = '#795548'; // Wood color
                     const ELF_SKIN = '#F0D4A8';
                     const ELF_BOW = '#607D8B'; // Slate Blue/Gray bow
-                    return `
+                    svgContent = `
                         <svg viewBox="0 0 10 10" xmlns="http://www.w3.org/2000/svg">
                             <!-- Body/Garb (Elven Green) -->
                             <rect x="4" y="4" width="2" height="6" fill="${ELF_GREEN}"/>
@@ -832,9 +833,9 @@
                             <!-- Shoulder pads/Accent -->
                             <rect x="3.5" y="4" width="3" height="0.5" fill="${ELF_BROWN}"/> 
                         </svg>`;
+                    break;
                 case 'archer':
-                    // **ARCHER (PLAYER): Longbow (Horizontal Ellipse), drawn string, light garb**
-                    return `
+                    svgContent = `
                         <svg viewBox="0 0 10 10" xmlns="http://www.w3.org/2000/svg">
                             <!-- Body/Garb (Light Wood/Brown) -->
                             <rect x="4" y="4" width="2" height="6" fill="${LIGHT_WOOD}"/>
@@ -852,10 +853,9 @@
                             <!-- Hand (Skin) - holding the bow string/arrow (Positioned at the end of the drawn string) - Y set to 4.8 to hold the string -->
                             <rect x="5.5" y="4.8" width="1" height="1" fill="${SKIN}"/> 
                         </svg>`;
-                case 'banditArcher': // NEW ENEMY TYPE
-                    // **BANDIT ARCHER (ENEMY): Dark Garb, Dark Bow**
-                    // ***FIXED: viewBox width set to 10 instead of 0***
-                    return `
+                    break;
+                case 'banditArcher': 
+                    svgContent = `
                         <svg viewBox="0 0 10 10" xmlns="http://www.w3.org/2000/svg">
                             <!-- Body/Garb (Black Garb) -->
                             <rect x="4" y="4" width="2" height="6" fill="${BLACK_GARB}"/>
@@ -873,9 +873,9 @@
                             <!-- Hand (Skin) - holding the bow string/arrow (Positioned at the end of the drawn string) - Y set to 4.8 to hold the string -->
                             <rect x="5.5" y="4.8" width="1" height="1" fill="${SKIN}"/> 
                         </svg>`;
+                    break;
                 case 'orc':
-                    // Orc: Bulky, green skin, pronounced teeth, simple weapon
-                    return `
+                    svgContent = `
                         <svg viewBox="0 0 10 10" xmlns="http://www.w3.org/2000/svg">
                             <!-- Body (Orc Green, Bulky) -->
                             <rect x="2.5" y="5" width="5.5" height="5" fill="${ORC_SKIN}"/>
@@ -893,12 +893,12 @@
                             <!-- Handle (Dark Steel) -->
                             <rect x="7.5" y="6" width="0.5" height="3" fill="${DARK_STEEL}"/>
                         </svg>`;
+                    break;
                 case 'goblin':
-                    // **GOBLIN: Small, light green, fast, dart/short knife (NEW)**
                     const GOBLIN_SKIN = '#689F38'; // Light Green
                     const GOBLIN_EYE = '#FFEB3B'; // Yellow eye
                     const GOBLIN_WEAPON = '#A9A9A9'; // Dark silver knife/dart
-                    return `
+                    svgContent = `
                         <svg viewBox="0 0 10 10" xmlns="http://www.w3.org/2000/svg">
                             <!-- Body/Head (Light Green) -->
                             <rect x="3.5" y="4" width="3" height="5" fill="${GOBLIN_SKIN}"/>
@@ -909,9 +909,9 @@
                             <rect x="6.5" y="5" width="1" height="2.5" fill="${GOBLIN_WEAPON}"/>
                             <rect x="7.5" y="4.5" width="0.5" height="1" fill="${GOBLIN_WEAPON}"/> <!-- Blade tip -->
                         </svg>`;
+                    break;
                 case 'bandit':
-                    // **BANDIT: Exposing skin, dark cloak, maroon accent**
-                    return `
+                    svgContent = `
                         <svg viewBox="0 0 10 10" xmlns="http://www.w3.org/2000/svg">
                             <!-- Body/Cloak (New Darker Garb) -->
                             <rect x="4" y="4" width="2" height="6" fill="${BLACK_GARB}"/>
@@ -929,22 +929,55 @@
                             <rect x="6" y="3" width="1" height="3" fill="${SILVER}"/>
                             <rect x="5.5" y="5" width="2" height="0.5" fill="${DARK_STEEL}"/> <!-- Hilt -->
                         </svg>`;
+                    break;
                 default:
                     return `?`;
             }
+
+            // UPDATED: הוספת סימון מנהיג (קרניים או כתר ברונזה)
+            if (isLeader) {
+                if (type === 'orc') {
+                    // הוספת קרניים לבנות לאורק
+                    const orcHeadMatch = svgContent.match(/<rect x="2" y="1.5" width="6" height="4" fill="#558B2F"\/>/);
+                    if (orcHeadMatch) {
+                        svgContent = svgContent.replace(orcHeadMatch[0], `
+                            <!-- LEADER: Orc Horns -->
+                            <polygon points="2,1.5 3,0.5 4,1.5" fill="${WHITE}"/> 
+                            <polygon points="8,1.5 7,0.5 6,1.5" fill="${WHITE}"/>
+                            <rect x="2" y="1.5" width="6" height="4" fill="${ORC_SKIN}"/>
+                        `);
+                    }
+                } else if (type === 'bandit' || type === 'banditArcher') {
+                    // הוספת כתר ברונזה בולט
+                     const banditHeadMatch = svgContent.match(/<rect x="3" y="2.5" width="4" height="2" fill="#1a1a1a"\/>/);
+                     if (banditHeadMatch) {
+                         svgContent = svgContent.replace(banditHeadMatch[0], `
+                             <!-- LEADER: Bandit Crown -->
+                             <polygon points="3,2.5 7,2.5 5,1" fill="${BRONZE_LIGHT}"/>
+                             <rect x="3" y="2.5" width="4" height="2" fill="${BLACK_GARB}"/>
+                         `);
+                     }
+                }
+            }
+
+            return svgContent;
         }
         // ------------------------------------
         // מחלקת יחידה
         // ------------------------------------
         class Unit {
             // Units now receive base stats and apply item upgrades and level bonuses on creation
-            constructor(type, team, row, col, name, xp, level, initialHpRatio = 1.0) {
+            // UPDATED: הוספת isLeader ל-Constructor
+            constructor(type, team, row, col, name, xp, level, initialHpRatio = 1.0, isLeader = false) {
                 this.type = type; // 'knight', 'archer', 'orc', 'bandit', 'banditArcher', 'goblin', 'elfRanger'
                 this.team = team; // 'player', 'enemy'
                 this.row = row;
                 this.col = col;
                 this.name = name;
                 
+                // NEW: Leader Flag
+                this.isLeader = isLeader;
+
                 // NEW: XP and Level tracking (only for player units)
                 // If it's an enemy unit (type is not 'knight' or 'archer'), these default to 0/1, which is fine.
                 this.level = level;
@@ -961,11 +994,22 @@
                     itemUpgradesForType = itemUpgrades[type];
                 }
                 
-                // Final Stats
+                // Final Stats - Base from Level
                 this.maxHp = levelStats.totalHp + itemUpgradesForType.hp; 
                 this.atk = levelStats.totalAtk + itemUpgradesForType.atk;
                 this.def = levelStats.totalDef + itemUpgradesForType.def;
                 
+                // 3. NEW: Apply Leader Bonus (Scales with level) - UPDATED BALANCE
+                if (this.isLeader && this.team === 'enemy') {
+                    // בונוס מנהיגות (לכל רמה L): L*7 HP, L*3 ATK, L*3 DEF - NEW SCALING
+                    const leaderBonusHp = 7 * this.level; 
+                    const leaderBonusAtk = 3 * this.level;
+                    const leaderBonusDef = 3 * this.level;
+                    this.maxHp += leaderBonusHp;
+                    this.atk += leaderBonusAtk; 
+                    this.def += leaderBonusDef;
+                }
+
                 // Movement/Range stats get a bonus if items were bought
                 this.moveRange = levelStats.baseMove + itemUpgradesForType.move;
                 this.attackRange = levelStats.baseRange + itemUpgradesForType.range;
@@ -1041,8 +1085,8 @@
                 tile.innerHTML = ''; 
                 const iconSpan = document.createElement('span');
                 iconSpan.className = `unit-icon ${this.team}-unit ${this.type}`;
-                // שימוש ב-SVG במקום אימוג'י
-                iconSpan.innerHTML = getUnitSVG(this.type);
+                // UPDATED: שימוש ב-isLeader ב-SVG
+                iconSpan.innerHTML = getUnitSVG(this.type, this.isLeader);
                 tile.appendChild(iconSpan);
                 // FIXED: קריאה ל-renderHpBar כאן כדי שהפס יהיה גלוי תמיד
                 this.renderHpBar(tile);
@@ -1050,7 +1094,8 @@
             
             // לקיחת נזק
             takeDamage(damage) {
-                const effectiveDamage = Math.max(1, damage - this.def);
+                // UPDATED: אם ההגנה גדולה או שווה להתקפה, הנזק הוא 0
+                const effectiveDamage = Math.max(0, damage - this.def); 
                 // FIXED: מוודאים שהאריח קיים ב-board
                 const tile = (this.row >= 0 && this.row < BOARD_SIZE && this.col >= 0 && this.col < BOARD_SIZE) ? board[this.row][this.col] : null;
 
@@ -1212,7 +1257,8 @@
             }
             if (buyMageStaffBtn) {
                 buyMageStaffBtn.style.display = mageRecruited ? 'block' : 'none';
-                buyMageStaffBtn.disabled = gold < costMageStaff || itemUpgrades.mage.atk >= 25;
+                // UPDATED: Mage staff no longer gives ATK
+                buyMageStaffBtn.disabled = gold < costMageStaff || (itemUpgrades.mage.range >= 1 && itemUpgrades.mage.move >= 1);
             }
             if (buyMageRobeBtn) {
                 buyMageRobeBtn.style.display = mageRecruited ? 'block' : 'none';
@@ -1268,7 +1314,7 @@
                     <div id="${unit.team}-hp-fill" class="overlay-hp-fill ${teamClass}" style="width: ${hpPercent}%"></div>
                 </div>
                 <!-- שימוש ב-SVG ב-Overlay -->
-                <span id="${unit.team}-icon" class="overlay-unit-icon ${iconClass} ${unit.type}">${getUnitSVG(unit.type)}</span>
+                <span id="${unit.team}-icon" class="overlay-unit-icon ${iconClass} ${unit.type}">${getUnitSVG(unit.type, unit.isLeader)}</span>
                 <p>HP: <span id="${unit.team}-hp-text">${Math.floor(unit.hp)}</span>/${unit.maxHp}</p>
             `;
             return {
@@ -1377,6 +1423,19 @@
             return 1;
         }
 
+        // NEW HELPER FUNCTION: חישוב הנזק הצפוי הכולל (לוקח בחשבון מהירות והגנה)
+        function calculateTotalExpectedDamage(attacker, defender) {
+            // אם ההגנה גדולה מההתקפה, הנזק ליחידה הוא 0 (לפי הכלל החדש)
+            const damagePerHit = Math.max(0, attacker.atk - defender.def); 
+            
+            if (damagePerHit === 0) return 0; // לא ניתן לגרום נזק
+            
+            const attackCount = calculateAttackCount(attacker, defender);
+            
+            // סה"כ נזק צפוי (כדי שה-AI יבחר את היעד שמייצר הכי הרבה נזק)
+            return damagePerHit * attackCount;
+        }
+
 
         // UPDATED: פונקציה עוטפת שמבצעת את כל רצף ההתקפה
         async function performAttackAction(attacker, defender) {
@@ -1447,29 +1506,31 @@
             
             // קרב 1: קרב מבוא קל (3 אויבים)
             if (battleIndex === 1) {
-                // FIXED: ודא שכל יחידה מקבלת XP=0, level=1
-                enemies.push(new Unit('orc', 'enemy', 0, 2, 'מפקד אורק', 0, 1, 1.0));
+                // מנהיג רמה 1 (עם בונוס מנהיגות)
+                enemies.push(new Unit('orc', 'enemy', 0, 2, 'מפקד אורק', 0, 1, 1.0, true)); 
+                // יחידות רגילות
                 enemies.push(new Unit('bandit', 'enemy', 1, 1, 'שודד', 0, 1, 1.0));
                 enemies.push(new Unit('bandit', 'enemy', 1, 3, 'שודד', 0, 1, 1.0));
             } 
             
             // קרב 2: תגבורת אורקים וקשתים חדשים (4 אויבים)
             else if (battleIndex === 2) {
-                // FIXED: יחידות האויב מקבלות רמה/XP תקינים
-                enemies.push(new Unit('orc', 'enemy', 0, 1, 'מפקד אורק מנוסה', 0, 2, 1.0)); // רמה 2
+                // מנהיג רמה 2
+                enemies.push(new Unit('orc', 'enemy', 0, 1, 'מפקד אורק מנוסה', 0, 2, 1.0, true)); 
+                // יחידות רגילות
                 enemies.push(new Unit('orc', 'enemy', 0, 3, 'אורק לוחם', 0, 1, 1.0)); 
-                // NEW ENEMY TYPE: קשת שודד (טווח 3)
-                enemies.push(new Unit('banditArcher', 'enemy', 1, 0, 'קשת שודד', 0, 1, 1.0)); 
+                // NEW ENEMY TYPE: קשת שודד (טווח 3) - מנהיג רמה 1
+                enemies.push(new Unit('banditArcher', 'enemy', 1, 0, 'קשת מפקד', 0, 1, 1.0, true)); 
                 enemies.push(new Unit('banditArcher', 'enemy', 1, 4, 'קשת שודד', 0, 1, 1.0)); 
             }
             
             // UPDATED: קרב 3: התקפה קלה יותר עם גובלינים חלשים
             else if (battleIndex === 3) {
                  // **MODIFIED SCENARIO (EASIER, 6 units - lower level enemies and Goblins)**
-                 enemies.push(new Unit('orc', 'enemy', 0, 2, 'מפקד קרב', 0, 2, 1.0)); 	    // L2 Orc (was L3)
-                 enemies.push(new Unit('bandit', 'enemy', 0, 4, 'שודד מובחר', 0, 2, 1.0)); 	    // L2 Bandit (was L3)
-                 enemies.push(new Unit('banditArcher', 'enemy', 1, 0, 'קשת שודד (אגף)', 0, 1, 1.0)); // L1 Archer (was L2)
-                 enemies.push(new Unit('banditArcher', 'enemy', 1, 3, 'קשת שודד (אגף)', 0, 1, 1.0)); // L1 Archer (was L2)
+                 enemies.push(new Unit('orc', 'enemy', 0, 2, 'מפקד קרב', 0, 2, 1.0, true)); 	    // L2 Orc Leader
+                 enemies.push(new Unit('bandit', 'enemy', 0, 4, 'שודד מובחר', 0, 2, 1.0)); 	    // L2 Bandit 
+                 enemies.push(new Unit('banditArcher', 'enemy', 1, 0, 'קשת שודד (אגף)', 0, 1, 1.0)); // L1 Archer 
+                 enemies.push(new Unit('banditArcher', 'enemy', 1, 3, 'קשת שודד (אגף)', 0, 1, 1.0)); // L1 Archer 
                  enemies.push(new Unit('goblin', 'enemy', 2, 1, 'גובלין צופה', 0, 1, 1.0)); 	// NEW! L1 Goblin
                  enemies.push(new Unit('goblin', 'enemy', 2, 4, 'גובלין צופה', 0, 1, 1.0)); 	// NEW! L1 Goblin
             }
@@ -1477,10 +1538,12 @@
             // קרב 4+: קרב קשה יותר ומתגבר
             else {
                  const baseLevel = battleIndex - 2; // מתחיל מ-2 בקרב 4
-                 enemies.push(new Unit('orc', 'enemy', 0, 2, `גנרל קרב ${battleIndex}`, 0, Math.min(6, baseLevel + 1), 1.0)); 
+                 // מנהיג חזק
+                 enemies.push(new Unit('orc', 'enemy', 0, 2, `גנרל קרב ${battleIndex}`, 0, Math.min(6, baseLevel + 1), 1.0, true)); 
                  enemies.push(new Unit('bandit', 'enemy', 1, 1, 'שודד', 0, baseLevel, 1.0));
                  enemies.push(new Unit('bandit', 'enemy', 1, 3, 'שודד', 0, baseLevel, 1.0));
-                 enemies.push(new Unit('banditArcher', 'enemy', 0, 4, 'קשת מאגף', 0, baseLevel, 1.0));
+                 // מנהיג קשתים
+                 enemies.push(new Unit('banditArcher', 'enemy', 0, 4, 'קשת מאגף מנהיג', 0, baseLevel, 1.0, true));
                  enemies.push(new Unit('orc', 'enemy', 1, 2, 'אורק משוריין', 0, baseLevel + 1, 1.0));
             }
             
@@ -1617,8 +1680,9 @@
             }
             
             // אם האויב כבר נמצא בעמדת תקיפה, אין צורך לזוז
+            // UPDATED: בדיקה זו נשענת על findBestTarget שמשתמשת בחישוב הנזק
             if (findBestTarget(enemy, [target])) {
-                return null;
+                 return null;
             }
             
             // 2. מציאת המהלך בטווח תנועה של האויב שמביא אותו קרוב ביותר לאחד מ'אריחי התקיפה'
@@ -1667,27 +1731,32 @@
             return { row: bestR, col: bestC };
         }
 
-        // NEW: פונקציה לבחירת היעד הטוב ביותר של האויב (הגנה הנמוכה ביותר בטווח)
+        // UPDATED: פונקציה לבחירת היעד הטוב ביותר של האויב (מבוסס נזק כולל, לא רק הגנה)
         function findBestTarget(attacker, potentialTargets) {
             let bestTarget = null;
-            let minDef = Infinity;
+            let maxDamage = -1; // מחפשים את הנזק הגדול ביותר
             
             for (const target of potentialTargets) {
                 if (target.team === attacker.team) continue; // ודא שלא תוקפים חברים
                 
                 if (isAttackable(attacker.row, attacker.col, target.row, target.col, attacker.attackRange)) {
-                    // תעדוף יחידה עם הגנה נמוכה
-                    if (target.def < minDef) {
-                        minDef = target.def;
+                    
+                    // 1. חשב את הנזק הצפוי הכולל (לוקח בחשבון מהירות והגנה)
+                    const damage = calculateTotalExpectedDamage(attacker, target); 
+                    
+                    // 2. תעדוף יעד עם נזק כולל מקסימלי
+                    if (damage > maxDamage) {
+                        maxDamage = damage;
                         bestTarget = target;
-                    } 
-                    // שובר שוויון: אם ההגנה שווה, תקוף את זה עם ה-HP הנמוך ביותר
-                    else if (target.def === minDef && target.hp < bestTarget?.hp) {
+                    }
+                    // שובר שוויון: אם הנזק שווה, בחר את היחידה עם ה-HP הנמוך ביותר (לחיסול קל)
+                    else if (damage === maxDamage && target.hp < bestTarget?.hp) {
                          bestTarget = target;
                     }
                 }
             }
-            return bestTarget;
+            // מחזיר יעד רק אם הנזק הצפוי הוא לפחות 1
+            return maxDamage > 0 ? bestTarget : null; 
         }
 
 
@@ -1699,7 +1768,7 @@
             for (const enemy of enemyUnits) {
                 if (gameState === 'gameOver' || gameState === 'upgradePhase' || playerUnits.length === 0) break;
                 
-                // 1. נסה לתקוף מהמיקום הנוכחי: תעדוף את היחידה עם ההגנה הנמוכה ביותר
+                // 1. נסה לתקוף מהמיקום הנוכחי: תעדוף את היחידה עם הנזק הצפוי הגבוה ביותר
                 let target = findBestTarget(enemy, playerUnits);
 
                 if (target) {
@@ -1709,9 +1778,11 @@
                     continue; 
                 }
 
-                // 2. אם אין יעד מיידי, מצא את היחידה החלשה ביותר על הלוח כולו (מטרה אסטרטגית)
-                let strategicMoveTarget = playerUnits.reduce((weakest, current) => {
-                    // יוצר אובייקט ברירת מחדל אם weakest אינו יחידה (למשל, בהתחלת ה-reduce)
+                // 2. אם אין יעד מיידי, מצא את המטרה האסטרטגית (היחידה עם ה-DEF הנמוך ביותר **שניתן לפגוע בה**)
+                let strategicMoveTarget = playerUnits
+                    .filter(u => calculateTotalExpectedDamage(enemy, u) > 0) // רק יחידות שהאויב יכול לפגוע בהן (לפחות 1 נזק)
+                    .reduce((weakest, current) => {
+                    
                     const weakestDef = weakest.def !== undefined ? weakest.def : Infinity;
                     const weakestHp = weakest.hp !== undefined ? weakest.hp : Infinity;
 
@@ -1724,6 +1795,7 @@
                     return weakest;
                 }, { def: Infinity, hp: Infinity, name: 'NO TARGET' }); 
 
+                // רק אם מצאנו יעד שאפשר לפגוע בו אסטרטגית
                 if (strategicMoveTarget.def !== Infinity) { 
                     
                     // 3. מצא את המהלך הטוב ביותר להגיע לעמדת תקיפה של המטרה האסטרטגית
@@ -1735,7 +1807,7 @@
                         renderBoard();
                         await sleep(500); // השהיה קלה לאחר תזוזת האויב
 
-                        // 4. בדוק שוב לתקיפה לאחר התזוזה: תעדוף את היחידה עם ההגנה הנמוכה ביותר
+                        // 4. בדוק שוב לתקיפה לאחר התזוזה: עכשיו יבחר אוטומטית את הנזק המקסימלי (אפילו אם זה לא היעד האסטרטגי)
                         let postMoveTarget = findBestTarget(enemy, playerUnits);
 
                         if (postMoveTarget) {
@@ -1775,7 +1847,9 @@
             clearHighlights();
             selectedUnit = null;
             
-            const goldEarned = 1000 + (currentTurn * 100);
+            // UPDATED: קרב 2 נותן 1500 זהב בסיסי
+            const baseGold = currentBattleIndex === 3 ? 1500 : 1000;
+            const goldEarned = baseGold + (currentTurn * 100);
             gold += goldEarned;
             
             // NEW: שמירת נתוני הרמה/XP רק של היחידות החיות והקיימות
@@ -1958,6 +2032,17 @@
              const moveBonus = itemUpgradesForType.move > 0 ? ` (+${itemUpgradesForType.move})` : '';
              const rangeBonus = itemUpgradesForType.range > 0 ? ` (+${itemUpgradesForType.range})` : '';
              
+             // NEW: הצגת בונוס מנהיגות
+             let leaderInfo = '';
+             if (unit.isLeader && unit.team === 'enemy') {
+                const levelFactor = unit.level;
+                // UPDATED: בונוסים מעודכנים
+                const leaderBonusHp = 7 * levelFactor; 
+                const leaderBonusAtk = 3 * levelFactor;
+                const leaderBonusDef = 3 * levelFactor;
+                leaderInfo = `<p style="color:#ff9800; font-weight:700;">מנהיג (בונוס: +${leaderBonusHp} HP, +${leaderBonusAtk} ATK, +${leaderBonusDef} DEF)</p>`;
+             }
+             
              let progressInfo = '';
              let statusInfo = '';
              
@@ -1975,18 +2060,31 @@
              
              // UPDATED: הצגת סף המתקפה בהתאם למדרג
              let attackInfo = 'רגילה';
-             const speedDiff = totalSpeed - (selectedUnit?.team === 'player' ? getUnitAt(unit.row, unit.col)?.speed : 0); // רק לשחקן זה רלוונטי
              
-             if (totalSpeed >= SPEED_THRESHOLD_QUADRUPLE + (unit.team === 'enemy' ? unit.speed : 0) ) { // בדיקה רק עבור אויב
-                 attackInfo = 'מרובעת';
-             } else if (totalSpeed >= SPEED_THRESHOLD_TRIPLE + (unit.team === 'enemy' ? unit.speed : 0)) {
-                 attackInfo = 'משולשת';
-             } else if (totalSpeed >= SPEED_THRESHOLD_DOUBLE + (unit.team === 'enemy' ? unit.speed : 0)) {
-                 attackInfo = 'כפולה';
+             // אם היחידה היא תוקפת
+             if (selectedUnit) {
+                 const attacker = selectedUnit; 
+                 const targets = units.filter(u => u.team !== attacker.team && u.isAlive);
+                 
+                 // מחשב את מספר ההתקפות הפוטנציאלי המקסימלי מול היעד הכי איטי
+                 if (targets.length > 0) {
+                     const weakestTargetSpeed = targets.reduce((min, t) => Math.min(min, t.speed), Infinity);
+                     const speedDiff = attacker.speed - weakestTargetSpeed;
+                     
+                     if (speedDiff >= SPEED_THRESHOLD_QUADRUPLE) {
+                          attackInfo = 'מרובעת';
+                     } else if (speedDiff >= SPEED_THRESHOLD_TRIPLE) {
+                          attackInfo = 'משולשת';
+                     } else if (speedDiff >= SPEED_THRESHOLD_DOUBLE) {
+                          attackInfo = 'כפולה';
+                     }
+                 }
              }
+
              
              SELECTED_UNIT_INFO.innerHTML = `
                  <p><strong>${unit.name}</strong> (${unit.team === 'player' ? 'שלך' : 'אויב'})</p>
+                 ${leaderInfo}
                  ${progressInfo}
                  <p>חיים: ${Math.floor(unit.hp)}/${totalHp} ${hpBonus}</p>
                  <p>התקפה: ${totalAtk} ${atkBonus} | הגנה: ${totalDef}</p>
@@ -2016,7 +2114,10 @@
                         targetUnit && 
                         targetUnit.team !== selectedUnit.team && 
                         isAttackable(selectedUnit.row, selectedUnit.col, r, c, selectedUnit.attackRange)) {
-                             tile.classList.add('highlight-attack');
+                             // NEW: הדגש רק אם ניתן לגרום נזק
+                             if (calculateTotalExpectedDamage(selectedUnit, targetUnit) > 0) {
+                                tile.classList.add('highlight-attack');
+                             }
                     }
                 }
             }
@@ -2429,9 +2530,10 @@
                  buySpearmanShieldBtn.onclick = () => buyItem('spearman', 1800, { hp: 30, def: 10 }, 'מגן פלדה', 1);
             }
 
-            // NEW: מכשף
+            // NEW: מכשף - UPDATED ITEM LOGIC
             if (buyMageStaffBtn) {
-                 buyMageStaffBtn.onclick = () => buyItem('mage', 2800, { atk: 25, range: 1 }, 'שרביט עוצמתי', 1);
+                 // שרביט עוצמתי (נותן רק טווח תנועה ותקיפה)
+                 buyMageStaffBtn.onclick = () => buyItem('mage', 2800, { range: 1, move: 1 }, 'שרביט עוצמתי', 1);
             }
             if (buyMageRobeBtn) {
                  buyMageRobeBtn.onclick = () => buyItem('mage', 1600, { hp: 20, def: 3 }, 'גלימת ארכאון', 1);
